@@ -1,0 +1,38 @@
+# Development files
+.vscode/**
+.vscode-test/**
+src/**
+*.ts
+!*.d.ts
+*.map
+tsconfig.json
+
+# Claude Code
+CLAUDE.md
+.claude/**
+
+# Node modules (not needed - esbuild bundles everything)
+node_modules/**
+
+# Git and build files
+.gitignore
+bun.lockb
+
+# Build metadata (contains paths that confuse vsce)
+meta.json
+
+# Parent directories - CRITICAL: exclude workspace dependencies
+../**
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+test/**
+tests/**
+
+# Keep only essential files
+!dist/**
+!package.json
+!LICENSE*
+!README*
+!language-configuration.json

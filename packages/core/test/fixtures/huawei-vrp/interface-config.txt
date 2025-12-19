@@ -1,0 +1,84 @@
+#
+# Huawei VRP Interface Configuration Examples
+# Various interface types and configurations
+#
+sysname SW-ACCESS-01
+#
+interface GigabitEthernet 0/0/1
+ description Uplink to Distribution Switch
+ port link-type trunk
+ port trunk pvid vlan 1
+ port trunk allow-pass vlan 10 20 30 40 50
+ storm suppression broadcast packets 1000
+ storm suppression multicast packets 500
+ undo shutdown
+#
+interface GigabitEthernet 0/0/2
+ description Access Port - User PC
+ port link-type access
+ port default vlan 20
+ stp edged-port enable
+ port-security enable
+ port-security max-mac-num 2
+ undo shutdown
+#
+interface GigabitEthernet 0/0/3
+ description IP Phone + PC
+ port link-type hybrid
+ voice-vlan 100 enable
+ port hybrid pvid vlan 20
+ port hybrid untagged vlan 20
+ port hybrid tagged vlan 100
+ undo shutdown
+#
+interface GigabitEthernet 0/0/4
+ description Shutdown - Reserved
+ shutdown
+#
+interface XGigabitEthernet 0/0/1
+ description 10G Uplink to Core
+ port link-type trunk
+ port trunk allow-pass vlan all
+ undo shutdown
+#
+interface 40GE 0/0/1
+ description 40G Uplink to Spine
+ port link-type trunk
+ port trunk allow-pass vlan 1 to 4094
+ undo shutdown
+#
+interface Eth-Trunk 1
+ description LAG to Server Farm
+ port link-type trunk
+ port trunk allow-pass vlan 30 31 32
+ mode lacp-static
+ max active-linknumber 4
+#
+interface GigabitEthernet 0/0/5
+ eth-trunk 1
+ description LAG Member 1
+ undo shutdown
+#
+interface GigabitEthernet 0/0/6
+ eth-trunk 1
+ description LAG Member 2
+ undo shutdown
+#
+interface GigabitEthernet 0/0/7
+ eth-trunk 1
+ description LAG Member 3
+ undo shutdown
+#
+interface GigabitEthernet 0/0/8
+ eth-trunk 1
+ description LAG Member 4
+ undo shutdown
+#
+interface LoopBack0
+ ip address 10.255.255.1 255.255.255.255
+ description Management Loopback
+#
+interface NULL0
+ description Null Interface for Blackholing
+#
+return

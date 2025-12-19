@@ -1,0 +1,41 @@
+config log syslogd setting
+    set status enable
+    set server "192.168.1.100"
+    set port 514
+    set facility local7
+    set source-ip 192.168.1.1
+    set format rfc5424
+    set priority default
+    set max-log-rate 0
+    set interface-select-method auto
+end
+
+config log syslogd2 setting
+    set status enable
+    set server "192.168.1.101"
+    set port 514
+    set facility local7
+end
+
+config log fortianalyzer setting
+    set status enable
+    set server "10.0.0.50"
+    set serial "FAZ-SERIAL"
+    set upload-option realtime
+    set reliable enable
+    set enc-algorithm high
+end
+
+config log disk setting
+    set status enable
+    set diskfull overwrite
+    set max-log-file-size 100
+    set roll-schedule daily
+    set roll-day sunday
+    set log-quota 0
+    set maximum-log-age 7
+end
+
+config log memory setting
+    set status enable
+end

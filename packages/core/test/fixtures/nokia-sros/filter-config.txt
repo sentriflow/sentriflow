@@ -1,0 +1,76 @@
+# Nokia 7750 SR OS Filter Configuration
+
+configure
+    filter
+        ip-filter 100 create
+            description "Management Access Filter"
+            default-action drop
+            entry 10 create
+                description "Allow SSH from Management Network"
+                match
+                    src-ip 10.0.0.0/8
+                    protocol tcp
+                    dst-port eq 22
+                exit
+                action
+                    accept
+                exit
+            exit
+            entry 20 create
+                description "Allow SNMP from NMS"
+                match
+                    src-ip 10.10.10.0/24
+                    protocol udp
+                    dst-port eq 161
+                exit
+                action
+                    accept
+                exit
+            exit
+            entry 30 create
+                description "Allow ICMP"
+                match
+                    protocol icmp
+                exit
+                action
+                    accept
+                exit
+            exit
+            entry 100 create
+                description "Drop Everything Else"
+                action
+                    drop
+                exit
+            exit
+        exit
+        ip-filter 200 create
+            description "Customer Ingress Filter"
+            default-action forward
+            entry 10 create
+                description "Drop RFC1918 Source"
+                match
+                    src-ip 10.0.0.0/8
+                exit
+                action
+                    drop
+                exit
+            exit
+            entry 20 create
+                match
+                    src-ip 172.16.0.0/12
+                exit
+                action
+                    drop
+                exit
+            exit
+            entry 30 create
+                match
+                    src-ip 192.168.0.0/16
+                exit
+                action
+                    drop
+                exit
+            exit
+        exit
+    exit
+exit

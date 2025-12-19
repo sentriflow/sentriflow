@@ -1,0 +1,49 @@
+# Cumulus Linux NVUE Commands
+# NVIDIA User Experience configuration (Cumulus 5.x+)
+
+nv set system hostname leaf01
+
+nv set interface lo ip address 10.10.10.1/32
+
+nv set interface swp1 description "Server1 connection"
+nv set interface swp1 bridge domain br_default access 10
+nv set interface swp1 bridge domain br_default stp bpdu-guard on
+nv set interface swp1 bridge domain br_default stp admin-edge on
+
+nv set interface swp2 description "Server2 connection"
+nv set interface swp2 bridge domain br_default access 20
+nv set interface swp2 bridge domain br_default stp bpdu-guard on
+nv set interface swp2 bridge domain br_default stp admin-edge on
+
+nv set interface swp3 description "Trunk to distribution"
+nv set interface swp3 bridge domain br_default
+
+nv set interface swp49-50 link mtu 9216
+
+nv set interface bond1 bond member swp1
+nv set interface bond1 bridge domain br_default access 10
+
+nv set bridge domain br_default vlan 10,20,30
+nv set bridge domain br_default untagged 1
+
+nv set interface vlan10 ip address 10.1.10.1/24
+nv set interface vlan20 ip address 10.1.20.1/24
+nv set interface vlan30 ip address 10.1.30.1/24
+
+nv set router bgp autonomous-system 65101
+nv set router bgp router-id 10.10.10.1
+nv set vrf default router bgp neighbor swp51 remote-as external
+nv set vrf default router bgp neighbor swp52 remote-as external
+nv set vrf default router bgp address-family ipv4-unicast redistribute connected
+nv set vrf default router bgp address-family ipv4-unicast network 10.10.10.1/32
+
+nv set evpn enable on
+nv set vrf default router bgp address-family l2vpn-evpn enable on
+
+nv set service ntp default server 0.cumulusnetworks.pool.ntp.org
+nv set service ntp default server 1.cumulusnetworks.pool.ntp.org
+
+nv set service dns mgmt server 8.8.8.8
+
+nv config apply
+nv config save

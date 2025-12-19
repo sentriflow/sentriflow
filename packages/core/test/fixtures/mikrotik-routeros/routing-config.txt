@@ -1,0 +1,39 @@
+# MikroTik RouterOS Routing Configuration
+# BGP and OSPF example
+
+/routing id
+add name=main-id id=10.0.0.1
+
+/ip route
+add dst-address=0.0.0.0/0 gateway=203.0.113.1 distance=1 comment="Default route via ISP1"
+add dst-address=0.0.0.0/0 gateway=203.0.113.129 distance=2 comment="Backup route via ISP2"
+add dst-address=10.10.0.0/16 gateway=192.168.1.254 comment="Route to remote office"
+add dst-address=192.168.50.0/24 type=blackhole comment="Blackhole unused subnet"
+
+/routing ospf instance
+add name=default router-id=10.0.0.1
+
+/routing ospf area
+add name=backbone area-id=0.0.0.0 instance=default
+
+/routing ospf interface-template
+add area=backbone interfaces=LAN1,LAN2 passive cost=10
+add area=backbone interfaces=ether5 network-type=point-to-point hello-interval=5
+
+/routing bgp template
+add name=ibgp-template as=65000 router-id=10.0.0.1 address-families=ip
+
+/routing bgp connection
+add name=ibgp-peer1 remote.address=10.0.0.2 remote.as=65000 template=ibgp-template comment="iBGP to Router 2"
+add name=ibgp-peer2 remote.address=10.0.0.3 remote.as=65000 template=ibgp-template comment="iBGP to Router 3"
+
+/routing bgp network
+add network=192.168.0.0/16
+
+/routing filter rule
+add chain=ospf-in rule="if (dst == 0.0.0.0/0) { reject; }"
+add chain=ospf-out rule="if (dst in 192.168.0.0/16) { accept; } else { reject; }"
+add chain=bgp-in rule="if (dst == 0.0.0.0/0) { set bgp-local-pref 100; accept; }"
+
+/routing bfd configuration
+add interfaces=all min-rx=200ms min-tx=200ms multiplier=5

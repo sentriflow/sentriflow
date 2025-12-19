@@ -1,0 +1,36 @@
+deviceconfig {
+    system {
+        hostname firewall-01;
+        ip-address 192.168.1.1;
+        netmask 255.255.255.0;
+        default-gateway 192.168.1.254;
+        dns-setting {
+            servers {
+                primary 8.8.8.8;
+                secondary 8.8.4.4;
+            }
+        }
+        ntp-servers {
+            primary-ntp-server {
+                ntp-server-address 0.pool.ntp.org;
+            }
+            secondary-ntp-server {
+                ntp-server-address 1.pool.ntp.org;
+            }
+        }
+        timezone America/New_York;
+        login-banner "Authorized access only. All activity monitored.";
+        permitted-ip {
+            192.168.1.0/24;
+            10.0.0.0/8;
+        }
+    }
+    setting {
+        management {
+            admin-lockout {
+                failed-attempts 5;
+                lockout-time 30;
+            }
+        }
+    }
+}

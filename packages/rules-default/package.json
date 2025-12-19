@@ -1,0 +1,39 @@
+{
+  "name": "@sentriflow/rules-default",
+  "version": "0.1.0",
+  "description": "Default validation rules for SentriFlow network configuration linter",
+  "license": "Apache-2.0",
+  "module": "src/index.ts",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentriflow/sentriflow.git",
+    "directory": "packages/rules-default"
+  },
+  "homepage": "https://github.com/sentriflow/sentriflow#readme",
+  "bugs": {
+    "url": "https://github.com/sentriflow/sentriflow/issues"
+  },
+  "keywords": [
+    "network",
+    "configuration",
+    "rules",
+    "security",
+    "compliance",
+    "best-practices"
+  ],
+  "files": [
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@sentriflow/core": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}

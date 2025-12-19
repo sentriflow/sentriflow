@@ -1,0 +1,65 @@
+# Cumulus Linux /etc/network/interfaces - Basic Configuration
+# Leaf switch with VLAN-aware bridge
+
+auto lo
+iface lo inet loopback
+    address 10.10.10.1/32
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto swp1
+iface swp1
+    alias Server1 connection
+    bridge-access 10
+    mstpctl-bpduguard yes
+    mstpctl-portadminedge yes
+
+auto swp2
+iface swp2
+    alias Server2 connection
+    bridge-access 10
+    mstpctl-bpduguard yes
+    mstpctl-portadminedge yes
+
+auto swp3
+iface swp3
+    alias Trunk to Spine
+    bridge-vids 10 20 30
+
+auto swp49
+iface swp49
+    alias Uplink to Spine1
+    mtu 9216
+
+auto swp50
+iface swp50
+    alias Uplink to Spine2
+    mtu 9216
+
+auto br_default
+iface br_default
+    bridge-ports swp1 swp2 swp3
+    bridge-vids 10 20 30
+    bridge-pvid 1
+    bridge-vlan-aware yes
+    hwaddress 44:38:39:22:01:af
+
+auto vlan10
+iface vlan10
+    address 10.1.10.1/24
+    vlan-id 10
+    vlan-raw-device br_default
+
+auto vlan20
+iface vlan20
+    address 10.1.20.1/24
+    vlan-id 20
+    vlan-raw-device br_default
+
+auto vlan30
+iface vlan30
+    address 10.1.30.1/24
+    vlan-id 30
+    vlan-raw-device br_default

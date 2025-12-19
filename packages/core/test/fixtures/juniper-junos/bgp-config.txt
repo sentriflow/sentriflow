@@ -1,0 +1,76 @@
+routing-options {
+    router-id 192.168.255.1;
+    autonomous-system 65000;
+    static {
+        route 0.0.0.0/0 next-hop 10.0.0.254;
+    }
+}
+protocols {
+    bgp {
+        group IBGP {
+            type internal;
+            local-address 192.168.255.1;
+            family inet {
+                unicast;
+            }
+            neighbor 192.168.255.2 {
+                description "Peer Router2";
+            }
+            neighbor 192.168.255.3 {
+                description "Peer Router3";
+            }
+        }
+        group EBGP {
+            type external;
+            peer-as 65001;
+            neighbor 10.0.0.2 {
+                description "ISP Connection";
+                import IMPORT-FROM-ISP;
+                export EXPORT-TO-ISP;
+            }
+        }
+    }
+    ospf {
+        area 0.0.0.0 {
+            interface ge-0/0/0.0 {
+                interface-type p2p;
+            }
+            interface lo0.0 {
+                passive;
+            }
+        }
+    }
+    lldp {
+        interface all;
+    }
+}
+policy-options {
+    prefix-list BOGONS {
+        10.0.0.0/8;
+        172.16.0.0/12;
+        192.168.0.0/16;
+    }
+    policy-statement IMPORT-FROM-ISP {
+        term DENY-BOGONS {
+            from {
+                prefix-list BOGONS;
+            }
+            then reject;
+        }
+        term ACCEPT-ALL {
+            then accept;
+        }
+    }
+    policy-statement EXPORT-TO-ISP {
+        term ADVERTISE-LOOPBACK {
+            from {
+                protocol direct;
+                route-filter 192.168.255.0/24 orlonger;
+            }
+            then accept;
+        }
+        term DENY-ALL {
+            then reject;
+        }
+    }
+}

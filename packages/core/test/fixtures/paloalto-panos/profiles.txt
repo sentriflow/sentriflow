@@ -1,0 +1,147 @@
+profiles {
+    virus {
+        strict-antivirus {
+            decoder {
+                ftp {
+                    action reset-both;
+                    wildfire-action reset-both;
+                }
+                http {
+                    action reset-both;
+                    wildfire-action reset-both;
+                }
+                smb {
+                    action reset-both;
+                    wildfire-action reset-both;
+                }
+                smtp {
+                    action reset-both;
+                    wildfire-action reset-both;
+                }
+            }
+        }
+    }
+    spyware {
+        strict-antispyware {
+            botnet-domains {
+                lists {
+                    default-paloalto-dns;
+                }
+                sinkhole {
+                    ipv4-address 72.5.65.111;
+                    ipv6-address 2600:5200::1;
+                }
+            }
+            rules {
+                block-critical-high {
+                    severity critical;
+                    severity high;
+                    action reset-both;
+                    packet-capture single-packet;
+                }
+                alert-medium-low {
+                    severity medium;
+                    severity low;
+                    severity informational;
+                    action alert;
+                }
+            }
+        }
+    }
+    vulnerability {
+        strict-vulnerability {
+            rules {
+                block-critical-high {
+                    vendor-id any;
+                    severity critical;
+                    severity high;
+                    action reset-both;
+                    threat-name any;
+                    host any;
+                    packet-capture single-packet;
+                }
+                block-medium {
+                    vendor-id any;
+                    severity medium;
+                    action reset-both;
+                    threat-name any;
+                    host any;
+                }
+            }
+        }
+    }
+    url-filtering {
+        strict-url-filter {
+            block {
+                adult;
+                malware;
+                phishing;
+                command-and-control;
+                cryptocurrency;
+                hacking;
+            }
+            alert {
+                unknown;
+                streaming-media;
+                peer-to-peer;
+            }
+            credential-enforcement {
+                mode ip-user;
+                block {
+                    adult;
+                    malware;
+                    phishing;
+                }
+            }
+            log-container-page-only yes;
+            safe-search-enforcement yes;
+        }
+    }
+    wildfire-analysis {
+        strict-wildfire {
+            rules {
+                forward-all {
+                    application any;
+                    file-type any;
+                    direction both;
+                    analysis public-cloud;
+                }
+            }
+        }
+    }
+    file-blocking {
+        strict-file-block {
+            rules {
+                block-dangerous-files {
+                    application any;
+                    file-type {
+                        bat;
+                        dll;
+                        exe;
+                        hlp;
+                        jar;
+                        ocx;
+                        pif;
+                        reg;
+                        scr;
+                    }
+                    direction both;
+                    action block;
+                }
+                alert-office-files {
+                    application any;
+                    file-type {
+                        doc;
+                        docx;
+                        xls;
+                        xlsx;
+                        ppt;
+                        pptx;
+                    }
+                    direction both;
+                    action alert;
+                }
+            }
+        }
+    }
+}

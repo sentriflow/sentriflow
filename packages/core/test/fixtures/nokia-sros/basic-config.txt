@@ -1,0 +1,51 @@
+# Nokia 7750 SR OS Basic Configuration
+# TiMOS-B-22.10.R4
+
+configure
+    system
+        name "SR-Router-1"
+        snmp
+            admin-state enable
+        exit
+        time
+            ntp
+                server 10.10.10.1
+                admin-state enable
+            exit
+        exit
+        security
+            ssh
+                admin-state enable
+            exit
+        exit
+    exit
+    router "Base"
+        interface "system"
+            address 10.10.10.100/32
+        exit
+        interface "to-peer-1"
+            address 192.168.1.1/30
+            port 1/1/1
+            description "Link to PE-Router-2"
+        exit
+        interface "to-peer-2"
+            address 192.168.2.1/30
+            port 1/1/2
+            description "Link to PE-Router-3"
+        exit
+    exit
+    port 1/1/1
+        admin-state enable
+        description "To-PE-Router-2"
+        ethernet
+            mode network
+        exit
+    exit
+    port 1/1/2
+        admin-state enable
+        description "To-PE-Router-3"
+        ethernet
+            mode network
+        exit
+    exit
+exit

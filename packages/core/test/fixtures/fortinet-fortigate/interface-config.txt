@@ -1,0 +1,59 @@
+config system interface
+    edit "wan1"
+        set vdom "root"
+        set mode static
+        set ip 203.0.113.1 255.255.255.0
+        set allowaccess ping https ssh
+        set type physical
+        set alias "WAN Primary"
+        set description "Primary Internet uplink"
+        set role wan
+        set snmp-index 1
+    next
+    edit "wan2"
+        set vdom "root"
+        set mode dhcp
+        set allowaccess ping
+        set type physical
+        set description "Backup Internet uplink"
+        set role wan
+        set snmp-index 2
+    next
+    edit "lan"
+        set vdom "root"
+        set ip 192.168.1.1 255.255.255.0
+        set allowaccess ping https ssh
+        set type physical
+        set alias "LAN"
+        set description "Internal LAN interface"
+        set role lan
+        set snmp-index 3
+    next
+    edit "dmz"
+        set vdom "root"
+        set ip 10.0.1.1 255.255.255.0
+        set allowaccess ping
+        set type physical
+        set description "DMZ network"
+        set role dmz
+        set snmp-index 4
+    next
+    edit "mgmt"
+        set vdom "root"
+        set ip 172.16.0.1 255.255.255.0
+        set allowaccess ping https ssh snmp
+        set type physical
+        set alias "Management"
+        set description "Management interface"
+        set dedicated-to management
+        set snmp-index 5
+    next
+    edit "internal"
+        set vdom "root"
+        set ip 0.0.0.0 0.0.0.0
+        set allowaccess http https ssh telnet
+        set type hard-switch
+        set stp disable
+        set snmp-index 6
+    next
+end

@@ -1,0 +1,46 @@
+! Arista EOS MLAG Configuration
+!
+hostname arista-mlag-leaf-01
+!
+spanning-tree mode mstp
+!
+vlan 4094
+   name MLAG_PEER
+   trunk group MLAG_PEER
+!
+interface Vlan4094
+   description MLAG Peer Link SVI
+   no autostate
+   ip address 10.255.255.1/30
+!
+interface Port-Channel1
+   description MLAG Peer Link
+   switchport mode trunk
+   switchport trunk group MLAG_PEER
+!
+interface Ethernet47
+   description MLAG Peer Link Member
+   channel-group 1 mode active
+!
+interface Ethernet48
+   description MLAG Peer Link Member
+   channel-group 1 mode active
+!
+interface Port-Channel10
+   description Server Connection via MLAG
+   switchport mode trunk
+   mlag 10
+!
+interface Ethernet1
+   description Server-01 Port 1
+   channel-group 10 mode active
+!
+mlag configuration
+   domain-id MLAG_DOMAIN
+   local-interface Vlan4094
+   peer-address 10.255.255.2
+   peer-link Port-Channel1
+   reload-delay mlag 300
+   reload-delay non-mlag 330
+!
+end

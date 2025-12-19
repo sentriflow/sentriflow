@@ -1,0 +1,102 @@
+/* VyOS Firewall Configuration */
+firewall {
+    all-ping enable
+    broadcast-ping disable
+    config-trap disable
+    ipv6-receive-redirects disable
+    ipv6-src-route disable
+    ip-src-route disable
+    log-martians enable
+    receive-redirects disable
+    send-redirects enable
+    source-validation disable
+    syn-cookies enable
+    group {
+        address-group RFC1918 {
+            address 10.0.0.0/8
+            address 172.16.0.0/12
+            address 192.168.0.0/16
+        }
+        network-group TRUSTED-NETWORKS {
+            network 10.0.0.0/24
+            network 192.168.1.0/24
+        }
+        port-group WEB-PORTS {
+            port 80
+            port 443
+        }
+    }
+    name WAN_IN {
+        default-action drop
+        enable-default-log
+        rule 10 {
+            action accept
+            description "Allow established/related"
+            state {
+                established enable
+                related enable
+            }
+        }
+        rule 20 {
+            action drop
+            description "Drop invalid"
+            state {
+                invalid enable
+            }
+        }
+        rule 100 {
+            action accept
+            description "Allow ICMP"
+            protocol icmp
+        }
+    }
+    name WAN_LOCAL {
+        default-action drop
+        rule 10 {
+            action accept
+            description "Allow established"
+            state {
+                established enable
+                related enable
+            }
+        }
+        rule 20 {
+            action accept
+            description "Allow SSH from trusted"
+            destination {
+                port 22
+            }
+            protocol tcp
+            source {
+                group {
+                    network-group TRUSTED-NETWORKS
+                }
+            }
+        }
+    }
+    name LAN_IN {
+        default-action accept
+        rule 10 {
+            action accept
+            description "Allow all from LAN"
+        }
+    }
+    zone WAN {
+        default-action drop
+        from LAN {
+            firewall {
+                name LAN_IN
+            }
+        }
+        interface eth0
+    }
+    zone LAN {
+        default-action drop
+        from WAN {
+            firewall {
+                name WAN_IN
+            }
+        }
+        interface eth1
+    }
+}

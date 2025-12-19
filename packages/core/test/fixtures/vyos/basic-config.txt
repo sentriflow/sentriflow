@@ -1,0 +1,76 @@
+/* VyOS Basic Configuration */
+interfaces {
+    ethernet eth0 {
+        address 192.168.1.1/24
+        description "WAN Interface"
+        hw-id 00:0c:29:aa:bb:cc
+    }
+    ethernet eth1 {
+        address 10.0.0.1/24
+        description "LAN Interface"
+        hw-id 00:0c:29:dd:ee:ff
+    }
+    loopback lo {
+    }
+}
+system {
+    host-name vyos-router
+    login {
+        user vyos {
+            authentication {
+                encrypted-password "$6$rounds=656000$..."
+                public-keys admin@example.com {
+                    key "AAAAB3NzaC1yc2EAAAADAQABAAABAQDe..."
+                    type ssh-rsa
+                }
+            }
+            full-name "VyOS Admin"
+        }
+    }
+    name-server 8.8.8.8
+    name-server 8.8.4.4
+    ntp {
+        server 0.pool.ntp.org {
+        }
+        server 1.pool.ntp.org {
+        }
+    }
+    syslog {
+        global {
+            facility all {
+                level info
+            }
+        }
+        host 10.0.0.100 {
+            facility all {
+                level warning
+            }
+        }
+    }
+    time-zone America/New_York
+}
+service {
+    ssh {
+        port 22
+    }
+    dhcp-server {
+        shared-network-name LAN {
+            subnet 10.0.0.0/24 {
+                default-router 10.0.0.1
+                dns-server 8.8.8.8
+                domain-name example.local
+                lease 86400
+                range 0 {
+                    start 10.0.0.100
+                    stop 10.0.0.200
+                }
+            }
+        }
+    }
+    dns {
+        forwarding {
+            cache-size 150
+            listen-address 10.0.0.1
+        }
+    }
+}

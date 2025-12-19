@@ -1,0 +1,52 @@
+# Cumulus Linux NCLU Commands
+# Network Command Line Utility configuration
+
+net add hostname leaf01
+
+net add loopback lo ip address 10.10.10.1/32
+
+net add interface swp1 alias Server1
+net add interface swp1 bridge access 10
+net add interface swp1 stp bpduguard
+net add interface swp1 stp portadminedge
+
+net add interface swp2 alias Server2
+net add interface swp2 bridge access 20
+net add interface swp2 stp bpduguard
+net add interface swp2 stp portadminedge
+
+net add interface swp3 alias Trunk
+net add interface swp3 bridge trunk vlans 10,20,30
+
+net add interface swp49-50 mtu 9216
+
+net add bond bond1 bond slaves swp1
+net add bond bond1 clag id 1
+net add bond bond1 bridge access 10
+
+net add bridge bridge ports swp1,swp2,swp3
+net add bridge bridge vids 10,20,30
+net add bridge bridge pvid 1
+
+net add vlan 10 ip address 10.1.10.1/24
+net add vlan 20 ip address 10.1.20.1/24
+net add vlan 30 ip address 10.1.30.1/24
+
+net add clag peer sys-mac 44:38:39:BE:EF:AA interface swp49-50 primary
+net add clag backup-ip 10.10.10.2
+
+net add bgp autonomous-system 65101
+net add bgp router-id 10.10.10.1
+net add bgp neighbor swp51 interface remote-as external
+net add bgp neighbor swp52 interface remote-as external
+net add bgp ipv4 unicast redistribute connected
+net add bgp l2vpn evpn neighbor swp51 activate
+net add bgp l2vpn evpn neighbor swp52 activate
+net add bgp l2vpn evpn advertise-all-vni
+
+net add ntp server 0.cumulusnetworks.pool.ntp.org iburst
+net add ntp server 1.cumulusnetworks.pool.ntp.org iburst
+
+net add dns nameserver ipv4 8.8.8.8
+
+net commit

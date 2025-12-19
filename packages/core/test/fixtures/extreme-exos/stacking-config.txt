@@ -1,0 +1,25 @@
+# Extreme Networks ExtremeXOS Stacking Configuration
+# X460-G2 SummitStack
+
+configure snmp sysname "exos-stack-01"
+
+# Enable Stacking
+enable stacking
+
+# Configure Stacking Priorities
+configure stacking node-address 00:04:96:xx:xx:xx priority 100
+configure stacking node-address 00:04:96:yy:yy:yy priority 50
+
+# Configure Alternate IP
+configure stacking alternate-ip-address automatic
+
+# Stacking VLANs
+create vlan "StackMgmt" tag 999
+configure vlan StackMgmt ipaddress 10.255.255.1/24
+
+# Stacking Ports
+configure stacking-support stack-ports 1:53-1:54 selection native
+configure stacking-support stack-ports 2:53-2:54 selection native
+
+# Stack Easy Setup
+configure stacking easy-setup

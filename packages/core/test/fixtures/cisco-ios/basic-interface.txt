@@ -1,0 +1,26 @@
+!
+! Cisco IOS Basic Interface Configuration
+!
+interface GigabitEthernet0/0
+ description Uplink to Core
+ ip address 10.0.0.1 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/1
+ description Server: ESXi Host 1
+ switchport mode trunk
+ switchport trunk native vlan 999
+ switchport trunk allowed vlan 10,20,30
+ switchport nonegotiate
+!
+interface GigabitEthernet0/2
+ description Endpoint: User Workstation
+ switchport mode access
+ switchport access vlan 100
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no cdp enable
+!
+interface Loopback0
+ ip address 192.168.255.1 255.255.255.255
+!

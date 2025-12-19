@@ -1,0 +1,35 @@
+# Extreme Networks ExtremeXOS EAPS Configuration
+# Ethernet Automatic Protection Switching
+
+configure snmp sysname "exos-eaps-switch"
+
+# Create VLANs for EAPS
+create vlan "EAPS_CTRL" tag 4000
+create vlan "EAPS_DATA" tag 100
+create vlan "EAPS_VOICE" tag 200
+
+# Create EAPS Domain
+create eaps ring1
+
+# Configure EAPS Control VLAN
+configure eaps ring1 add control vlan EAPS_CTRL
+
+# Configure EAPS Protected VLANs
+configure eaps ring1 add protected vlan EAPS_DATA
+configure eaps ring1 add protected vlan EAPS_VOICE
+
+# Configure EAPS Ports
+configure eaps ring1 mode master
+configure eaps ring1 primary port 1:49
+configure eaps ring1 secondary port 1:50
+
+# Configure EAPS Failtime
+configure eaps ring1 failtime 2
+
+# Enable EAPS
+enable eaps
+enable eaps ring1
+
+# ELRP for Loop Prevention
+enable elrp-client
+configure elrp-client periodic vlan EAPS_DATA ports 1:1-1:24 interval 3

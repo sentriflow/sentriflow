@@ -1,0 +1,92 @@
+#
+# Huawei VRP Basic Configuration
+# Device: S5700 Series Switch
+#
+sysname SW-CORE-01
+#
+undo info-center enable
+#
+vlan batch 10 20 30 100 200
+#
+vlan 10
+ name Management
+ description Management VLAN
+#
+vlan 20
+ name Users
+ description User Access VLAN
+#
+vlan 30
+ name Servers
+ description Server Farm VLAN
+#
+interface Vlanif10
+ ip address 10.10.10.1 255.255.255.0
+ description Management Interface
+#
+interface Vlanif20
+ ip address 10.20.20.1 255.255.255.0
+ description User Gateway
+#
+interface GigabitEthernet 0/0/1
+ description Uplink to Core Router
+ port link-type trunk
+ port trunk allow-pass vlan 10 20 30
+ undo shutdown
+#
+interface GigabitEthernet 0/0/2
+ description Server-01 Connection
+ port link-type access
+ port default vlan 30
+ undo shutdown
+#
+interface GigabitEthernet 0/0/3
+ description User Port
+ port link-type access
+ port default vlan 20
+ stp edged-port enable
+ undo shutdown
+#
+interface GigabitEthernet 0/0/24
+ description Management Port
+ port link-type access
+ port default vlan 10
+ undo shutdown
+#
+ip route-static 0.0.0.0 0.0.0.0 10.10.10.254
+#
+ntp-service unicast-server 10.10.10.100
+ntp-service unicast-server 10.10.10.101
+#
+info-center enable
+info-center loghost 10.10.10.200
+#
+snmp-agent
+snmp-agent sys-info version v2c v3
+snmp-agent community read public
+snmp-agent community write private
+#
+user-interface console 0
+ authentication-mode password
+ set authentication password cipher Password123
+ idle-timeout 10 0
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound ssh
+ idle-timeout 15 0
+#
+aaa
+ authentication-scheme default
+ authorization-scheme default
+ accounting-scheme default
+ domain default
+ domain default_admin
+ local-user admin password irreversible-cipher Admin@123
+ local-user admin privilege level 15
+ local-user admin service-type ssh terminal
+#
+ssh server enable
+ssh authentication-type default password
+#
+return

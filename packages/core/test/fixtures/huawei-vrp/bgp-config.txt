@@ -1,0 +1,75 @@
+#
+# Huawei VRP BGP Configuration
+# Device: NE40E Router
+#
+sysname PE-ROUTER-01
+#
+ip vpn-instance CUSTOMER-A
+ ipv4-family
+  route-distinguisher 65000:100
+  vpn-target 65000:100 export-extcommunity
+  vpn-target 65000:100 import-extcommunity
+#
+ip vpn-instance CUSTOMER-B
+ ipv4-family
+  route-distinguisher 65000:200
+  vpn-target 65000:200 export-extcommunity
+  vpn-target 65000:200 import-extcommunity
+#
+interface GigabitEthernet 0/0/0
+ description PE to P Link
+ ip address 10.0.0.1 255.255.255.252
+ undo shutdown
+#
+interface GigabitEthernet 0/0/1
+ ip binding vpn-instance CUSTOMER-A
+ ip address 192.168.1.1 255.255.255.0
+ description Customer-A CE Interface
+ undo shutdown
+#
+interface LoopBack0
+ ip address 1.1.1.1 255.255.255.255
+ description Router-ID
+#
+bgp 65000
+ router-id 1.1.1.1
+ peer 2.2.2.2 as-number 65000
+ peer 2.2.2.2 connect-interface LoopBack0
+ peer 2.2.2.2 description iBGP to PE-02
+ #
+ ipv4-family unicast
+  undo synchronization
+  peer 2.2.2.2 enable
+ #
+ ipv4-family vpnv4
+  policy vpn-target
+  peer 2.2.2.2 enable
+ #
+ ipv4-family vpn-instance CUSTOMER-A
+  peer 192.168.1.2 as-number 65001
+  peer 192.168.1.2 description Customer-A CE
+  import-route direct
+  import-route static
+#
+ospf 1 router-id 1.1.1.1
+ area 0.0.0.0
+  network 10.0.0.0 0.0.0.3
+  network 1.1.1.1 0.0.0.0
+#
+mpls lsr-id 1.1.1.1
+mpls
+#
+mpls ldp
+ lsp-trigger all
+#
+route-policy CUSTOMER-A-IN permit node 10
+ if-match ip-prefix CUSTOMER-A-PREFIXES
+ apply local-preference 200
+#
+route-policy CUSTOMER-A-OUT permit node 10
+ if-match ip-prefix CUSTOMER-A-EXPORT
+#
+ip ip-prefix CUSTOMER-A-PREFIXES index 10 permit 192.168.0.0 16 le 24
+ip ip-prefix CUSTOMER-A-EXPORT index 10 permit 10.0.0.0 8 le 24
+#
+return

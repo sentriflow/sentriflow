@@ -1,0 +1,184 @@
+{
+  "$schema": "https://sentriflow.io/schemas/json-rules/v1.0.json",
+  "version": "1.0",
+  "meta": {
+    "name": "Cisco IOS JSON Rules",
+    "description": "Example JSON rules for Cisco IOS devices demonstrating helper function usage",
+    "author": "SentriFlow",
+    "license": "Apache-2.0"
+  },
+  "rules": [
+    {
+      "id": "JSON-CISCO-001",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "Trunk ports should have explicit allowed VLAN list",
+        "remediation": "Add 'switchport trunk allowed vlan <list>' to restrict VLANs on trunk ports"
+      },
+      "check": {
+        "type": "and",
+        "conditions": [
+          {
+            "type": "helper",
+            "helper": "cisco.isTrunkPort",
+            "args": [{ "$ref": "node" }]
+          },
+          {
+            "type": "helper",
+            "helper": "cisco.isPhysicalPort",
+            "args": [{ "$ref": "node.id" }]
+          },
+          {
+            "type": "helper",
+            "helper": "isShutdown",
+            "args": [{ "$ref": "node" }],
+            "negate": true
+          },
+          {
+            "type": "child_not_exists",
+            "selector": "switchport trunk allowed vlan"
+          }
+        ]
+      },
+      "failureMessage": "Trunk port {nodeId} should have explicit allowed VLAN list"
+    },
+    {
+      "id": "JSON-CISCO-002",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "metadata": {
+        "level": "info",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "Access ports should have spanning-tree portfast enabled",
+        "remediation": "Add 'spanning-tree portfast' to access ports connected to end devices"
+      },
+      "check": {
+        "type": "and",
+        "conditions": [
+          {
+            "type": "helper",
+            "helper": "cisco.isAccessPort",
+            "args": [{ "$ref": "node" }]
+          },
+          {
+            "type": "helper",
+            "helper": "cisco.isPhysicalPort",
+            "args": [{ "$ref": "node.id" }]
+          },
+          {
+            "type": "helper",
+            "helper": "isShutdown",
+            "args": [{ "$ref": "node" }],
+            "negate": true
+          },
+          {
+            "type": "child_not_exists",
+            "selector": "spanning-tree portfast"
+          }
+        ]
+      },
+      "failureMessage": "Access port {nodeId} should have spanning-tree portfast enabled"
+    },
+    {
+      "id": "JSON-CISCO-003",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "All interfaces should have a description",
+        "remediation": "Add 'description <text>' to document interface purpose"
+      },
+      "check": {
+        "type": "and",
+        "conditions": [
+          {
+            "type": "helper",
+            "helper": "cisco.isPhysicalPort",
+            "args": [{ "$ref": "node.id" }]
+          },
+          {
+            "type": "helper",
+            "helper": "isShutdown",
+            "args": [{ "$ref": "node" }],
+            "negate": true
+          },
+          {
+            "type": "child_not_exists",
+            "selector": "description"
+          }
+        ]
+      },
+      "failureMessage": "Interface {nodeId} is missing a description"
+    },
+    {
+      "id": "JSON-CISCO-004",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "Trunk ports should disable DTP (Dynamic Trunking Protocol)",
+        "remediation": "Add 'switchport nonegotiate' to disable DTP on trunk ports",
+        "security": {
+          "cwe": ["CWE-319"],
+          "tags": ["vlan-hopping", "network-security"]
+        }
+      },
+      "check": {
+        "type": "and",
+        "conditions": [
+          {
+            "type": "helper",
+            "helper": "cisco.isTrunkPort",
+            "args": [{ "$ref": "node" }]
+          },
+          {
+            "type": "helper",
+            "helper": "cisco.isPhysicalPort",
+            "args": [{ "$ref": "node.id" }]
+          },
+          {
+            "type": "helper",
+            "helper": "isShutdown",
+            "args": [{ "$ref": "node" }],
+            "negate": true
+          },
+          {
+            "type": "child_not_exists",
+            "selector": "switchport nonegotiate"
+          }
+        ]
+      },
+      "failureMessage": "Trunk port {nodeId} should have DTP disabled with 'switchport nonegotiate'"
+    },
+    {
+      "id": "JSON-CISCO-005",
+      "selector": "line vty",
+      "vendor": "cisco-ios",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "VTY lines should have access-class configured for SSH access control",
+        "remediation": "Add 'access-class <acl> in' to restrict VTY access",
+        "security": {
+          "cwe": ["CWE-284"],
+          "tags": ["access-control", "remote-access"]
+        }
+      },
+      "check": {
+        "type": "child_not_exists",
+        "selector": "access-class"
+      },
+      "failureMessage": "VTY line {nodeId} is missing access-class for SSH access control"
+    }
+  ]
+}

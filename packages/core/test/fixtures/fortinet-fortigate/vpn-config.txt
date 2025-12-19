@@ -1,0 +1,67 @@
+config vpn ipsec phase1-interface
+    edit "Branch-Office-VPN"
+        set interface "wan1"
+        set ike-version 2
+        set peertype any
+        set net-device disable
+        set proposal aes256-sha256
+        set dhgrp 14
+        set remote-gw 198.51.100.1
+        set psksecret ENC SH2SECRETKEY
+        set dpd on-demand
+        set dpd-retryinterval 60
+        set comments "VPN to Branch Office"
+    next
+    edit "Cloud-VPN"
+        set interface "wan1"
+        set ike-version 2
+        set peertype any
+        set proposal aes128-sha1 3des-sha1
+        set dhgrp 5
+        set remote-gw 192.0.2.1
+        set psksecret ENC SH2SECRETKEY2
+        set dpd on-idle
+        set comments "VPN to cloud services"
+    next
+    edit "Legacy-VPN"
+        set interface "wan2"
+        set ike-version 1
+        set peertype any
+        set proposal des-md5
+        set dhgrp 2
+        set remote-gw 10.20.30.1
+        set psksecret ENC SH2SECRETKEY3
+        set dpd disable
+        set comments "Legacy partner VPN"
+    next
+end
+
+config vpn ipsec phase2-interface
+    edit "Branch-Office-VPN-P2"
+        set phase1name "Branch-Office-VPN"
+        set proposal aes256-sha256
+        set dhgrp 14
+        set auto-negotiate enable
+        set src-subnet 192.168.1.0 255.255.255.0
+        set dst-subnet 192.168.2.0 255.255.255.0
+    next
+    edit "Cloud-VPN-P2"
+        set phase1name "Cloud-VPN"
+        set proposal aes128-sha1
+        set auto-negotiate enable
+        set src-subnet 192.168.1.0 255.255.255.0
+        set dst-subnet 10.100.0.0 255.255.0.0
+    next
+end
+
+config vpn ssl settings
+    set servercert "Fortinet_Factory"
+    set tunnel-ip-pools "SSLVPN_TUNNEL_ADDR1"
+    set tunnel-ipv6-pools "SSLVPN_TUNNEL_IPv6_ADDR1"
+    set source-interface "wan1"
+    set source-address "all"
+    set source-address6 "all"
+    set default-portal "full-access"
+    set port 10443
+    set ssl-min-proto-ver tls1-2
+end

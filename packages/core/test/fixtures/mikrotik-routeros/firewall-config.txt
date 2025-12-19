@@ -1,0 +1,60 @@
+# MikroTik RouterOS Firewall Configuration
+# Security-focused configuration example
+
+/interface list
+add name=WAN comment="WAN interfaces"
+add name=LAN comment="LAN interfaces"
+
+/interface list member
+add interface=ether1 list=WAN
+add interface=ether2 list=LAN
+add interface=ether3 list=LAN
+
+/ip firewall address-list
+add list=bogons address=0.0.0.0/8 comment="RFC1122"
+add list=bogons address=10.0.0.0/8 comment="RFC1918"
+add list=bogons address=100.64.0.0/10 comment="RFC6598"
+add list=bogons address=127.0.0.0/8 comment="RFC1122"
+add list=bogons address=169.254.0.0/16 comment="RFC3927"
+add list=bogons address=172.16.0.0/12 comment="RFC1918"
+add list=bogons address=192.0.0.0/24 comment="RFC5737"
+add list=bogons address=192.0.2.0/24 comment="RFC5737"
+add list=bogons address=192.168.0.0/16 comment="RFC1918"
+add list=bogons address=198.18.0.0/15 comment="RFC2544"
+add list=bogons address=198.51.100.0/24 comment="RFC5737"
+add list=bogons address=203.0.113.0/24 comment="RFC5737"
+add list=bogons address=224.0.0.0/4 comment="RFC5771"
+add list=bogons address=240.0.0.0/4 comment="RFC1112"
+
+/ip firewall filter
+# Input chain - Protect the router
+add chain=input action=accept connection-state=established,related comment="Accept established/related"
+add chain=input action=drop connection-state=invalid comment="Drop invalid"
+add chain=input action=accept protocol=icmp comment="Accept ICMP"
+add chain=input action=accept in-interface-list=LAN comment="Accept from LAN"
+add chain=input action=drop in-interface-list=WAN comment="Drop from WAN"
+
+# Forward chain - Filter traffic through router
+add chain=forward action=accept connection-state=established,related comment="Accept established/related"
+add chain=forward action=drop connection-state=invalid comment="Drop invalid"
+add chain=forward action=accept in-interface-list=LAN out-interface-list=WAN comment="LAN to WAN"
+add chain=forward action=accept in-interface-list=LAN out-interface-list=LAN comment="LAN to LAN"
+add chain=forward action=drop in-interface-list=WAN comment="Drop unsolicited from WAN"
+
+# Output chain - Allow router traffic
+add chain=output action=accept comment="Allow all output"
+
+/ip firewall nat
+# Source NAT for internet access
+add chain=srcnat action=masquerade out-interface-list=WAN comment="Masquerade LAN to WAN"
+
+# Destination NAT example - Web server
+add chain=dstnat action=dst-nat dst-port=80 protocol=tcp in-interface-list=WAN to-addresses=192.168.1.10 to-ports=80 comment="Port forward to web server"
+add chain=dstnat action=dst-nat dst-port=443 protocol=tcp in-interface-list=WAN to-addresses=192.168.1.10 to-ports=443 comment="Port forward HTTPS"
+
+/ip firewall mangle
+add chain=prerouting action=mark-connection connection-mark=no-mark in-interface-list=WAN new-connection-mark=wan-conn passthrough=yes
+add chain=prerouting action=mark-routing connection-mark=wan-conn new-routing-mark=to-wan passthrough=no
+
+/ip firewall raw
+add chain=prerouting action=drop src-address-list=bogons in-interface-list=WAN comment="Drop bogon sources"

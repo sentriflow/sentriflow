@@ -1,0 +1,116 @@
+version 8.10.0.0
+!
+aaa authentication-server radius "RADIUS-SRV01"
+    host 10.0.0.50
+    key "SuperSecretKey123"
+    nas-identifier "Aruba-WLC-01"
+    timeout 5
+    retry-count 3
+!
+aaa authentication-server radius "RADIUS-SRV02"
+    host 10.0.0.51
+    key "SuperSecretKey456"
+    nas-identifier "Aruba-WLC-01"
+!
+aaa server-group "Corp-RADIUS"
+    auth-server RADIUS-SRV01 position 1
+    auth-server RADIUS-SRV02 position 2
+!
+aaa server-group "Guest-RADIUS"
+    auth-server RADIUS-SRV01
+!
+aaa profile "Corp-Dot1x"
+    authentication-dot1x "default"
+    dot1x-default-role "authenticated"
+    dot1x-server-group "Corp-RADIUS"
+    radius-accounting "Corp-RADIUS"
+!
+aaa profile "Guest-Captive"
+    initial-role "guest-logon"
+    authentication-captive-portal "guest-cp"
+    radius-accounting "Guest-RADIUS"
+!
+wlan ssid-profile "Corp-Secure"
+    essid "CorpNetwork"
+    opmode wpa3-sae-aes
+    dtim-period 1
+    max-clients 64
+    utf8
+!
+wlan ssid-profile "Corp-Legacy"
+    essid "CorpNetwork-Legacy"
+    opmode wpa2-aes
+    dtim-period 1
+!
+wlan ssid-profile "Guest-Open"
+    essid "GuestWiFi"
+    opmode opensystem
+    dtim-period 3
+    max-clients 128
+!
+wlan virtual-ap "Corp-Secure-VAP"
+    aaa-profile "Corp-Dot1x"
+    ssid-profile "Corp-Secure"
+    vlan 200
+    forward-mode tunnel
+    broadcast-filter arp
+!
+wlan virtual-ap "Corp-Legacy-VAP"
+    aaa-profile "Corp-Dot1x"
+    ssid-profile "Corp-Legacy"
+    vlan 200
+    forward-mode tunnel
+!
+wlan virtual-ap "Guest-VAP"
+    aaa-profile "Guest-Captive"
+    ssid-profile "Guest-Open"
+    vlan 300
+    forward-mode tunnel
+    deny-inter-user-traffic
+!
+rf arm-profile "default-arm"
+    assignment disable
+    min-tx-power 12
+    max-tx-power 18
+!
+rf dot11a-radio-profile "default-a"
+    mode ap-mode
+    arm-profile "default-arm"
+    channel 36
+!
+rf dot11g-radio-profile "default-g"
+    mode ap-mode
+    arm-profile "default-arm"
+!
+ap-group "Building-A"
+    virtual-ap "Corp-Secure-VAP"
+    virtual-ap "Corp-Legacy-VAP"
+    virtual-ap "Guest-VAP"
+    dot11a-radio-profile "default-a"
+    dot11g-radio-profile "default-g"
+    regulatory-domain-profile "US"
+!
+ap-group "Building-B"
+    virtual-ap "Corp-Secure-VAP"
+    virtual-ap "Guest-VAP"
+    regulatory-domain-profile "US"
+!
+vlan 100
+    name "Management"
+!
+vlan 200
+    name "Corporate"
+!
+vlan 300
+    name "Guest"
+!
+interface vlan 100
+    ip address 10.10.100.1 255.255.255.0
+!
+ntp server 10.0.0.1
+!
+logging level warnings
+logging 10.0.0.100
+!
+snmp-server community "public"
+!

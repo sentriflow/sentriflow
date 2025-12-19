@@ -1,0 +1,112 @@
+#
+# Huawei VRP Security Configuration
+# AAA, ACL, and Security Features
+#
+sysname FW-EDGE-01
+#
+acl number 2000
+ description Standard ACL for Management Access
+ rule 5 permit source 10.10.10.0 0.0.0.255
+ rule 10 permit source 10.20.20.0 0.0.0.255
+ rule 100 deny
+#
+acl number 3000
+ description Extended ACL for Traffic Filtering
+ rule 5 permit tcp source 10.10.10.0 0.0.0.255 destination 10.30.30.0 0.0.0.255 destination-port eq 22
+ rule 10 permit tcp source 10.10.10.0 0.0.0.255 destination 10.30.30.0 0.0.0.255 destination-port eq 443
+ rule 15 permit icmp source any destination any
+ rule 20 deny ip source any destination 10.30.30.0 0.0.0.255
+ rule 100 permit ip
+#
+acl name WEB-SERVERS advanced
+ description Named ACL for Web Server Access
+ rule 5 permit tcp source any destination 10.30.30.100 0 destination-port eq 80
+ rule 10 permit tcp source any destination 10.30.30.100 0 destination-port eq 443
+ rule 100 deny ip
+#
+traffic classifier TC-MGMT operator and
+ if-match acl 2000
+#
+traffic behavior TB-MGMT
+ permit
+#
+traffic policy TP-MGMT
+ classifier TC-MGMT behavior TB-MGMT
+#
+aaa
+ authentication-scheme RADIUS-AUTH
+  authentication-mode radius local
+ #
+ authorization-scheme RADIUS-AUTHZ
+  authorization-mode if-authenticated
+ #
+ accounting-scheme RADIUS-ACCT
+  accounting-mode radius
+  accounting start-fail online
+ #
+ domain default
+  authentication-scheme RADIUS-AUTH
+  authorization-scheme RADIUS-AUTHZ
+  accounting-scheme RADIUS-ACCT
+  radius-server RADIUS-GROUP
+ #
+ local-user admin password irreversible-cipher SecureP@ssw0rd!
+ local-user admin privilege level 15
+ local-user admin service-type ssh terminal
+ #
+ local-user readonly password irreversible-cipher ReadOnly@123
+ local-user readonly privilege level 1
+ local-user readonly service-type ssh
+ #
+ local-user netops password irreversible-cipher NetOps@456
+ local-user netops privilege level 3
+ local-user netops service-type ssh telnet
+#
+radius-server template RADIUS-TEMPLATE
+ radius-server shared-key cipher RadiusSecret123
+ radius-server authentication 10.10.10.50 1812
+ radius-server authentication 10.10.10.51 1812 secondary
+ radius-server accounting 10.10.10.50 1813
+ radius-server accounting 10.10.10.51 1813 secondary
+#
+radius-server group RADIUS-GROUP
+ radius-server template RADIUS-TEMPLATE
+#
+hwtacacs-server template TACACS-TEMPLATE
+ hwtacacs-server authentication 10.10.10.60
+ hwtacacs-server authorization 10.10.10.60
+ hwtacacs-server accounting 10.10.10.60
+ hwtacacs-server shared-key cipher TacacsSecret456
+#
+user-interface console 0
+ authentication-mode aaa
+ idle-timeout 5 0
+ screen-length 50
+#
+user-interface vty 0 4
+ acl 2000 inbound
+ authentication-mode aaa
+ protocol inbound ssh
+ idle-timeout 10 0
+ screen-length 50
+#
+user-interface vty 5 15
+ acl 2000 inbound
+ authentication-mode aaa
+ protocol inbound ssh
+ idle-timeout 10 0
+#
+ssh server enable
+ssh server cipher aes256-ctr aes128-ctr
+ssh server hmac sha2-256 sha2-512
+ssh authentication-type default password
+stelnet server enable
+sftp server enable
+#
+undo telnet server enable
+#
+ssl policy SSL-POLICY
+ certificate load pem-cert web-cert.pem key-pair rsa key-file web-key.pem
+ trusted-ca load pem-ca ca-cert.pem
+#
+return

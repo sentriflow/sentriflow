@@ -1,0 +1,123 @@
+{
+  "$schema": "https://sentriflow.io/schemas/json-rules/v1.0.json",
+  "version": "1.0",
+  "meta": {
+    "name": "Juniper JunOS JSON Rules",
+    "description": "Example JSON rules for Juniper JunOS devices demonstrating helper function usage",
+    "author": "SentriFlow",
+    "license": "Apache-2.0"
+  },
+  "rules": [
+    {
+      "id": "JSON-JUNOS-001",
+      "selector": "system services",
+      "vendor": "juniper-junos",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "SSH should be configured for version 2 only",
+        "remediation": "Configure 'set system services ssh protocol-version v2'",
+        "security": {
+          "cwe": ["CWE-327"],
+          "tags": ["ssh", "encryption"]
+        }
+      },
+      "check": {
+        "type": "and",
+        "conditions": [
+          {
+            "type": "child_exists",
+            "selector": "ssh"
+          },
+          {
+            "type": "helper",
+            "helper": "juniper.isSshV2Only",
+            "args": [{ "$ref": "node" }],
+            "negate": true
+          }
+        ]
+      },
+      "failureMessage": "SSH is not configured for protocol version 2 only"
+    },
+    {
+      "id": "JSON-JUNOS-002",
+      "selector": "system services",
+      "vendor": "juniper-junos",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "Telnet service should be disabled",
+        "remediation": "Remove 'set system services telnet' or add 'delete system services telnet'",
+        "security": {
+          "cwe": ["CWE-319"],
+          "tags": ["telnet", "cleartext"]
+        }
+      },
+      "check": {
+        "type": "helper",
+        "helper": "juniper.hasTelnetService",
+        "args": [{ "$ref": "node" }]
+      },
+      "failureMessage": "Telnet service is enabled - use SSH instead"
+    },
+    {
+      "id": "JSON-JUNOS-003",
+      "selector": "system",
+      "vendor": "juniper-junos",
+      "metadata": {
+        "level": "warning",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "Login banner should be configured",
+        "remediation": "Configure 'set system login message' or 'set system login announcement'"
+      },
+      "check": {
+        "type": "helper",
+        "helper": "juniper.hasLoginBanner",
+        "args": [{ "$ref": "node" }],
+        "negate": true
+      },
+      "failureMessage": "Login banner is not configured"
+    },
+    {
+      "id": "JSON-JUNOS-004",
+      "selector": "protocols ospf area",
+      "vendor": "juniper-junos",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "OSPF areas should have authentication configured",
+        "remediation": "Configure OSPF area authentication using MD5 or SHA"
+      },
+      "check": {
+        "type": "helper",
+        "helper": "juniper.hasOspfAreaAuth",
+        "args": [{ "$ref": "node" }],
+        "negate": true
+      },
+      "failureMessage": "OSPF area {nodeId} does not have authentication configured"
+    },
+    {
+      "id": "JSON-JUNOS-005",
+      "selector": "system syslog",
+      "vendor": "juniper-junos",
+      "metadata": {
+        "level": "warning",
+        "obu": "Operations",
+        "owner": "SysOps",
+        "description": "Remote syslog server should be configured",
+        "remediation": "Configure 'set system syslog host <server>' for centralized logging"
+      },
+      "check": {
+        "type": "helper",
+        "helper": "juniper.hasRemoteSyslog",
+        "args": [{ "$ref": "node" }],
+        "negate": true
+      },
+      "failureMessage": "Remote syslog server is not configured"
+    }
+  ]
+}

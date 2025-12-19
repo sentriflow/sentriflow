@@ -1,0 +1,26 @@
+! Arista EOS eAPI Configuration
+!
+hostname arista-automation-switch
+!
+management api http-commands
+   protocol https
+   protocol http
+   no shutdown
+!
+management api gnmi
+   transport grpc default
+      ssl profile SSL_PROFILE
+   provider eos-native
+!
+management api netconf
+   transport ssh default
+!
+daemon TerminAttr
+   exec /usr/bin/TerminAttr -cvaddr=10.0.100.50:9910 -cvauth=key,mykey -cvvrf=MGMT -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -taillogs
+   no shutdown
+!
+event-handler BACKUP_CONFIG
+   trigger on-startup-config
+   action bash /mnt/flash/backup_config.sh
+!
+end

@@ -1,0 +1,103 @@
+# Cumulus Linux /etc/network/interfaces - EVPN/VXLAN Configuration
+# Leaf switch with VXLAN overlay and EVPN control plane
+
+auto lo
+iface lo inet loopback
+    address 10.10.10.1/32
+    vxlan-local-tunnelip 10.10.10.1
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+# Uplinks to spine switches (BGP unnumbered)
+auto swp51
+iface swp51
+    alias Uplink to Spine1
+    mtu 9216
+
+auto swp52
+iface swp52
+    alias Uplink to Spine2
+    mtu 9216
+
+# Access ports
+auto swp1
+iface swp1
+    alias Server1
+    bridge-access 10
+    mstpctl-bpduguard yes
+    mstpctl-portadminedge yes
+
+auto swp2
+iface swp2
+    alias Server2
+    bridge-access 20
+    mstpctl-bpduguard yes
+    mstpctl-portadminedge yes
+
+# VXLAN interfaces
+auto vni10
+iface vni10
+    bridge-access 10
+    bridge-arp-nd-suppress on
+    bridge-learning off
+    mstpctl-bpduguard yes
+    mstpctl-portbpdufilter yes
+    vxlan-id 10010
+
+auto vni20
+iface vni20
+    bridge-access 20
+    bridge-arp-nd-suppress on
+    bridge-learning off
+    mstpctl-bpduguard yes
+    mstpctl-portbpdufilter yes
+    vxlan-id 10020
+
+# L3 VNI for symmetric routing
+auto vniRED
+iface vniRED
+    bridge-access 4001
+    bridge-arp-nd-suppress on
+    bridge-learning off
+    mstpctl-bpduguard yes
+    mstpctl-portbpdufilter yes
+    vxlan-id 104001
+
+# VLAN-aware bridge with VXLAN
+auto br_default
+iface br_default
+    bridge-ports swp1 swp2 vni10 vni20 vniRED
+    bridge-vids 10 20 4001
+    bridge-pvid 1
+    bridge-vlan-aware yes
+    hwaddress 44:38:39:22:01:01
+
+# SVIs for routing
+auto vlan10
+iface vlan10
+    address 10.1.10.1/24
+    vlan-id 10
+    vlan-raw-device br_default
+    vrf RED
+
+auto vlan20
+iface vlan20
+    address 10.1.20.1/24
+    vlan-id 20
+    vlan-raw-device br_default
+    vrf RED
+
+# L3 VNI SVI
+auto vlan4001
+iface vlan4001
+    hwaddress 44:38:39:BE:EF:01
+    vlan-id 4001
+    vlan-raw-device br_default
+    vrf RED
+
+# Tenant VRF
+auto RED
+iface RED
+    vrf-table auto

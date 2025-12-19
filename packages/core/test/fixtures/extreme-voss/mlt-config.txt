@@ -1,0 +1,73 @@
+!
+! Extreme Networks VOSS MLT Configuration
+! Multi-Link Trunk with LACP
+!
+snmp-server name "vsp-mlt-01"
+!
+! Create VLANs
+vlan create 10 type port-mstprstp 0
+vlan create 20 type port-mstprstp 0
+vlan create 30 type port-mstprstp 0
+!
+! MLT Configuration
+mlt 1 enable
+mlt 1 name "Uplink-MLT"
+mlt 1 member 1/49,1/50
+mlt 1 encapsulation dot1q
+!
+mlt 2 enable
+mlt 2 name "Server-MLT"
+mlt 2 member 1/47,1/48
+mlt 2 encapsulation dot1q
+!
+! MLT Interface Configuration
+interface mlt 1
+   no shutdown
+   lacp enable
+   lacp key 1
+exit
+!
+interface mlt 2
+   no shutdown
+   lacp enable
+   lacp key 2
+exit
+!
+! LACP Global Configuration
+lacp enable
+lacp aggregation-wait-time 30
+!
+! VLAN Membership for MLT
+vlan members 10 mlt 1,mlt 2 portmember
+vlan members 20 mlt 1,mlt 2 portmember
+vlan members 30 mlt 1 portmember
+!
+! Physical Port Configuration for MLT
+interface GigabitEthernet 1/49
+   lacp enable
+   lacp key 1
+   lacp aggregation enable
+   no shutdown
+exit
+!
+interface GigabitEthernet 1/50
+   lacp enable
+   lacp key 1
+   lacp aggregation enable
+   no shutdown
+exit
+!
+interface GigabitEthernet 1/47
+   lacp enable
+   lacp key 2
+   lacp aggregation enable
+   no shutdown
+exit
+!
+interface GigabitEthernet 1/48
+   lacp enable
+   lacp key 2
+   lacp aggregation enable
+   no shutdown
+exit
+!

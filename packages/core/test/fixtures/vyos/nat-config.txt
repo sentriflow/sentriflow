@@ -1,0 +1,50 @@
+/* VyOS NAT Configuration */
+nat {
+    source {
+        rule 100 {
+            description "Masquerade to WAN"
+            outbound-interface eth0
+            source {
+                address 10.0.0.0/24
+            }
+            translation {
+                address masquerade
+            }
+        }
+        rule 200 {
+            description "SNAT for specific hosts"
+            outbound-interface eth0
+            source {
+                address 10.0.0.50
+            }
+            translation {
+                address 192.168.1.50
+            }
+        }
+    }
+    destination {
+        rule 10 {
+            description "DNAT to web server"
+            destination {
+                port 80,443
+            }
+            inbound-interface eth0
+            protocol tcp
+            translation {
+                address 10.0.0.10
+            }
+        }
+        rule 20 {
+            description "DNAT to SSH jumphost"
+            destination {
+                port 2222
+            }
+            inbound-interface eth0
+            protocol tcp
+            translation {
+                address 10.0.0.5
+                port 22
+            }
+        }
+    }
+}

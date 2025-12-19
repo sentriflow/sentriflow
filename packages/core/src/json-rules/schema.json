@@ -1,0 +1,350 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sentriflow.io/schemas/json-rules/v1.0.json",
+  "title": "SentriFlow JSON Rules",
+  "description": "Schema for SentriFlow JSON rule files",
+  "type": "object",
+  "required": ["version", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version"
+    },
+    "meta": {
+      "type": "object",
+      "description": "Optional metadata about this rule file",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of this rule collection"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the rule collection"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author or organization"
+        },
+        "license": {
+          "type": "string",
+          "description": "License for the rules"
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "description": "Array of JSON rules",
+      "items": {
+        "$ref": "#/definitions/JsonRule"
+      }
+    }
+  },
+  "definitions": {
+    "JsonRule": {
+      "type": "object",
+      "required": ["id", "metadata", "check"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_-]{2,49}$",
+          "description": "Unique rule identifier"
+        },
+        "selector": {
+          "type": "string",
+          "description": "Optional selector for node filtering"
+        },
+        "vendor": {
+          "oneOf": [
+            { "$ref": "#/definitions/RuleVendor" },
+            {
+              "type": "array",
+              "items": { "$ref": "#/definitions/RuleVendor" },
+              "minItems": 1
+            }
+          ],
+          "description": "Optional vendor(s) this rule applies to"
+        },
+        "metadata": {
+          "$ref": "#/definitions/RuleMetadata"
+        },
+        "check": {
+          "$ref": "#/definitions/JsonCheck"
+        },
+        "failureMessage": {
+          "type": "string",
+          "description": "Custom message template for failures"
+        },
+        "successMessage": {
+          "type": "string",
+          "description": "Custom message template for passes"
+        }
+      }
+    },
+    "RuleVendor": {
+      "type": "string",
+      "enum": [
+        "common",
+        "cisco-ios",
+        "cisco-nxos",
+        "juniper-junos",
+        "aruba-aoscx",
+        "aruba-aosswitch",
+        "aruba-wlc",
+        "paloalto-panos",
+        "arista-eos",
+        "vyos",
+        "fortinet-fortigate",
+        "extreme-exos",
+        "extreme-voss",
+        "huawei-vrp",
+        "mikrotik-routeros",
+        "nokia-sros",
+        "cumulus-linux"
+      ]
+    },
+    "RuleMetadata": {
+      "type": "object",
+      "required": ["level", "obu", "owner"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["error", "warning", "info"],
+          "description": "Severity level of the rule"
+        },
+        "obu": {
+          "type": "string",
+          "description": "Organizational Business Unit responsible for this rule"
+        },
+        "owner": {
+          "type": "string",
+          "description": "Owner of the rule logic"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of what the rule checks"
+        },
+        "remediation": {
+          "type": "string",
+          "description": "Suggested steps to fix the violation"
+        },
+        "security": {
+          "$ref": "#/definitions/SecurityMetadata"
+        }
+      }
+    },
+    "SecurityMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cwe": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "CWE identifiers"
+        },
+        "cvssScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "CVSS v3.1 base score"
+        },
+        "cvssVector": {
+          "type": "string",
+          "description": "CVSS v3.1 vector string"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Security-related tags"
+        }
+      }
+    },
+    "JsonCheck": {
+      "oneOf": [
+        { "$ref": "#/definitions/MatchCheck" },
+        { "$ref": "#/definitions/NotMatchCheck" },
+        { "$ref": "#/definitions/ContainsCheck" },
+        { "$ref": "#/definitions/NotContainsCheck" },
+        { "$ref": "#/definitions/ChildExistsCheck" },
+        { "$ref": "#/definitions/ChildNotExistsCheck" },
+        { "$ref": "#/definitions/ChildMatchesCheck" },
+        { "$ref": "#/definitions/ChildContainsCheck" },
+        { "$ref": "#/definitions/HelperCheck" },
+        { "$ref": "#/definitions/ExprCheck" },
+        { "$ref": "#/definitions/AndCheck" },
+        { "$ref": "#/definitions/OrCheck" },
+        { "$ref": "#/definitions/NotCheck" }
+      ]
+    },
+    "MatchCheck": {
+      "type": "object",
+      "required": ["type", "pattern"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "match" },
+        "pattern": { "type": "string" },
+        "flags": { "type": "string" }
+      }
+    },
+    "NotMatchCheck": {
+      "type": "object",
+      "required": ["type", "pattern"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "not_match" },
+        "pattern": { "type": "string" },
+        "flags": { "type": "string" }
+      }
+    },
+    "ContainsCheck": {
+      "type": "object",
+      "required": ["type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "contains" },
+        "text": { "type": "string" }
+      }
+    },
+    "NotContainsCheck": {
+      "type": "object",
+      "required": ["type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "not_contains" },
+        "text": { "type": "string" }
+      }
+    },
+    "ChildExistsCheck": {
+      "type": "object",
+      "required": ["type", "selector"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "child_exists" },
+        "selector": { "type": "string" }
+      }
+    },
+    "ChildNotExistsCheck": {
+      "type": "object",
+      "required": ["type", "selector"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "child_not_exists" },
+        "selector": { "type": "string" }
+      }
+    },
+    "ChildMatchesCheck": {
+      "type": "object",
+      "required": ["type", "selector", "pattern"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "child_matches" },
+        "selector": { "type": "string" },
+        "pattern": { "type": "string" },
+        "flags": { "type": "string" }
+      }
+    },
+    "ChildContainsCheck": {
+      "type": "object",
+      "required": ["type", "selector", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "child_contains" },
+        "selector": { "type": "string" },
+        "text": { "type": "string" }
+      }
+    },
+    "HelperCheck": {
+      "type": "object",
+      "required": ["type", "helper"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "helper" },
+        "helper": {
+          "type": "string",
+          "description": "Helper name, optionally namespaced (e.g., 'cisco.isTrunkPort')"
+        },
+        "args": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/JsonArgValue" },
+          "description": "Arguments to pass to the helper"
+        },
+        "negate": {
+          "type": "boolean",
+          "description": "If true, negate the result"
+        }
+      }
+    },
+    "ExprCheck": {
+      "type": "object",
+      "required": ["type", "expr"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "expr" },
+        "expr": {
+          "type": "string",
+          "description": "JavaScript expression to evaluate (sandboxed)"
+        }
+      }
+    },
+    "AndCheck": {
+      "type": "object",
+      "required": ["type", "conditions"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "and" },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/JsonCheck" },
+          "minItems": 1
+        }
+      }
+    },
+    "OrCheck": {
+      "type": "object",
+      "required": ["type", "conditions"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "or" },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/JsonCheck" },
+          "minItems": 1
+        }
+      }
+    },
+    "NotCheck": {
+      "type": "object",
+      "required": ["type", "condition"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "not" },
+        "condition": { "$ref": "#/definitions/JsonCheck" }
+      }
+    },
+    "JsonArgValue": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        { "$ref": "#/definitions/RefArg" }
+      ]
+    },
+    "RefArg": {
+      "type": "object",
+      "required": ["$ref"],
+      "additionalProperties": false,
+      "properties": {
+        "$ref": {
+          "type": "string",
+          "enum": ["node", "node.id", "node.type", "node.children", "node.params", "node.rawText"]
+        }
+      }
+    }
+  }
+}

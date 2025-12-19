@@ -1,0 +1,22 @@
+config system ha
+    set mode a-p
+    set group-id 10
+    set group-name "FW-Cluster"
+    set password ENC SH2HAPASSWORD
+    set hbdev "port5" 50
+    set session-pickup enable
+    set session-pickup-connectionless enable
+    set session-pickup-nat enable
+    set session-pickup-expectation enable
+    set override disable
+    set priority 200
+    set monitor "wan1" "wan2" "lan"
+    set pingserver-monitor-interface "wan1"
+    set encryption enable
+    set authentication enable
+end
+
+config system ha
+    set standalone-mgmt-vdom enable
+    set vcluster-id 1
+end

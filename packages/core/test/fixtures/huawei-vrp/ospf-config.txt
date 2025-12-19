@@ -1,0 +1,67 @@
+#
+# Huawei VRP OSPF Configuration
+# Multi-area OSPF with authentication
+#
+sysname OSPF-ROUTER-01
+#
+interface GigabitEthernet 0/0/0
+ description Link to Area 0 Backbone
+ ip address 10.0.0.1 255.255.255.252
+ ospf cost 10
+ ospf network-type p2p
+ ospf authentication-mode md5 1 cipher OspfAuth123
+ undo shutdown
+#
+interface GigabitEthernet 0/0/1
+ description Link to Area 1
+ ip address 10.1.0.1 255.255.255.252
+ ospf cost 20
+ ospf network-type broadcast
+ ospf dr-priority 100
+ undo shutdown
+#
+interface GigabitEthernet 0/0/2
+ description Link to Area 2 (Stub)
+ ip address 10.2.0.1 255.255.255.252
+ ospf cost 30
+ undo shutdown
+#
+interface LoopBack0
+ ip address 1.1.1.1 255.255.255.255
+ description Router-ID
+#
+interface LoopBack1
+ ip address 10.255.1.1 255.255.255.255
+ description Management Loopback
+#
+ospf 1 router-id 1.1.1.1
+ description Main OSPF Process
+ bandwidth-reference 10000
+ spf-schedule-interval millisecond 50 200 5000
+ silent-interface all
+ undo silent-interface GigabitEthernet 0/0/0
+ undo silent-interface GigabitEthernet 0/0/1
+ undo silent-interface GigabitEthernet 0/0/2
+ #
+ area 0.0.0.0
+  authentication-mode md5 1 cipher OspfAreaAuth
+  network 10.0.0.0 0.0.0.3
+  network 1.1.1.1 0.0.0.0
+ #
+ area 0.0.0.1
+  network 10.1.0.0 0.0.0.3
+  network 10.255.1.1 0.0.0.0
+  nssa
+ #
+ area 0.0.0.2
+  network 10.2.0.0 0.0.0.3
+  stub no-summary
+#
+ospf 2 router-id 1.1.1.1 vpn-instance VRF-A
+ description VRF-A OSPF Process
+ area 0.0.0.0
+  network 192.168.0.0 0.0.0.255
+#
+ip route-static 0.0.0.0 0.0.0.0 NULL0 preference 200 description Blackhole
+#
+return

@@ -1,0 +1,58 @@
+# Nokia 7750 SR OS BGP Configuration
+
+configure
+    router "Base"
+        autonomous-system 65001
+        router-id 10.10.10.100
+        bgp
+            admin-state enable
+            router-id 10.10.10.100
+            group "eBGP-Peers"
+                description "External BGP peers"
+                type external
+                peer-as 65002
+                local-address 192.168.1.1
+            exit
+            neighbor 192.168.1.2
+                description "PE-Router-2"
+                group "eBGP-Peers"
+                peer-as 65002
+                authentication-key "s3cr3t-key"
+            exit
+            neighbor 192.168.2.2
+                description "PE-Router-3"
+                group "eBGP-Peers"
+                peer-as 65003
+            exit
+        exit
+        ospf 1
+            admin-state enable
+            router-id 10.10.10.100
+            area 0.0.0.0
+                interface "system"
+                    passive
+                exit
+                interface "to-peer-1"
+                    interface-type point-to-point
+                exit
+                interface "to-peer-2"
+                    interface-type point-to-point
+                exit
+            exit
+        exit
+        isis 1
+            admin-state enable
+            level-capability level-2
+            area-id 49.0001
+            level 2
+                wide-metrics-only
+            exit
+            interface "system"
+                passive
+            exit
+            interface "to-peer-1"
+                interface-type point-to-point
+            exit
+        exit
+    exit
+exit

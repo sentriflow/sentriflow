@@ -1,0 +1,96 @@
+/* VyOS VPN Configuration */
+interfaces {
+    wireguard wg0 {
+        address 10.10.10.1/24
+        description "WireGuard VPN"
+        peer remote-office {
+            allowed-ips 10.10.10.2/32
+            allowed-ips 192.168.100.0/24
+            persistent-keepalive 25
+            public-key "aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890="
+        }
+        peer mobile-user {
+            allowed-ips 10.10.10.3/32
+            public-key "xYzAbCdEfGhIjKlMnOpQrStUvWx0987654321="
+        }
+        port 51820
+        private-key "pRiVaTeKeYgOeShErE=="
+    }
+    vti vti0 {
+        address 169.254.100.1/30
+        description "IPsec VTI tunnel"
+    }
+}
+vpn {
+    ipsec {
+        esp-group ESP-STRONG {
+            compression disable
+            lifetime 3600
+            mode tunnel
+            pfs dh-group14
+            proposal 1 {
+                encryption aes256
+                hash sha256
+            }
+        }
+        ike-group IKE-STRONG {
+            close-action none
+            dead-peer-detection {
+                action restart
+                interval 30
+                timeout 120
+            }
+            lifetime 28800
+            proposal 1 {
+                dh-group 14
+                encryption aes256
+                hash sha256
+            }
+        }
+        interface eth0
+        site-to-site {
+            peer 203.0.113.100 {
+                authentication {
+                    mode pre-shared-secret
+                    pre-shared-secret "MySuperSecretPSK123!"
+                }
+                connection-type initiate
+                ike-group IKE-STRONG
+                local-address 192.168.1.1
+                vti {
+                    bind vti0
+                    esp-group ESP-STRONG
+                }
+            }
+        }
+    }
+    l2tp {
+        remote-access {
+            authentication {
+                local-users {
+                    username vpnuser {
+                        password "VpnPassword123"
+                    }
+                }
+                mode local
+            }
+            client-ip-pool {
+                start 10.255.0.10
+                stop 10.255.0.50
+            }
+            description "L2TP/IPsec Remote Access"
+            dns-servers {
+                server-1 8.8.8.8
+                server-2 8.8.4.4
+            }
+            ipsec-settings {
+                authentication {
+                    mode pre-shared-secret
+                    pre-shared-secret "L2tpPresharedKey"
+                }
+                ike-lifetime 3600
+            }
+            outside-address 192.168.1.1
+        }
+    }
+}

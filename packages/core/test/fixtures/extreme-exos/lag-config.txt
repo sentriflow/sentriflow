@@ -1,0 +1,31 @@
+# Extreme Networks ExtremeXOS LAG Configuration
+# X670-G2 Switch with LACP
+
+configure snmp sysname "exos-lag-switch"
+
+# Create VLANs
+create vlan "Server" tag 100
+create vlan "Storage" tag 200
+create vlan "Backup" tag 300
+
+# LAG Configuration with LACP
+enable sharing 1:49 grouping 1:49-1:50 algorithm address-based L3_L4 lacp
+enable sharing 1:51 grouping 1:51-1:52 algorithm address-based L3_L4 lacp
+
+# Static LAG (no LACP)
+enable sharing 2:1 grouping 2:1-2:2 algorithm address-based L3
+
+# Add LAG to VLANs
+configure vlan Server add ports 1:49 tagged
+configure vlan Storage add ports 1:49 tagged
+configure vlan Backup add ports 1:51 tagged
+
+# LACP System Priority
+configure lacp system-priority 32768
+
+# LACP timeout
+configure sharing 1:49 lacp timeout short
+configure sharing 1:51 lacp timeout long
+
+# Spanning Tree for LAGs
+configure stpd s0 add vlan Default ports all

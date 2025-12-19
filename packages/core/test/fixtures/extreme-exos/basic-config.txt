@@ -1,0 +1,58 @@
+# Extreme Networks ExtremeXOS Basic Configuration
+# X460-G2 Switch
+
+configure snmp sysname "exos-switch-01"
+
+# VLAN Configuration
+create vlan "Management" tag 10
+create vlan "Data" tag 20
+create vlan "Voice" tag 30
+create vlan "Native" tag 100
+
+# Configure VLAN IP addresses
+configure vlan Management ipaddress 10.0.10.1/24
+configure vlan Data ipaddress 10.0.20.1/24
+configure vlan Voice ipaddress 10.0.30.1/24
+
+# Remove ports from Default VLAN
+configure vlan Default delete ports 1:1-1:48
+
+# Add ports to VLANs
+configure vlan Management add ports 1:1-1:4 untagged
+configure vlan Data add ports 1:5-1:24 untagged
+configure vlan Voice add ports 1:5-1:24 tagged
+configure vlan Native add ports 1:25-1:48 untagged
+
+# Enable VLANs
+enable vlan Management
+enable vlan Data
+enable vlan Voice
+enable vlan Native
+
+# Port Configuration
+configure ports 1:1-1:48 display-string "Access Port"
+enable ports 1:1-1:48
+
+# Jumbo Frames
+enable jumbo-frame ports 1:49-1:52
+configure ip-mtu 9000 vlan Data
+
+# SNTP Configuration
+configure sntp-client primary server 10.0.10.100 vr VR-Default
+configure sntp-client secondary server 10.0.10.101 vr VR-Default
+enable sntp-client
+
+# Syslog Configuration
+configure syslog add 10.0.10.200:514 vr VR-Default local0
+
+# SSH Configuration
+enable ssh2
+disable telnet
+
+# SNMP Configuration
+configure snmp community "public" read-only
+configure snmp community "private" read-write
+
+# STP Configuration
+configure stp default-encapsulation dot1d
+enable stpd s0

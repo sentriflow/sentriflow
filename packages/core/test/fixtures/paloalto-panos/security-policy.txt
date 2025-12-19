@@ -1,0 +1,104 @@
+rulebase {
+    security {
+        rules {
+            allow-web-traffic {
+                description "Allow web traffic from trust to untrust";
+                from trust;
+                to untrust;
+                source any;
+                destination any;
+                application web-browsing;
+                application ssl;
+                service application-default;
+                action allow;
+                log-end yes;
+                profile-setting {
+                    group best-practices;
+                }
+            }
+            allow-dns {
+                description "Allow DNS queries";
+                from trust;
+                to untrust;
+                source any;
+                destination dns-servers;
+                application dns;
+                service application-default;
+                action allow;
+                log-end yes;
+            }
+            block-high-risk {
+                description "Block high risk applications";
+                from any;
+                to any;
+                source any;
+                destination any;
+                application high-risk;
+                service any;
+                action deny;
+                log-end yes;
+            }
+            overly-permissive-rule {
+                from any;
+                to any;
+                source any;
+                destination any;
+                application any;
+                service any;
+                action allow;
+                log-end yes;
+            }
+            no-logging-rule {
+                description "Rule without logging";
+                from trust;
+                to dmz;
+                source 10.0.0.0/8;
+                destination dmz-servers;
+                application any;
+                service application-default;
+                action allow;
+            }
+            deny-all {
+                description "Default deny rule";
+                from any;
+                to any;
+                source any;
+                destination any;
+                application any;
+                service any;
+                action deny;
+                log-end yes;
+            }
+        }
+    }
+    nat {
+        rules {
+            outbound-nat {
+                description "Outbound NAT for internal networks";
+                from trust;
+                to untrust;
+                source 10.0.0.0/8;
+                destination any;
+                service any;
+                source-translation {
+                    dynamic-ip-and-port {
+                        interface-address {
+                            interface ethernet1/1;
+                        }
+                    }
+                }
+            }
+            inbound-web-nat {
+                from untrust;
+                to untrust;
+                source any;
+                destination 1.2.3.4;
+                service tcp-80;
+                destination-translation {
+                    translated-address 10.0.1.10;
+                    translated-port 80;
+                }
+            }
+        }
+    }
+}
