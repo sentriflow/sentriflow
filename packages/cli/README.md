@@ -18,70 +18,134 @@ bun add -g @sentriflow/cli
 
 ```bash
 # Validate a single configuration file
-sentriflow scan router.conf
+sentriflow router.conf
 
-# Validate multiple files
-sentriflow scan configs/*.conf
+# Validate with specific vendor
+sentriflow -v cisco-ios router.conf
 
-# Output results in SARIF format (for CI/CD integration)
-sentriflow scan router.conf --format sarif -o results.sarif
+# Scan a directory of configs
+sentriflow -D configs/
 
-# Auto-detect vendor from file content
-sentriflow scan unknown.conf --detect
+# Scan directory recursively
+sentriflow -D configs/ -R
+
+# Output results in SARIF format
+sentriflow router.conf -f sarif
+
+# List available vendors
+sentriflow --list-vendors
+
+# List active rules
+sentriflow --list-rules
 ```
 
 ## Usage
 
 ```
-Usage: sentriflow [options] [command]
+Usage: sentriflow [options] [file]
 
-Network configuration linter and validator
+SentriFlow Network Configuration Validator
 
-Options:
-  -V, --version              output the version number
-  -h, --help                 display help for command
-
-Commands:
-  scan [options] <files...>  Scan configuration files for issues
-  help [command]             display help for command
-```
-
-### Scan Command Options
-
-```
-Usage: sentriflow scan [options] <files...>
+Arguments:
+  file                          Path to the configuration file
 
 Options:
-  -v, --vendor <vendor>     Specify vendor (cisco-ios, juniper-junos, etc.)
-  -f, --format <format>     Output format: text, json, sarif (default: "text")
-  -o, --output <file>       Write output to file
-  -s, --severity <level>    Minimum severity: info, warning, error (default: "warning")
-  --detect                  Auto-detect vendor from file content
-  -h, --help                display help for command
+  -V, --version                 output the version number
+  -h, --help                    display help for command
 ```
+
+### Output Options
+
+| Option | Description |
+|--------|-------------|
+| `-f, --format <format>` | Output format: `json` (default), `sarif` |
+| `-q, --quiet` | Only output failures (suppress passed results) |
+| `--ast` | Output the parsed AST instead of rule results |
+| `--relative-paths` | Use relative paths in SARIF output |
+
+### Vendor Options
+
+| Option | Description |
+|--------|-------------|
+| `-v, --vendor <vendor>` | Vendor type (default: `auto`) |
+| `--list-vendors` | List all supported vendors and exit |
+
+Supported vendors: `cisco-ios`, `juniper-junos`, `palo-alto`, `fortinet`, `arista-eos`, `mikrotik`, and more.
+
+### Rule Configuration
+
+| Option | Description |
+|--------|-------------|
+| `-c, --config <path>` | Path to config file (default: auto-detect `.sentriflowrc`) |
+| `--no-config` | Ignore config file |
+| `-d, --disable <ids>` | Comma-separated rule IDs to disable |
+| `--list-rules` | List all active rules and exit |
+| `-p, --rule-pack <path>` | Rule pack file to load |
+| `--json-rules <path...>` | Path(s) to JSON rules file(s) |
+| `-r, --rules <path>` | Additional rules file (legacy) |
+
+### Encrypted Rule Packs
+
+| Option | Description |
+|--------|-------------|
+| `--encrypted-pack <path...>` | Path(s) to encrypted rule pack(s) (.grpx) |
+| `--license-key <key>` | License key (or set `SENTRIFLOW_LICENSE_KEY` env var) |
+| `--strict-packs` | Fail if encrypted pack cannot be loaded |
+
+### Directory Scanning
+
+| Option | Description |
+|--------|-------------|
+| `-D, --directory <path>` | Scan all config files in a directory |
+| `-R, --recursive` | Scan directories recursively |
+| `--glob <pattern>` | Glob pattern for file matching (e.g., `"*.cfg"`) |
+| `--extensions <exts>` | File extensions to include (comma-separated) |
+| `--exclude <patterns>` | Exclude patterns (comma-separated glob patterns) |
+| `--progress` | Show progress during directory scanning |
+
+### Security Options
+
+| Option | Description |
+|--------|-------------|
+| `--allow-external` | Allow reading files outside the current directory |
 
 ## Output Formats
 
-### Text (default)
-
-```
-router.conf:12:5 error SEC-001 Telnet is enabled - use SSH instead
-router.conf:45:1 warning NET-003 No description on interface GigabitEthernet0/1
-```
-
-### JSON
+### JSON (default)
 
 ```json
 {
-  "files": 1,
-  "issues": [
+  "vendor": {
+    "id": "cisco-ios",
+    "name": "Cisco IOS"
+  },
+  "results": [
     {
-      "file": "router.conf",
-      "line": 12,
-      "column": 5,
-      "severity": "error",
       "ruleId": "SEC-001",
-      "message": "Telnet is enabled - use SSH instead"
+      "passed": false,
+      "message": "Telnet is enabled - use SSH instead",
+      "line": 12,
+      "column": 1
+    }
+  ]
+}
+```
+
+### JSON (directory mode)
+
+```json
+{
+  "summary": {
+    "filesScanned": 3,
+    "totalResults": 15,
+    "failures": 5,
+    "passed": 10
+  },
+  "files": [
+    {
+      "file": "/path/to/router.conf",
+      "vendor": { "id": "cisco-ios", "name": "Cisco IOS" },
+      "results": [...]
     }
   ]
 }
@@ -91,6 +155,10 @@ router.conf:45:1 warning NET-003 No description on interface GigabitEthernet0/1
 
 Produces SARIF 2.1.0 compliant output for integration with GitHub Code Scanning, VS Code, and other tools.
 
+```bash
+sentriflow router.conf -f sarif > results.sarif
+```
+
 ## CI/CD Integration
 
 ### GitHub Actions
@@ -98,12 +166,26 @@ Produces SARIF 2.1.0 compliant output for integration with GitHub Code Scanning,
 ```yaml
 - name: Lint network configs
   run: |
-    npx @sentriflow/cli scan configs/*.conf --format sarif -o results.sarif
+    npx @sentriflow/cli -D configs/ -R -f sarif > results.sarif
 
 - name: Upload SARIF
   uses: github/codeql-action/upload-sarif@v2
   with:
     sarif_file: results.sarif
+```
+
+## Configuration File
+
+SentriFlow automatically looks for `.sentriflowrc` or `.sentriflowrc.json` in the config file directory and its parents.
+
+```json
+{
+  "extends": "@sentriflow/rules-default",
+  "rules": {
+    "SEC-001": "error",
+    "NET-003": "off"
+  }
+}
 ```
 
 ## Related Packages
