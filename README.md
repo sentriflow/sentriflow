@@ -14,7 +14,7 @@ SentriFlow is an open-source network configuration linter that validates device 
 Core engine providing AST-based parsing and validation. Converts configurations into a vendor-agnostic Abstract Syntax Tree and runs rules against it. Includes vendor-specific helper functions for writing validation rules (utilities for extracting interfaces, ACLs, VTY lines, and common configuration patterns). Full TypeScript support.
 
 ### [@sentriflow/cli](./packages/cli)
-Command-line interface for scanning configuration files. Supports text, JSON, and SARIF output formats. Integrates with GitHub Actions and CI/CD pipelines.
+Command-line interface for scanning configuration files. Supports JSON and SARIF output formats. Integrates with GitHub Actions and CI/CD pipelines.
 
 ### [@sentriflow/rules-default](./packages/rules-default)
 Starter set of example rules covering security (SEC-XXX), network (NET-XXX), and compliance (CMP-XXX) patterns. Use as a reference for writing your own rules.
@@ -59,13 +59,16 @@ bun add -g @sentriflow/cli
 
 ```bash
 # Scan a configuration file
-sentriflow scan router.conf
+sentriflow router.conf
 
 # Scan with specific vendor
-sentriflow scan --vendor cisco-ios switch.conf
+sentriflow -v cisco-ios switch.conf
 
-# Output as JSON
-sentriflow scan --format json firewall.conf
+# Scan a directory recursively
+sentriflow -D configs/ -R
+
+# Output as SARIF (for CI/CD)
+sentriflow router.conf -f sarif
 ```
 
 ### VS Code Extension
