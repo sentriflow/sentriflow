@@ -8,7 +8,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sentriflow/sentriflow.git",
+    "url": "git+https://github.com/sentriflow/sentriflow.git",
     "directory": "packages/cli"
   },
   "homepage": "https://github.com/sentriflow/sentriflow#readme",
@@ -46,7 +46,7 @@
     "esbuild": "^0.27.0"
   },
   "bin": {
-    "sentriflow": "./dist/index.js"
+    "sentriflow": "dist/index.js"
   },
   "engines": {
     "node": ">=18.0.0"
