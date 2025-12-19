@@ -1,0 +1,38 @@
+config system global
+    set hostname "FGT-FW-01"
+    set timezone "America/New_York"
+    set admintimeout 15
+    set admin-lockout-threshold 3
+    set admin-lockout-duration 300
+    set strong-crypto enable
+    set pre-login-banner enable
+    set gui-theme jade
+end
+
+config system dns
+    set primary 8.8.8.8
+    set secondary 8.8.4.4
+    set protocol cleartext
+end
+
+config system ntp
+    set ntpsync enable
+    set type fortiguard
+    set server-mode disable
+end
+
+config system admin
+    edit "admin"
+        set accprofile "super_admin"
+        set vdom "root"
+        set password ENC SH2SECRET
+        set trusthost1 192.168.1.0 255.255.255.0
+        set trusthost2 10.0.0.0 255.0.0.0
+    next
+    edit "readonly"
+        set accprofile "prof_admin"
+        set vdom "root"
+        set password ENC SH2SECRET2
+        set trusthost1 192.168.1.0 255.255.255.0
+    next
+end

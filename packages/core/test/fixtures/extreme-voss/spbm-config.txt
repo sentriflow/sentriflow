@@ -1,0 +1,55 @@
+!
+! Extreme Networks VOSS SPBM/Fabric Connect Configuration
+! VSP 7200 Series
+!
+snmp-server name "vsp-spbm-01"
+!
+! SPBM B-VIDs (Backbone VLANs)
+vlan create 4051 type spbm-bvlan
+vlan create 4052 type spbm-bvlan
+!
+! Customer VLANs with I-SIDs
+vlan create 100 type port-mstprstp 0
+vlan create 200 type port-mstprstp 0
+vlan create 300 type port-mstprstp 0
+!
+! I-SID Configuration (Service Instance IDs)
+vlan i-sid 100 10100
+vlan i-sid 200 10200
+vlan i-sid 300 10300
+!
+! SPBM Instance Configuration
+spbm 1 b-vid 4051-4052 primary 4051
+spbm 1 nick-name 1.00.01
+spbm 1 sys-id 00:bb:00:00:00:01
+!
+! ISIS Router Configuration for SPBM
+router isis
+   spbm 1
+   spbm 1 b-vid 4051-4052 primary 4051
+   spbm 1 nick-name 1.00.01
+   system-id 0000.0000.0001
+   manual-area 49.0001
+   no shutdown
+exit
+!
+! ISIS Interface Configuration
+interface GigabitEthernet 1/49
+   isis
+   isis spbm 1
+   isis enable
+   no shutdown
+exit
+!
+interface GigabitEthernet 1/50
+   isis
+   isis spbm 1
+   isis enable
+   no shutdown
+exit
+!
+! CFM Configuration (Connectivity Fault Management)
+cfm spbm mip all-bvids
+cfm spbm level 4
+cfm enable
+!

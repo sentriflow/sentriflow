@@ -1,0 +1,31 @@
+# Test files
+test/
+*.test.ts
+*.spec.ts
+fixtures/
+
+# Build artifacts
+*.tsbuildinfo
+tsconfig.json
+
+# Development
+.vscode/
+.idea/
+node_modules/
+
+# Lock files
+bun.lock
+package-lock.json
+yarn.lock
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Claude Code
+CLAUDE.md
+.claude/

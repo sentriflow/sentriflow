@@ -1,0 +1,49 @@
+!
+! Extreme Networks VOSS DVR Configuration
+! Distributed Virtual Routing
+!
+snmp-server name "vsp-dvr-leaf-01"
+!
+! DVR Configuration
+dvr leaf
+dvr domain-id 1
+!
+! IP Shortcuts Configuration
+ip-shortcuts enable
+!
+! VLAN Configuration for DVR
+vlan create 100 type port-mstprstp 0
+vlan create 200 type port-mstprstp 0
+!
+! I-SID Configuration for DVR VLANs
+vlan i-sid 100 10100
+vlan i-sid 200 10200
+!
+! Interface VLAN for DVR Gateway
+interface Vlan 100
+   ip address 10.100.0.1 255.255.255.0
+   ip dvr-host-routing
+exit
+!
+interface Vlan 200
+   ip address 10.200.0.1 255.255.255.0
+   ip dvr-host-routing
+exit
+!
+! DVR Gateway MAC
+dvr gateway-mac 00:00:5e:00:01:01
+!
+! ISIS for DVR Backbone
+router isis
+   spbm 1
+   dvr
+   no shutdown
+exit
+!
+! Routing Configuration
+router bgp 65000
+   no shutdown
+exit
+!
+ip route 0.0.0.0/0 10.0.0.1
+!

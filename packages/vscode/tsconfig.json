@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@sentriflow/core": ["../core/src/index.ts"],
+      "@sentriflow/rules-default": ["../rules-default/src/index.ts"]
+    },
+    "types": ["node", "vscode"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,195 @@
+{
+  "name": "sentriflow-vscode",
+  "displayName": "SentriFlow Configuration Validator",
+  "description": "Real-time network configuration validation for Cisco IOS, Juniper, and more.",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "publisher": "sentriflow",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./dist/extension.js",
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "cisco",
+    "network",
+    "configuration",
+    "linter",
+    "validator",
+    "ios",
+    "juniper"
+  ],
+  "activationEvents": [
+    "onLanguage:network-config",
+    "onLanguage:plaintext"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "network-config",
+        "aliases": [
+          "Network Config",
+          "Cisco IOS",
+          "Juniper"
+        ],
+        "extensions": [
+          ".conf",
+          ".cfg",
+          ".ios",
+          ".junos"
+        ],
+        "filenames": [
+          "startup-config",
+          "running-config"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "sentriflow.scan",
+        "title": "Scan Configuration",
+        "category": "SentriFlow",
+        "icon": "$(search)"
+      },
+      {
+        "command": "sentriflow.scanSelection",
+        "title": "Scan Selected Text",
+        "category": "SentriFlow",
+        "icon": "$(selection)"
+      },
+      {
+        "command": "sentriflow.setLanguage",
+        "title": "Set as Network Config",
+        "category": "SentriFlow"
+      },
+      {
+        "command": "sentriflow.toggleDebug",
+        "title": "Toggle Debug Logging",
+        "category": "SentriFlow"
+      },
+      {
+        "command": "sentriflow.selectVendor",
+        "title": "Select Vendor",
+        "category": "SentriFlow",
+        "icon": "$(server)"
+      },
+      {
+        "command": "sentriflow.showRulePacks",
+        "title": "Show Rule Packs",
+        "category": "SentriFlow",
+        "icon": "$(package)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "sentriflow.scan",
+          "group": "1_sentriflow@1",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "sentriflow.scanSelection",
+          "group": "1_sentriflow@2",
+          "when": "editorHasSelection"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "sentriflow.scan",
+          "group": "navigation",
+          "when": "resourceExtname =~ /^\\.(conf|config|cfg|ios|junos|txt)$/"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "sentriflow.scanSelection",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SentriFlow",
+      "properties": {
+        "sentriflow.defaultVendor": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "cisco-ios",
+            "cisco-nxos",
+            "juniper-junos",
+            "aruba-aoscx",
+            "aruba-aosswitch",
+            "aruba-wlc"
+          ],
+          "enumDescriptions": [
+            "Auto-detect vendor from configuration content",
+            "Cisco IOS/IOS-XE (indentation-based)",
+            "Cisco NX-OS (indentation-based, feature commands)",
+            "Juniper JunOS (brace-based hierarchy)",
+            "Aruba AOS-CX (modern campus switch)",
+            "Aruba AOS-Switch/ProVision (legacy switch)",
+            "Aruba Wireless LAN Controller"
+          ],
+          "default": "auto",
+          "description": "Default vendor for configuration parsing. Use 'auto' to detect automatically, or select a specific vendor."
+        },
+        "sentriflow.showVendorInStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show detected vendor name in the status bar"
+        },
+        "sentriflow.enableDefaultRules": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable built-in default rules. Set to false to use only external rule packs."
+        },
+        "sentriflow.blockedPacks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of rule pack names to block from loading (e.g., [\"sf-essentials\"])"
+        },
+        "sentriflow.packVendorOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "Per-pack vendor settings. Use 'SENTRIFLOW: Show Rule Packs' command to manage.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "disabledVendors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentriflow/sentriflow.git"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "build:dev": "node build.mjs --dev",
+    "watch": "node build.mjs --watch --dev",
+    "package": "bun run build && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@sentriflow/core": "workspace:*",
+    "@sentriflow/rules-default": "workspace:*",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.0"
+  }
+}

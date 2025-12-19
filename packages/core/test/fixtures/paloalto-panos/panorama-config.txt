@@ -1,0 +1,131 @@
+# Panorama device group and template configuration
+
+device-group {
+    enterprise-firewalls {
+        description "Production enterprise firewalls";
+        devices {
+            012345678901234;
+            012345678901235;
+        }
+        pre-rulebase {
+            security {
+                rules {
+                    global-block-malware {
+                        description "Block known malware globally";
+                        from any;
+                        to any;
+                        source any;
+                        destination any;
+                        application apt1;
+                        application apt-backdoor;
+                        action deny;
+                        log-end yes;
+                    }
+                }
+            }
+        }
+        post-rulebase {
+            security {
+                rules {
+                    default-deny {
+                        description "Global default deny";
+                        from any;
+                        to any;
+                        source any;
+                        destination any;
+                        application any;
+                        service any;
+                        action deny;
+                        log-end yes;
+                    }
+                }
+            }
+        }
+        address {
+            corporate-network {
+                ip-netmask 10.0.0.0/8;
+            }
+            cloud-network {
+                ip-netmask 172.16.0.0/12;
+            }
+        }
+    }
+    branch-firewalls {
+        description "Branch office firewalls";
+    }
+}
+
+template {
+    enterprise-template {
+        description "Standard enterprise firewall template";
+        settings {
+            default-vsys vsys1;
+        }
+        config {
+            deviceconfig {
+                system {
+                    timezone UTC;
+                    dns-setting {
+                        servers {
+                            primary 10.0.0.53;
+                        }
+                    }
+                    ntp-servers {
+                        primary-ntp-server {
+                            ntp-server-address 10.0.0.123;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+template-stack {
+    enterprise-stack {
+        templates enterprise-template;
+        devices {
+            012345678901234;
+            012345678901235;
+        }
+    }
+}
+
+shared {
+    address {
+        rfc1918-10 {
+            ip-netmask 10.0.0.0/8;
+            description "RFC1918 Class A private";
+        }
+        rfc1918-172 {
+            ip-netmask 172.16.0.0/12;
+            description "RFC1918 Class B private";
+        }
+        rfc1918-192 {
+            ip-netmask 192.168.0.0/16;
+            description "RFC1918 Class C private";
+        }
+    }
+    address-group {
+        all-rfc1918 {
+            static {
+                rfc1918-10;
+                rfc1918-172;
+                rfc1918-192;
+            }
+            description "All RFC1918 private address space";
+        }
+    }
+    service {
+        custom-rdp {
+            protocol tcp;
+            port 3389;
+            description "Remote Desktop Protocol";
+        }
+        custom-ssh {
+            protocol tcp;
+            port 22;
+            description "Secure Shell";
+        }
+    }
+}

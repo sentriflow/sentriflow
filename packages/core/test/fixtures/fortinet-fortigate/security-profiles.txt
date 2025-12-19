@@ -1,0 +1,131 @@
+config antivirus profile
+    edit "default"
+        set scan-mode default
+        config http
+            set av-scan block
+        end
+        config ftp
+            set av-scan block
+        end
+        config imap
+            set av-scan block
+        end
+        config pop3
+            set av-scan block
+        end
+        config smtp
+            set av-scan block
+        end
+    next
+    edit "strict"
+        set scan-mode deep
+        config http
+            set av-scan block
+            set outbreak-prevention block
+        end
+        config ftp
+            set av-scan block
+        end
+    next
+end
+
+config webfilter profile
+    edit "default"
+        set options block-invalid-url
+        config ftgd-wf
+            set options error-allow
+            config filters
+                edit 1
+                    set category 2
+                    set action block
+                next
+                edit 2
+                    set category 7
+                    set action block
+                next
+            end
+        end
+    next
+    edit "strict"
+        set options block-invalid-url log-all
+        config ftgd-wf
+            set options error-allow
+            config filters
+                edit 1
+                    set category 2
+                    set action block
+                next
+                edit 2
+                    set category 7
+                    set action block
+                next
+                edit 3
+                    set category 26
+                    set action warning
+                next
+            end
+        end
+    next
+end
+
+config ips sensor
+    edit "default"
+        set comment "Default IPS sensor"
+        config entries
+            edit 1
+                set severity high critical
+                set status enable
+                set action block
+            next
+        end
+    next
+    edit "high-security"
+        set comment "High security IPS sensor"
+        config entries
+            edit 1
+                set severity medium high critical
+                set status enable
+                set action block
+            next
+            edit 2
+                set severity low
+                set status enable
+                set action pass
+                set log enable
+            next
+        end
+    next
+end
+
+config application list
+    edit "default"
+        set comment "Default application control"
+        config entries
+            edit 1
+                set category 6
+                set action block
+            next
+            edit 2
+                set category 19
+                set action block
+            next
+        end
+    next
+    edit "productivity"
+        set comment "Block social media and streaming"
+        config entries
+            edit 1
+                set category 5
+                set action block
+            next
+            edit 2
+                set category 25
+                set action block
+            next
+            edit 3
+                set category 18
+                set action block
+            next
+        end
+    next
+end

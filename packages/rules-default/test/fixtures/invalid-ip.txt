@@ -1,0 +1,11 @@
+interface GigabitEthernet0/1
+ description Bad Multicast IP
+ ip address 224.1.1.1 255.255.255.0
+
+interface GigabitEthernet0/2
+ description Bad Broadcast IP
+ ip address 255.255.255.255 255.255.255.255
+
+interface GigabitEthernet0/3
+ description Good IP
+ ip address 192.168.1.1 255.255.255.0

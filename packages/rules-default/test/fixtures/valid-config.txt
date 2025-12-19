@@ -1,0 +1,15 @@
+hostname CoreRouter
+interface GigabitEthernet0/0
+ description Uplink
+ ip address 192.0.2.1 255.255.255.0
+ no shutdown
+router bgp 65000
+ bgp router-id 1.1.1.1
+ neighbor 10.0.0.1 remote-as 65001
+
+interface GigabitEthernet0/0/0
+ switchport mode access
+ description DOWNLINK:RT01-02
+ switchport access vlan 10
+
+

@@ -1,0 +1,58 @@
+# MikroTik RouterOS Security Configuration
+# Hardening and service management
+
+/ip service
+set telnet disabled=yes
+set ftp disabled=yes
+set www disabled=yes
+set www-ssl disabled=yes
+set api disabled=yes
+set api-ssl disabled=yes
+set ssh port=2222 address=192.168.1.0/24
+set winbox port=8291 address=192.168.1.0/24
+
+/user group
+add name=monitoring policy=read,winbox,api,rest-api
+add name=operators policy=local,telnet,ssh,read,write,test,winbox,password,web,sniff,api,rest-api
+
+/user
+add name=admin disabled=yes
+add name=netadmin group=full password=complexpassword!@#123
+add name=monitor group=monitoring password=viewonly456
+add name=netops group=operators password=operatorpwd789
+
+/user ssh-keys
+# Import SSH public keys for key-based authentication
+
+/ip ssh
+set strong-crypto=yes forwarding-enabled=no
+
+/tool bandwidth-server
+set enabled=no
+
+/tool mac-server
+set allowed-interface-list=LAN
+
+/tool mac-server mac-winbox
+set allowed-interface-list=LAN
+
+/tool mac-server ping
+set enabled=no
+
+/tool romon
+set enabled=no
+
+/system logging
+add topics=info action=memory
+add topics=error action=memory
+add topics=warning action=memory
+add topics=critical action=disk
+
+/system logging action
+set disk disk-file-name=log disk-file-count=10 disk-lines-per-file=1000
+
+/snmp
+set enabled=yes contact="netops@company.com" location="DC1-Rack5" trap-community=secretcommunity
+
+/snmp community
+add name=readonly addresses=192.168.1.0/24 security=private

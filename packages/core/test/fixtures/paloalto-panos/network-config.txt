@@ -1,0 +1,122 @@
+network {
+    interface {
+        ethernet {
+            ethernet1/1 {
+                layer3 {
+                    ip {
+                        1.2.3.4/30;
+                    }
+                    interface-management-profile outside-mgmt;
+                }
+                comment "WAN uplink to ISP";
+            }
+            ethernet1/2 {
+                layer3 {
+                    ip {
+                        10.0.1.1/24;
+                    }
+                    interface-management-profile inside-mgmt;
+                }
+                comment "Internal LAN segment";
+            }
+            ethernet1/3 {
+                layer3 {
+                    ip {
+                        10.0.2.1/24;
+                    }
+                }
+                comment "DMZ segment";
+            }
+            ethernet1/4 {
+                ha;
+            }
+        }
+        loopback {
+            loopback.1 {
+                ip {
+                    10.255.255.1/32;
+                }
+                comment "Router-ID and management loopback";
+            }
+        }
+        tunnel {
+            tunnel.1 {
+                ip {
+                    172.16.0.1/30;
+                }
+                comment "VPN tunnel to branch office";
+            }
+        }
+    }
+    virtual-router {
+        default {
+            routing-table {
+                ip {
+                    static-route {
+                        default-route {
+                            destination 0.0.0.0/0;
+                            nexthop {
+                                ip-address 1.2.3.5;
+                            }
+                        }
+                        internal-route {
+                            destination 192.168.0.0/16;
+                            nexthop {
+                                ip-address 10.0.1.254;
+                            }
+                        }
+                    }
+                }
+            }
+            protocol {
+                bgp {
+                    enable yes;
+                    router-id 10.255.255.1;
+                    local-as 65001;
+                    peer-group {
+                        ISP {
+                            peer {
+                                isp-peer {
+                                    peer-address 1.2.3.5;
+                                    remote-as 12345;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            interface ethernet1/1;
+            interface ethernet1/2;
+            interface ethernet1/3;
+            interface loopback.1;
+            interface tunnel.1;
+        }
+    }
+}
+
+zone {
+    trust {
+        network {
+            layer3 ethernet1/2;
+        }
+        zone-protection-profile strict-protection;
+        enable-user-identification yes;
+    }
+    untrust {
+        network {
+            layer3 ethernet1/1;
+        }
+        zone-protection-profile external-protection;
+    }
+    dmz {
+        network {
+            layer3 ethernet1/3;
+        }
+    }
+    vpn {
+        network {
+            layer3 tunnel.1;
+        }
+        zone-protection-profile vpn-protection;
+    }
+}

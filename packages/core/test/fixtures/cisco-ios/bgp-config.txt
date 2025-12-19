@@ -1,0 +1,29 @@
+!
+! Cisco IOS BGP Configuration
+!
+router bgp 65000
+ bgp router-id 192.168.255.1
+ bgp log-neighbor-changes
+ neighbor 10.0.0.2 remote-as 65001
+ neighbor 10.0.0.2 description ISP Connection
+ neighbor 192.168.255.2 remote-as 65000
+ neighbor 192.168.255.2 description iBGP Peer
+ neighbor 192.168.255.2 update-source Loopback0
+ !
+ address-family ipv4 unicast
+  neighbor 10.0.0.2 activate
+  neighbor 10.0.0.2 soft-reconfiguration inbound
+  neighbor 192.168.255.2 activate
+  neighbor 192.168.255.2 next-hop-self
+ exit-address-family
+!
+ip prefix-list BOGONS seq 10 permit 10.0.0.0/8 le 32
+ip prefix-list BOGONS seq 20 permit 172.16.0.0/12 le 32
+ip prefix-list BOGONS seq 30 permit 192.168.0.0/16 le 32
+!
+route-map IMPORT-ISP permit 10
+ match ip address prefix-list BOGONS
+ set local-preference 50
+!
+route-map IMPORT-ISP permit 20
+!

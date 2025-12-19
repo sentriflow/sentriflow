@@ -1,0 +1,73 @@
+config firewall policy
+    edit 1
+        set name "Allow-Internet-Access"
+        set srcintf "lan"
+        set dstintf "wan1"
+        set srcaddr "LAN_SUBNET"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "HTTP" "HTTPS" "DNS"
+        set logtraffic all
+        set av-profile "default"
+        set webfilter-profile "default"
+        set ips-sensor "default"
+        set application-list "default"
+        set ssl-ssh-profile "certificate-inspection"
+        set nat enable
+        set comments "Allow internal users to access internet"
+    next
+    edit 2
+        set name "Block-All-Other"
+        set srcintf "any"
+        set dstintf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set schedule "always"
+        set service "ALL"
+        set logtraffic all
+        set comments "Default deny rule"
+    next
+    edit 3
+        set srcintf "dmz"
+        set dstintf "wan1"
+        set srcaddr "DMZ_SERVERS"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "HTTP" "HTTPS"
+        set logtraffic utm
+        set av-profile "strict"
+        set nat enable
+    next
+end
+
+config firewall address
+    edit "LAN_SUBNET"
+        set type ipmask
+        set subnet 192.168.1.0 255.255.255.0
+        set comment "Internal LAN subnet"
+    next
+    edit "DMZ_SERVERS"
+        set type ipmask
+        set subnet 10.0.1.0 255.255.255.0
+        set comment "DMZ server subnet"
+    next
+    edit "WEB_SERVER"
+        set type ipmask
+        set subnet 10.0.1.10 255.255.255.255
+        set comment "Production web server"
+    next
+end
+
+config firewall service custom
+    edit "CUSTOM_8080"
+        set tcp-portrange 8080
+        set comment "Custom web application port"
+    next
+    edit "CUSTOM_DB"
+        set tcp-portrange 3306
+        set comment "MySQL database port"
+    next
+end

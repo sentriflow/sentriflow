@@ -1,0 +1,64 @@
+# Nokia 7750 SR OS MPLS Configuration
+
+configure
+    router "Base"
+        mpls
+            admin-state enable
+            interface "to-peer-1"
+                admin-state enable
+            exit
+            interface "to-peer-2"
+                admin-state enable
+            exit
+            path "to-pe2"
+                admin-state enable
+                hop 1 192.168.1.2 strict
+            exit
+            lsp "to-PE-Router-2"
+                admin-state enable
+                to 10.10.10.101
+                path-computation-method local-cspf
+                primary "to-pe2"
+                exit
+            exit
+        exit
+        rsvp
+            admin-state enable
+            interface "to-peer-1"
+                admin-state enable
+            exit
+            interface "to-peer-2"
+                admin-state enable
+            exit
+        exit
+        ldp
+            admin-state enable
+            interface-parameters
+                interface "to-peer-1"
+                exit
+                interface "to-peer-2"
+                exit
+            exit
+            targeted-session
+                peer 10.10.10.101
+                exit
+            exit
+        exit
+    exit
+    port 1/1/1
+        admin-state enable
+        description "MPLS Core Link 1"
+        ethernet
+            mode network
+            mtu 9212
+        exit
+    exit
+    port 1/1/2
+        admin-state enable
+        description "MPLS Core Link 2"
+        ethernet
+            mode network
+            mtu 9212
+        exit
+    exit
+exit

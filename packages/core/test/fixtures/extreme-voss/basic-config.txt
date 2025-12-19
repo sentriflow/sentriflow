@@ -1,0 +1,56 @@
+!
+! Extreme Networks VOSS Basic Configuration
+! VSP 4450GTX-HT-PWR+
+!
+snmp-server name "vsp-switch-01"
+!
+! VLAN Configuration
+vlan create 10 type port-mstprstp 0
+vlan create 20 type port-mstprstp 0
+vlan create 30 type port-mstprstp 0
+vlan create 100 type port-mstprstp 0
+!
+! VLAN Members
+vlan members 10 1/1-1/12 portmember
+vlan members 20 1/13-1/24 portmember
+vlan members 30 1/25-1/36 portmember
+vlan members 100 1/37-1/48 portmember
+!
+! Interface Configuration
+interface GigabitEthernet 1/1
+   no shutdown
+   default-vlan-id 10
+exit
+!
+interface GigabitEthernet 1/13
+   no shutdown
+   default-vlan-id 20
+exit
+!
+interface GigabitEthernet 1/25
+   no shutdown
+   default-vlan-id 30
+exit
+!
+! Management Interface
+interface mgmtEthernet mgmt
+   ip address 10.0.10.1 255.255.255.0
+exit
+!
+! NTP Configuration
+ntp server 10.0.10.100
+ntp server 10.0.10.101
+!
+! Logging Configuration
+logging host 10.0.10.200
+logging host 10.0.10.201
+!
+! SSH Configuration
+ssh
+   no shutdown
+exit
+!
+! SNMP Configuration
+snmp-server community "public" ro
+snmp-server community "private" rw
+!

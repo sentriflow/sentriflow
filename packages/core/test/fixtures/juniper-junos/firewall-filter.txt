@@ -1,0 +1,52 @@
+firewall {
+    family inet {
+        filter PROTECT-RE {
+            term ALLOW-SSH {
+                from {
+                    source-address {
+                        10.0.0.0/8;
+                    }
+                    protocol tcp;
+                    destination-port ssh;
+                }
+                then accept;
+            }
+            term ALLOW-ICMP {
+                from {
+                    protocol icmp;
+                    icmp-type [ echo-request echo-reply ];
+                }
+                then accept;
+            }
+            term ALLOW-BGP {
+                from {
+                    source-address {
+                        192.168.255.0/24;
+                    }
+                    protocol tcp;
+                    destination-port bgp;
+                }
+                then accept;
+            }
+            term ALLOW-OSPF {
+                from {
+                    protocol ospf;
+                }
+                then accept;
+            }
+            term COUNT-AND-DISCARD {
+                then {
+                    count dropped-packets;
+                    discard;
+                }
+            }
+        }
+    }
+    policer 1Mbps {
+        if-exceeding {
+            bandwidth-limit 1m;
+            burst-size-limit 15k;
+        }
+        then discard;
+    }
+}

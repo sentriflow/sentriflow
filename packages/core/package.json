@@ -1,0 +1,60 @@
+{
+  "name": "@sentriflow/core",
+  "version": "0.1.0",
+  "description": "SentriFlow core engine for network configuration validation",
+  "license": "Apache-2.0",
+  "module": "src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./helpers": "./src/helpers/index.ts",
+    "./helpers/common": "./src/helpers/common/index.ts",
+    "./helpers/arista": "./src/helpers/arista/index.ts",
+    "./helpers/aruba": "./src/helpers/aruba/index.ts",
+    "./helpers/cisco": "./src/helpers/cisco/index.ts",
+    "./helpers/cumulus": "./src/helpers/cumulus/index.ts",
+    "./helpers/extreme": "./src/helpers/extreme/index.ts",
+    "./helpers/fortinet": "./src/helpers/fortinet/index.ts",
+    "./helpers/huawei": "./src/helpers/huawei/index.ts",
+    "./helpers/juniper": "./src/helpers/juniper/index.ts",
+    "./helpers/mikrotik": "./src/helpers/mikrotik/index.ts",
+    "./helpers/nokia": "./src/helpers/nokia/index.ts",
+    "./helpers/paloalto": "./src/helpers/paloalto/index.ts",
+    "./helpers/vyos": "./src/helpers/vyos/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentriflow/sentriflow.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/sentriflow/sentriflow#readme",
+  "bugs": {
+    "url": "https://github.com/sentriflow/sentriflow/issues"
+  },
+  "keywords": [
+    "network",
+    "configuration",
+    "validation",
+    "security",
+    "cisco",
+    "juniper",
+    "arista",
+    "firewall",
+    "linter",
+    "helpers"
+  ],
+  "files": [
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

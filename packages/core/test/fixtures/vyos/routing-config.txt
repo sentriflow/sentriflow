@@ -1,0 +1,119 @@
+/* VyOS Routing Configuration */
+protocols {
+    bgp {
+        address-family {
+            ipv4-unicast {
+                network 10.0.0.0/24 {
+                }
+                redistribute {
+                    connected {
+                    }
+                    static {
+                    }
+                }
+            }
+        }
+        neighbor 192.168.1.2 {
+            address-family {
+                ipv4-unicast {
+                    soft-reconfiguration {
+                        inbound
+                    }
+                }
+            }
+            description "ISP Peer"
+            remote-as 65001
+        }
+        neighbor 10.0.0.2 {
+            address-family {
+                ipv4-unicast {
+                    soft-reconfiguration {
+                        inbound
+                    }
+                }
+            }
+            description "iBGP Peer"
+            remote-as 65000
+            update-source 10.0.0.1
+        }
+        parameters {
+            router-id 10.0.0.1
+        }
+        system-as 65000
+    }
+    ospf {
+        area 0 {
+            network 10.0.0.0/24
+            network 192.168.1.0/24
+        }
+        interface eth1 {
+            authentication {
+                md5 {
+                    key-id 1 {
+                        md5-key "OspfSecret123"
+                    }
+                }
+            }
+            cost 10
+            dead-interval 40
+            hello-interval 10
+            priority 100
+            retransmit-interval 5
+            transmit-delay 1
+        }
+        parameters {
+            router-id 10.0.0.1
+        }
+        passive-interface eth0
+        redistribute {
+            bgp {
+            }
+            connected {
+            }
+        }
+    }
+    static {
+        route 0.0.0.0/0 {
+            next-hop 192.168.1.254 {
+                distance 1
+            }
+        }
+        route 10.100.0.0/16 {
+            next-hop 10.0.0.254 {
+            }
+        }
+        route 172.16.0.0/12 {
+            blackhole {
+                distance 254
+            }
+        }
+    }
+}
+policy {
+    prefix-list EXPORT-PREFIXES {
+        rule 10 {
+            action permit
+            prefix 10.0.0.0/24
+        }
+        rule 20 {
+            action deny
+            prefix 0.0.0.0/0
+            le 32
+        }
+    }
+    route-map EXPORT-MAP {
+        rule 10 {
+            action permit
+            match {
+                ip {
+                    address {
+                        prefix-list EXPORT-PREFIXES
+                    }
+                }
+            }
+        }
+        rule 100 {
+            action deny
+        }
+    }
+}

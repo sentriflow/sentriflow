@@ -1,0 +1,54 @@
+{
+  "name": "@sentriflow/cli",
+  "version": "0.1.0",
+  "description": "SentriFlow CLI - Network configuration linter and validator",
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentriflow/sentriflow.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/sentriflow/sentriflow#readme",
+  "bugs": {
+    "url": "https://github.com/sentriflow/sentriflow/issues"
+  },
+  "keywords": [
+    "cli",
+    "network",
+    "configuration",
+    "linter",
+    "security",
+    "compliance",
+    "sarif"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "commander": "^14.0.2"
+  },
+  "devDependencies": {
+    "@sentriflow/core": "workspace:*",
+    "@sentriflow/rules-default": "workspace:*",
+    "bun-types": "latest",
+    "esbuild": "^0.27.0"
+  },
+  "bin": {
+    "sentriflow": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

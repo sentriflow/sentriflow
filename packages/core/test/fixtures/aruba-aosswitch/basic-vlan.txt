@@ -1,0 +1,52 @@
+; J9729A Configuration Editor; Created on release #WC.16.10.0012
+; Ver #14:27.6f.f8.1d.9b.3f.bf.bb.ef.7c.59.fc.6b.fb.9f.fc.ff.ff.37.ef:fe
+
+hostname "ARUBA-2920-SW01"
+module 1 type j9729a
+time daylight-time-rule continental-us-and-canada
+time timezone -300
+timesync sntp
+sntp unicast
+sntp server priority 1 10.0.0.1
+console baud-rate 9600
+console flow-control none
+console idle-timeout 300
+console idle-timeout serial-usb 300
+trunk 1-2 trk1 lacp
+ip routing
+ip default-gateway 10.0.0.1
+snmp-server community "public" unrestricted
+snmp-server host 10.0.0.100 community "public"
+vlan 1
+   name "DEFAULT_VLAN"
+   untagged 3-24
+   ip address 10.0.1.10 255.255.255.0
+   exit
+vlan 100
+   name "Users"
+   untagged 25-48
+   tagged Trk1
+   ip address 10.0.100.1 255.255.255.0
+   ip helper-address 10.0.0.50
+   exit
+vlan 200
+   name "Servers"
+   tagged 25-48,Trk1
+   ip address 10.0.200.1 255.255.255.0
+   exit
+vlan 999
+   name "Native"
+   tagged Trk1
+   exit
+spanning-tree
+spanning-tree priority 4
+logging 10.0.0.100
+password manager
+password operator
+aaa authentication console login local
+aaa authentication console enable local
+aaa authentication telnet login local
+aaa authentication telnet enable local
+aaa authentication ssh login public-key local
+aaa authentication ssh enable local
+ip ssh

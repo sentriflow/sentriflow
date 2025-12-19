@@ -1,0 +1,91 @@
+# Cumulus Linux /etc/network/interfaces - MLAG (CLAG) Configuration
+# Leaf switch pair with dual-homing
+
+auto lo
+iface lo inet loopback
+    address 10.10.10.1/32
+    clagd-vxlan-anycast-ip 10.0.1.12
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+# Peerlink bond - connects the two MLAG peers
+auto peerlink
+iface peerlink
+    bond-slaves swp49 swp50
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4
+    mtu 9216
+
+auto peerlink.4094
+iface peerlink.4094
+    address 169.254.1.1/30
+    clagd-peer-ip 169.254.1.2
+    clagd-backup-ip 10.10.10.2
+    clagd-sys-mac 44:38:39:BE:EF:AA
+    clagd-priority 1000
+
+# Bond to Server1 - dual-homed
+auto bond1
+iface bond1
+    bond-slaves swp1
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4
+    clag-id 1
+    bridge-access 10
+    mstpctl-bpduguard yes
+    mstpctl-portadminedge yes
+
+# Bond to Server2 - dual-homed
+auto bond2
+iface bond2
+    bond-slaves swp2
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-lacp-rate 1
+    bond-min-links 1
+    bond-xmit-hash-policy layer3+4
+    clag-id 2
+    bridge-access 20
+    mstpctl-bpduguard yes
+    mstpctl-portadminedge yes
+
+# Uplinks to spine switches
+auto swp51
+iface swp51
+    alias Uplink to Spine1
+    mtu 9216
+
+auto swp52
+iface swp52
+    alias Uplink to Spine2
+    mtu 9216
+
+auto br_default
+iface br_default
+    bridge-ports bond1 bond2 peerlink
+    bridge-vids 10 20 30
+    bridge-pvid 1
+    bridge-vlan-aware yes
+    hwaddress 44:38:39:22:01:aa
+
+auto vlan10
+iface vlan10
+    address 10.1.10.2/24
+    address-virtual 00:00:5e:00:01:01 10.1.10.1/24
+    vlan-id 10
+    vlan-raw-device br_default
+
+auto vlan20
+iface vlan20
+    address 10.1.20.2/24
+    address-virtual 00:00:5e:00:01:02 10.1.20.1/24
+    vlan-id 20
+    vlan-raw-device br_default

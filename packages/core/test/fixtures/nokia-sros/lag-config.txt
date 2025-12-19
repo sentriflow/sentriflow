@@ -1,0 +1,49 @@
+# Nokia 7750 SR OS LAG Configuration
+
+configure
+    lag 1
+        description "Core LAG to Aggregation Switch"
+        admin-state enable
+        mode lacp
+        lacp-xmit-interval fast
+        port 1/1/5
+        port 1/1/6
+        encap-type dot1q
+    exit
+    lag 2
+        description "LAG to Customer CPE"
+        admin-state enable
+        mode lacp
+        port 1/1/7
+        port 1/1/8
+        encap-type dot1q
+    exit
+    port 1/1/5
+        admin-state enable
+        description "LAG-1 Member Port 1"
+        ethernet
+            mode network
+        exit
+    exit
+    port 1/1/6
+        admin-state enable
+        description "LAG-1 Member Port 2"
+        ethernet
+            mode network
+        exit
+    exit
+    port 1/1/7
+        admin-state enable
+        description "LAG-2 Member Port 1"
+        ethernet
+            mode access
+        exit
+    exit
+    port 1/1/8
+        admin-state enable
+        description "LAG-2 Member Port 2"
+        ethernet
+            mode access
+        exit
+    exit
+exit

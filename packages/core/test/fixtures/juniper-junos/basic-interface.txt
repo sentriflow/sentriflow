@@ -1,0 +1,51 @@
+system {
+    host-name router1;
+    root-authentication {
+        encrypted-password "$6$abc123";
+    }
+    services {
+        ssh;
+        netconf {
+            ssh;
+        }
+    }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any notice;
+            authorization info;
+        }
+    }
+}
+interfaces {
+    ge-0/0/0 {
+        description "Uplink to Core";
+        unit 0 {
+            family inet {
+                address 10.0.0.1/24;
+            }
+            family inet6 {
+                address 2001:db8::1/64;
+            }
+        }
+    }
+    ge-0/0/1 {
+        description "Server Segment";
+        unit 0 {
+            family ethernet-switching {
+                vlan {
+                    members vlan100;
+                }
+            }
+        }
+    }
+    lo0 {
+        unit 0 {
+            family inet {
+                address 192.168.255.1/32;
+            }
+        }
+    }
+}

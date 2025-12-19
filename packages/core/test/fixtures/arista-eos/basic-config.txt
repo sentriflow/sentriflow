@@ -1,0 +1,65 @@
+! Arista EOS Basic Configuration
+! Software image version: 4.28.3M
+!
+hostname arista-leaf-01
+!
+spanning-tree mode mstp
+spanning-tree mst 0 priority 4096
+!
+aaa authentication login default local
+aaa authorization exec default local
+!
+username admin privilege 15 role network-admin secret sha512 $6$abc123...
+!
+vrf instance MGMT
+   description Management VRF
+!
+interface Management1
+   description Out-of-band management
+   vrf MGMT
+   ip address 10.0.100.1/24
+!
+interface Ethernet1
+   description Uplink to Spine-01
+   mtu 9214
+   no switchport
+   ip address 10.0.0.1/30
+!
+interface Ethernet2
+   description Uplink to Spine-02
+   mtu 9214
+   no switchport
+   ip address 10.0.0.5/30
+!
+interface Loopback0
+   description Router-ID and VTEP source
+   ip address 192.168.1.1/32
+!
+interface Vlan10
+   description Server Network
+   ip address 10.10.10.1/24
+   ip virtual-router address 10.10.10.254
+!
+ip routing
+ip routing vrf MGMT
+!
+ip route vrf MGMT 0.0.0.0/0 10.0.100.254
+!
+ntp server 10.0.100.10 prefer
+ntp server 10.0.100.11
+!
+logging host 10.0.100.20
+logging host 10.0.100.21
+!
+banner login
+Authorized access only. All activity is monitored.
+EOF
+!
+management api http-commands
+   protocol https
+   no shutdown
+!
+management ssh
+   no shutdown
+!
+end

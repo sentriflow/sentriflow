@@ -1,0 +1,38 @@
+# Extreme Networks ExtremeXOS MLAG Configuration
+# Multi-chassis LAG for Active-Active Redundancy
+
+configure snmp sysname "exos-mlag-01"
+
+# Create VLANs
+create vlan "ISC" tag 4094
+create vlan "Data" tag 100
+create vlan "Voice" tag 200
+
+# Configure ISC VLAN IP
+configure vlan ISC ipaddress 10.255.255.1/30
+
+# Create MLAG Peer
+create mlag peer mlag-peer
+
+# Configure MLAG Peer IP
+configure mlag peer mlag-peer ipaddress 10.255.255.2 vr VR-Default
+
+# Configure MLAG ISC VLAN
+configure mlag peer mlag-peer vlan ISC
+
+# Add LAG members to MLAG
+configure vlan ISC add ports 1:49-1:50 tagged
+
+# Create MLAG port groups
+enable sharing 1:1 grouping 1:1 algorithm address-based L3_L4 lacp
+create mlag port 1 peer mlag-peer id 1
+
+enable sharing 1:2 grouping 1:2 algorithm address-based L3_L4 lacp
+create mlag port 2 peer mlag-peer id 2
+
+# Configure MLAG reload delay
+configure mlag peer mlag-peer lacp-mac 00:00:5e:00:01:01
+configure mlag peer mlag-peer reload-delay 60
+
+# Enable MLAG peer
+enable mlag peer mlag-peer
