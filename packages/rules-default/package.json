@@ -1,6 +1,6 @@
 {
   "name": "@sentriflow/rules-default",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Default validation rules for SentriFlow network configuration linter",
   "license": "Apache-2.0",
   "module": "src/index.ts",
@@ -31,7 +31,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@sentriflow/core": "workspace:*"
+    "@sentriflow/core": "^0.1.2"
   },
   "devDependencies": {
     "bun-types": "latest"
