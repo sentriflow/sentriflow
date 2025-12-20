@@ -33,7 +33,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "node build.mjs",
+    "build": "bun build.mjs",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
