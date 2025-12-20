@@ -118,34 +118,47 @@ function ruleAppliesToVendor(rule: IRule, vendorId: string): boolean {
 }
 
 /**
- * Check if a default rule should be disabled based on pack disable configs.
+ * Check if a rule should be disabled based on settings and pack disable configs.
+ * @param ruleId The rule ID to check
+ * @param vendorId Optional vendor ID for vendor-specific disable checks
+ * @param checkPackDisables Whether to check pack disable configs (for default rules only)
  */
-function isDefaultRuleDisabled(
+function isRuleDisabled(
   ruleId: string,
-  vendorId: string | undefined
+  vendorId: string | undefined,
+  checkPackDisables: boolean = true
 ): boolean {
-  // Check legacy disabled set
+  // Check user's disabledRules setting (applies to ALL rules)
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const disabledRules = config.get<string[]>('disabledRules', []);
+  if (disabledRules.includes(ruleId)) {
+    return true;
+  }
+
+  // Check legacy disabled set (programmatic API)
   if (disabledRuleIds.has(ruleId)) {
     return true;
   }
 
-  // Check all registered packs for disable configs
-  for (const pack of registeredPacks.values()) {
-    if (!pack.disables) continue;
+  // Check pack disable configs (only for default rules)
+  if (checkPackDisables) {
+    for (const pack of registeredPacks.values()) {
+      if (!pack.disables) continue;
 
-    // Check if all defaults are disabled
-    if (pack.disables.all) {
-      return true;
-    }
+      // Check if all defaults are disabled
+      if (pack.disables.all) {
+        return true;
+      }
 
-    // Check if this specific rule is disabled
-    if (pack.disables.rules?.includes(ruleId)) {
-      return true;
-    }
+      // Check if this specific rule is disabled
+      if (pack.disables.rules?.includes(ruleId)) {
+        return true;
+      }
 
-    // Check if vendor is disabled (only if we know the vendor)
-    if (vendorId && pack.disables.vendors?.includes(vendorId as RuleVendor)) {
-      return true;
+      // Check if vendor is disabled (only if we know the vendor)
+      if (vendorId && pack.disables.vendors?.includes(vendorId as RuleVendor)) {
+        return true;
+      }
     }
   }
 
@@ -336,8 +349,8 @@ function getAllRules(vendorId?: string): IRule[] {
   if (enableDefaultRules) {
     const defaultRules = vendorId ? getRulesByVendor(vendorId) : allRules;
     for (const rule of defaultRules) {
-      // Check if this default rule is disabled
-      if (isDefaultRuleDisabled(rule.id, vendorId)) {
+      // Check if this default rule is disabled (check pack disables for default rules)
+      if (isRuleDisabled(rule.id, vendorId, true)) {
         continue;
       }
       ruleMap.set(rule.id, { rule, priority: 0 });
@@ -361,6 +374,11 @@ function getAllRules(vendorId?: string): IRule[] {
     const disabledVendors = new Set(packOverride?.disabledVendors ?? []);
 
     for (const rule of pack.rules) {
+      // Check if rule is globally disabled via settings (don't check pack disables for non-default packs)
+      if (isRuleDisabled(rule.id, vendorId, false)) {
+        continue;
+      }
+
       // Filter by vendor if specified
       if (vendorId && !ruleAppliesToVendor(rule, vendorId)) {
         continue;
@@ -1882,17 +1900,23 @@ async function showPackRules(
 ) {
   const rules = isDefault ? allRules : pack.rules;
 
+  // Get currently disabled rules from settings
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const disabledRules = new Set(config.get<string[]>('disabledRules', []));
+
   interface RuleItem extends vscode.QuickPickItem {
     ruleId: string;
   }
 
   const items: RuleItem[] = rules.map((rule) => {
+    const isDisabled = disabledRules.has(rule.id);
     const levelIcon =
       rule.metadata.level === 'error'
         ? '$(error)'
         : rule.metadata.level === 'warning'
         ? '$(warning)'
         : '$(info)';
+    const statusIcon = isDisabled ? '$(circle-slash)' : '$(check)';
     const vendor = rule.vendor
       ? Array.isArray(rule.vendor)
         ? rule.vendor.join(', ')
@@ -1900,8 +1924,8 @@ async function showPackRules(
       : 'common';
 
     return {
-      label: `${levelIcon} ${rule.id}`,
-      description: vendor,
+      label: `${statusIcon} ${levelIcon} ${rule.id}`,
+      description: `${vendor}${isDisabled ? ' (disabled)' : ''}`,
       detail:
         rule.metadata.remediation ??
         rule.metadata.description ??
@@ -1918,7 +1942,7 @@ async function showPackRules(
   });
 
   const selected = await vscode.window.showQuickPick(items, {
-    placeHolder: `${rules.length} rules - Select to view details`,
+    placeHolder: `${rules.length} rules - Select to view/toggle`,
     title: `SENTRIFLOW: ${packName} - Rules`,
     matchOnDescription: true,
     matchOnDetail: true,
@@ -1931,45 +1955,133 @@ async function showPackRules(
     return;
   }
 
-  // Show detailed rule info in output channel
-  const rule = rules.find((r) => r.id === selected.ruleId);
-  if (rule) {
-    outputChannel.show(true);
-    outputChannel.appendLine(`\n${'='.repeat(60)}`);
-    outputChannel.appendLine(`Rule: ${rule.id}`);
-    outputChannel.appendLine(`${'='.repeat(60)}`);
-    outputChannel.appendLine(`Level:       ${rule.metadata.level}`);
-    outputChannel.appendLine(`Vendor:      ${rule.vendor ?? 'common'}`);
-    outputChannel.appendLine(`Selector:    ${rule.selector ?? '(none)'}`);
-    if (rule.metadata.description) {
-      outputChannel.appendLine(`Description: ${rule.metadata.description}`);
-    }
-    if (rule.metadata.remediation) {
-      outputChannel.appendLine(`Remediation: ${rule.metadata.remediation}`);
-    }
-    if (rule.metadata.obu) {
-      outputChannel.appendLine(`OBU:         ${rule.metadata.obu}`);
-    }
-    if (rule.metadata.owner) {
-      outputChannel.appendLine(`Owner:       ${rule.metadata.owner}`);
-    }
-    if (rule.metadata.security) {
-      const sec = rule.metadata.security;
-      if (sec.cwe?.length) {
-        outputChannel.appendLine(`CWE:         ${sec.cwe.join(', ')}`);
-      }
-      if (sec.cvssScore !== undefined) {
-        outputChannel.appendLine(`CVSS Score:  ${sec.cvssScore}`);
-      }
-      if (sec.tags?.length) {
-        outputChannel.appendLine(`Tags:        ${sec.tags.join(', ')}`);
-      }
-    }
-    outputChannel.appendLine('');
+  // Show rule action menu
+  await showRuleActions(selected.ruleId, packName, pack, isDefault);
+}
+
+/**
+ * Show action menu for a specific rule
+ */
+async function showRuleActions(
+  ruleId: string,
+  packName: string,
+  pack: RulePack,
+  isDefault: boolean
+) {
+  const rules = isDefault ? allRules : pack.rules;
+  const rule = rules.find((r) => r.id === ruleId);
+  if (!rule) return;
+
+  // Check if rule is disabled
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const disabledRules = config.get<string[]>('disabledRules', []);
+  const isDisabled = disabledRules.includes(ruleId);
+
+  interface ActionItem extends vscode.QuickPickItem {
+    action: 'details' | 'toggle' | 'back';
   }
 
-  // Stay in rules view
-  await showPackRules(packName, pack, isDefault);
+  const actions: ActionItem[] = [
+    {
+      label: '$(info) View Details',
+      description: 'Show rule metadata in output channel',
+      action: 'details',
+    },
+    {
+      label: isDisabled ? '$(check) Enable Rule' : '$(circle-slash) Disable Rule',
+      description: isDisabled
+        ? 'Remove from disabled rules list'
+        : 'Add to disabled rules list',
+      action: 'toggle',
+    },
+    {
+      label: '$(arrow-left) Back to rules list',
+      description: '',
+      action: 'back',
+    },
+  ];
+
+  const action = await vscode.window.showQuickPick(actions, {
+    placeHolder: `${ruleId} - Select action`,
+    title: `SENTRIFLOW: ${ruleId}`,
+  });
+
+  if (!action) return;
+
+  switch (action.action) {
+    case 'details':
+      outputChannel.show(true);
+      outputChannel.appendLine(`\n${'='.repeat(60)}`);
+      outputChannel.appendLine(`Rule: ${rule.id}`);
+      outputChannel.appendLine(`${'='.repeat(60)}`);
+      outputChannel.appendLine(`Status:      ${isDisabled ? 'DISABLED' : 'Enabled'}`);
+      outputChannel.appendLine(`Level:       ${rule.metadata.level}`);
+      outputChannel.appendLine(`Vendor:      ${rule.vendor ?? 'common'}`);
+      outputChannel.appendLine(`Selector:    ${rule.selector ?? '(none)'}`);
+      if (rule.metadata.description) {
+        outputChannel.appendLine(`Description: ${rule.metadata.description}`);
+      }
+      if (rule.metadata.remediation) {
+        outputChannel.appendLine(`Remediation: ${rule.metadata.remediation}`);
+      }
+      if (rule.metadata.obu) {
+        outputChannel.appendLine(`OBU:         ${rule.metadata.obu}`);
+      }
+      if (rule.metadata.owner) {
+        outputChannel.appendLine(`Owner:       ${rule.metadata.owner}`);
+      }
+      if (rule.metadata.security) {
+        const sec = rule.metadata.security;
+        if (sec.cwe?.length) {
+          outputChannel.appendLine(`CWE:         ${sec.cwe.join(', ')}`);
+        }
+        if (sec.cvssScore !== undefined) {
+          outputChannel.appendLine(`CVSS Score:  ${sec.cvssScore}`);
+        }
+        if (sec.tags?.length) {
+          outputChannel.appendLine(`Tags:        ${sec.tags.join(', ')}`);
+        }
+      }
+      outputChannel.appendLine('');
+      // Stay in rule actions
+      await showRuleActions(ruleId, packName, pack, isDefault);
+      break;
+
+    case 'toggle':
+      await toggleRule(ruleId, isDisabled);
+      // Return to rules list to see updated state
+      await showPackRules(packName, pack, isDefault);
+      break;
+
+    case 'back':
+      await showPackRules(packName, pack, isDefault);
+      break;
+  }
+}
+
+/**
+ * Toggle a rule's disabled state in settings
+ */
+async function toggleRule(ruleId: string, currentlyDisabled: boolean) {
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const disabledRules = config.get<string[]>('disabledRules', []);
+
+  let newDisabledRules: string[];
+  if (currentlyDisabled) {
+    // Enable: remove from list
+    newDisabledRules = disabledRules.filter((id) => id !== ruleId);
+    vscode.window.showInformationMessage(`SENTRIFLOW: Rule ${ruleId} enabled`);
+  } else {
+    // Disable: add to list
+    newDisabledRules = [...disabledRules, ruleId];
+    vscode.window.showInformationMessage(`SENTRIFLOW: Rule ${ruleId} disabled`);
+  }
+
+  await config.update(
+    'disabledRules',
+    newDisabledRules,
+    vscode.ConfigurationTarget.Workspace
+  );
 }
 
 // ============================================================================
@@ -2070,6 +2182,14 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
   if (event.affectsConfiguration('sentriflow.packVendorOverrides')) {
     log(`Pack vendor overrides changed`);
     // Update status bar and re-scan
+    updateRulePacksStatusBar();
+    rescanActiveEditor();
+  }
+
+  if (event.affectsConfiguration('sentriflow.disabledRules')) {
+    log(`Disabled rules setting changed`);
+    // Increment rules version to force index rebuild
+    rulesVersion++;
     updateRulePacksStatusBar();
     rescanActiveEditor();
   }

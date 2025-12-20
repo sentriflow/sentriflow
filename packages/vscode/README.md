@@ -20,7 +20,7 @@ Real-time network configuration linting and validation in Visual Studio Code.
 Or install via command line:
 
 ```bash
-code --install-extension netsectech.sentriflow-vscode
+code --install-extension sentriflow.sentriflow-vscode
 ```
 
 ## Supported File Types

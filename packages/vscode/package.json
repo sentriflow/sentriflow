@@ -170,6 +170,14 @@
               }
             }
           }
+        },
+        "sentriflow.disabledRules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of rule IDs to disable globally (e.g., [\"SEC-001\", \"NET-002\"])"
         }
       }
     }
