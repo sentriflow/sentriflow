@@ -179,9 +179,9 @@
     "url": "https://github.com/sentriflow/sentriflow.git"
   },
   "scripts": {
-    "build": "node build.mjs",
-    "build:dev": "node build.mjs --dev",
-    "watch": "node build.mjs --watch --dev",
+    "build": "bun build.mjs",
+    "build:dev": "bun build.mjs --dev",
+    "watch": "bun build.mjs --watch --dev",
     "package": "bun run build && vsce package --no-dependencies"
   },
   "devDependencies": {
