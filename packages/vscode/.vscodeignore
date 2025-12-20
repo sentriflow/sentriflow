@@ -17,6 +17,7 @@ node_modules/**
 # Git and build files
 .gitignore
 bun.lockb
+build.mjs
 
 # Build metadata (contains paths that confuse vsce)
 meta.json
