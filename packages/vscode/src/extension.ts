@@ -123,15 +123,35 @@ function ruleAppliesToVendor(rule: IRule, vendorId: string): boolean {
  * @param vendorId Optional vendor ID for vendor-specific disable checks
  * @param checkPackDisables Whether to check pack disable configs (for default rules only)
  */
+/**
+ * Parse disabledRules setting, handling comma-separated values.
+ * Users might enter "NET-001,NET-002" as a single item instead of separate items.
+ */
+function getDisabledRulesSet(): Set<string> {
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const disabledRules = config.get<string[]>('disabledRules', []);
+  const ruleSet = new Set<string>();
+
+  for (const item of disabledRules) {
+    // Handle comma-separated values in a single item
+    const parts = item.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    for (const part of parts) {
+      ruleSet.add(part);
+    }
+  }
+
+  return ruleSet;
+}
+
 function isRuleDisabled(
   ruleId: string,
   vendorId: string | undefined,
   checkPackDisables: boolean = true
 ): boolean {
   // Check user's disabledRules setting (applies to ALL rules)
-  const config = vscode.workspace.getConfiguration('sentriflow');
-  const disabledRules = config.get<string[]>('disabledRules', []);
-  if (disabledRules.includes(ruleId)) {
+  const disabledRulesSet = getDisabledRulesSet();
+  if (disabledRulesSet.has(ruleId)) {
+    log(`Rule ${ruleId} disabled via settings`);
     return true;
   }
 
@@ -1900,9 +1920,8 @@ async function showPackRules(
 ) {
   const rules = isDefault ? allRules : pack.rules;
 
-  // Get currently disabled rules from settings
-  const config = vscode.workspace.getConfiguration('sentriflow');
-  const disabledRules = new Set(config.get<string[]>('disabledRules', []));
+  // Get currently disabled rules from settings (handles comma-separated values)
+  const disabledRules = getDisabledRulesSet();
 
   interface RuleItem extends vscode.QuickPickItem {
     ruleId: string;
@@ -1972,10 +1991,9 @@ async function showRuleActions(
   const rule = rules.find((r) => r.id === ruleId);
   if (!rule) return;
 
-  // Check if rule is disabled
-  const config = vscode.workspace.getConfiguration('sentriflow');
-  const disabledRules = config.get<string[]>('disabledRules', []);
-  const isDisabled = disabledRules.includes(ruleId);
+  // Check if rule is disabled (handles comma-separated values)
+  const disabledRulesSet = getDisabledRulesSet();
+  const isDisabled = disabledRulesSet.has(ruleId);
 
   interface ActionItem extends vscode.QuickPickItem {
     action: 'details' | 'toggle' | 'back';
@@ -2187,7 +2205,9 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
   }
 
   if (event.affectsConfiguration('sentriflow.disabledRules')) {
-    log(`Disabled rules setting changed`);
+    const config = vscode.workspace.getConfiguration('sentriflow');
+    const disabledRules = config.get<string[]>('disabledRules', []);
+    log(`Disabled rules setting changed: ${JSON.stringify(disabledRules)}`);
     // Increment rules version to force index rebuild
     rulesVersion++;
     updateRulePacksStatusBar();
