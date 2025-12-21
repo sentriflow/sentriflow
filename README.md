@@ -11,15 +11,19 @@ SentriFlow is an open-source network configuration linter that validates device 
 ## Packages
 
 ### [@sentriflow/core](./packages/core)
+
 Core engine providing AST-based parsing and validation. Converts configurations into a vendor-agnostic Abstract Syntax Tree and runs rules against it. Includes vendor-specific helper functions for writing validation rules (utilities for extracting interfaces, ACLs, VTY lines, and common configuration patterns). Full TypeScript support.
 
 ### [@sentriflow/cli](./packages/cli)
+
 Command-line interface for scanning configuration files. Supports JSON and SARIF output formats. Integrates with GitHub Actions and CI/CD pipelines.
 
 ### [@sentriflow/rules-default](./packages/rules-default)
+
 Starter set of example rules covering security (SEC-XXX), network (NET-XXX), and compliance (CMP-XXX) patterns. Use as a reference for writing your own rules.
 
 ### [sentriflow-vscode](./packages/vscode)
+
 VS Code extension with real-time validation, multi-vendor support, quick fixes, and SARIF export. See issues as you type.
 
 ## Supported Vendors
@@ -105,6 +109,7 @@ SentriFlow supports two formats for custom rules:
 - **TypeScript Rules** - Full programming flexibility for complex logic
 
 See the **[Rule Authoring Guide](docs/RULE_AUTHORING_GUIDE.md)** for complete documentation including:
+
 - Quick start examples
 - Understanding the configuration AST
 - All available check types and operators
@@ -222,23 +227,6 @@ code --install-extension packages/vscode/sentriflow-vscode-*.vsix
 # 3. Select the .vsix file from packages/vscode/
 ```
 
-### Releasing
-
-To bump version across all packages:
-
-```bash
-bun run version 1.3.0
-```
-
-Then rebuild and publish:
-
-```bash
-# Build packages
-cd packages/cli && bun run build
-cd packages/vscode && bun run build
-
-```
-
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
@@ -255,17 +243,17 @@ For enterprise features including encrypted rule packs, premium rules, and suppo
 
 SentriFlow uses an **Open Core** model. The core scanning engine, CLI, VS Code extension, and default rules are fully open source under Apache-2.0. Commercial extensions provide premium content and enterprise features.
 
-| Feature | OSS (Apache-2.0) | Commercial |
-|---------|:----------------:|:----------:|
-| Core scanning engine | ✅ | ✅ |
-| Default rules (Cisco, Juniper, Arista, etc.) | ✅ | ✅ |
-| CLI & VS Code extension | ✅ | ✅ |
-| Local custom rules (JSON/TypeScript) | ✅ | ✅ |
-| Encrypted rule packs (.grpx) | ✅ (local) | ✅ |
-| Premium vendor-specific rules | ❌ | ✅ |
-| Cloud-based pack updates | ❌ | ✅ |
-| Online license management | ❌ | ✅ |
-| Enterprise support | ❌ | ✅ |
+| Feature                                      | OSS (Apache-2.0) | Commercial |
+| -------------------------------------------- | :--------------: | :--------: |
+| Core scanning engine                         |        ✅        |     ✅     |
+| Default rules (Cisco, Juniper, Arista, etc.) |        ✅        |     ✅     |
+| CLI & VS Code extension                      |        ✅        |     ✅     |
+| Local custom rules (JSON/TypeScript)         |        ✅        |     ✅     |
+| Encrypted rule packs (.grpx)                 |    ✅ (local)    |     ✅     |
+| Premium vendor-specific rules                |        ❌        |     ✅     |
+| Cloud-based pack updates                     |        ❌        |     ✅     |
+| Online license management                    |        ❌        |     ✅     |
+| Enterprise support                           |        ❌        |     ✅     |
 
 The OSS version is fully functional for security scanning. Commercial features provide premium content and convenience, not core functionality.
 
@@ -287,9 +275,9 @@ setPackProvider(new MyPackProvider());
 ```
 
 This enables:
+
 - Community-built pack sources (Git repos, internal APIs, etc.)
 - Private enterprise integrations
 - The optional `@sentriflow/licensing` commercial package
 
 See [LICENSING.md](LICENSING.md) for detailed licensing information.
-

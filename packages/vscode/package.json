@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Configuration Validator",
   "description": "Real-time network configuration validation for Cisco IOS, Juniper, and more.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "license": "Apache-2.0",
   "publisher": "sentriflow",
   "engines": {
