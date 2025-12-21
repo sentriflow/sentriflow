@@ -107,28 +107,29 @@ export const allRules: IRule[] = [
  * Vendor-to-rules mapping registry.
  * Maps vendor IDs to functions that return applicable rules.
  * Dynamically constructed - add new vendors by adding entries here.
+ * Each vendor includes: common rules + vendor-specific rules + JSON rules
  */
 const vendorRulesRegistry: Record<string, () => IRule[]> = {
   // Cisco platforms share the same rules
-  'cisco-ios': () => [...allCommonRules, ...allCiscoRules],
-  'cisco-nxos': () => [...allCommonRules, ...allCiscoRules],
+  'cisco-ios': () => [...allCommonRules, ...allCiscoRules, ...getJsonRulesByVendor('cisco-ios')],
+  'cisco-nxos': () => [...allCommonRules, ...allCiscoRules, ...getJsonRulesByVendor('cisco-nxos')],
   // Juniper
-  'juniper-junos': () => [...allCommonRules, ...allJuniperRules],
+  'juniper-junos': () => [...allCommonRules, ...allJuniperRules, ...getJsonRulesByVendor('juniper-junos')],
   // Aruba platforms have variant-specific rules
-  'aruba-aoscx': () => getRulesByArubaVendor('aruba-aoscx'),
-  'aruba-aosswitch': () => getRulesByArubaVendor('aruba-aosswitch'),
-  'aruba-wlc': () => getRulesByArubaVendor('aruba-wlc'),
+  'aruba-aoscx': () => [...getRulesByArubaVendor('aruba-aoscx'), ...getJsonRulesByVendor('aruba-aoscx')],
+  'aruba-aosswitch': () => [...getRulesByArubaVendor('aruba-aosswitch'), ...getJsonRulesByVendor('aruba-aosswitch')],
+  'aruba-wlc': () => [...getRulesByArubaVendor('aruba-wlc'), ...getJsonRulesByVendor('aruba-wlc')],
   // Other vendors
-  'paloalto-panos': () => getRulesByPaloAltoVendor(),
-  'arista-eos': () => getRulesByAristaVendor(),
-  'vyos': () => getRulesByVyosVendor(),
-  'fortinet-fortigate': () => getRulesByFortinetVendor(),
-  'extreme-exos': () => getRulesByExtremeVendor('extreme-exos'),
-  'extreme-voss': () => getRulesByExtremeVendor('extreme-voss'),
-  'huawei-vrp': () => getRulesByHuaweiVendor(),
-  'mikrotik-routeros': () => getRulesByMikroTikVendor(),
-  'nokia-sros': () => getRulesByNokiaVendor(),
-  'cumulus-linux': () => getRulesByCumulusVendor(),
+  'paloalto-panos': () => [...getRulesByPaloAltoVendor(), ...getJsonRulesByVendor('paloalto-panos')],
+  'arista-eos': () => [...getRulesByAristaVendor(), ...getJsonRulesByVendor('arista-eos')],
+  'vyos': () => [...getRulesByVyosVendor(), ...getJsonRulesByVendor('vyos')],
+  'fortinet-fortigate': () => [...getRulesByFortinetVendor(), ...getJsonRulesByVendor('fortinet-fortigate')],
+  'extreme-exos': () => [...getRulesByExtremeVendor('extreme-exos'), ...getJsonRulesByVendor('extreme-exos')],
+  'extreme-voss': () => [...getRulesByExtremeVendor('extreme-voss'), ...getJsonRulesByVendor('extreme-voss')],
+  'huawei-vrp': () => [...getRulesByHuaweiVendor(), ...getJsonRulesByVendor('huawei-vrp')],
+  'mikrotik-routeros': () => [...getRulesByMikroTikVendor(), ...getJsonRulesByVendor('mikrotik-routeros')],
+  'nokia-sros': () => [...getRulesByNokiaVendor(), ...getJsonRulesByVendor('nokia-sros')],
+  'cumulus-linux': () => [...getRulesByCumulusVendor(), ...getJsonRulesByVendor('cumulus-linux')],
 };
 
 /**
