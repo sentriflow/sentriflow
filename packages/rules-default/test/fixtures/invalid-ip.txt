@@ -9,3 +9,6 @@ interface GigabitEthernet0/2
 interface GigabitEthernet0/3
  description Good IP
  ip address 192.168.1.1 255.255.255.0
+
+interface GigabitEthernet0/4
+ shutdown
