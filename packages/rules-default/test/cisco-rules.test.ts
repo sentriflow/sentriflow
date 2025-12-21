@@ -1120,8 +1120,8 @@ describe('Cisco Rules Integration', () => {
     const engine = new RuleEngine();
 
     test('allCiscoRules array should contain all expected rules', () => {
-        // Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
-        expect(allCiscoRules.length).toBe(3);
+        // Reduced to 4 proof-of-concept rules; full set available in sf-essentials
+        expect(allCiscoRules.length).toBe(4);
     });
 
     test('compliant configuration should pass all rules', () => {
@@ -1187,7 +1187,7 @@ line vty 0 4
     });
 
     test('non-compliant configuration should detect issues with kept rules', () => {
-        // Note: Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
+        // Note: Reduced to 3 proof-of-concept rules; full set available in sf-essentials
         const config = `
 !
 enable password cisco123

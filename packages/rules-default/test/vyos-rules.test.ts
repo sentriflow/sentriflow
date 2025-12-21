@@ -803,8 +803,8 @@ describe('VyOS HA Rules', () => {
 describe('VyOS Rules Export', () => {
   test('should export all VyOS rules', () => {
     expect(allVyosRules.length).toBeGreaterThan(0);
-    // Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
-    expect(allVyosRules.length).toBe(3);
+    // Reduced to 4 proof-of-concept rules; full set available in sf-essentials
+    expect(allVyosRules.length).toBe(4);
   });
 
   test('should have unique rule IDs', () => {

@@ -695,7 +695,7 @@ describe('Nokia Logging Rules', () => {
 describe('Nokia Rules Export', () => {
   test('should export all Nokia rules', () => {
     expect(allNokiaRules.length).toBeGreaterThan(0);
-    // Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
+    // Reduced to 3 proof-of-concept rules; full set available in sf-essentials
     expect(allNokiaRules.length).toBe(3);
   });
 

@@ -518,7 +518,7 @@ describe('Huawei SSH Rules', () => {
 describe('Huawei Rules Export', () => {
   test('should export all Huawei rules', () => {
     expect(allHuaweiRules.length).toBeGreaterThan(0);
-    // Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
+    // Reduced to 3 proof-of-concept rules; full set available in sf-essentials
     expect(allHuaweiRules.length).toBe(3);
   });
 

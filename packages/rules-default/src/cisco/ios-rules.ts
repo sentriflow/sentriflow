@@ -1148,9 +1148,109 @@ export const EnableSecretStrong: IRule = {
   },
 };
 
+/**
+ * NET-SEC-001: Detect plaintext passwords in Cisco configuration.
+ * Looks for "password" commands without encryption type.
+ * Cisco-specific: checks for type 5/7/8/9 encryption indicators.
+ */
+export const CiscoNoPlaintextPasswords: IRule = {
+  id: 'NET-SEC-001',
+  selector: 'password',
+  vendor: ['cisco-ios', 'cisco-nxos'],
+  metadata: {
+    level: 'error',
+    obu: 'Security',
+    owner: 'SecOps',
+    remediation:
+      'Use "secret" instead of "password", or ensure password is encrypted (type 7 or higher).',
+  },
+  check: (node: ConfigNode): RuleResult => {
+    const params = node.params;
+    const nodeId = node.id;
+
+    // Skip global config commands that aren't password definitions
+    if (includesIgnoreCase(nodeId, 'encryption') || includesIgnoreCase(nodeId, 'service')) {
+      return {
+        passed: true,
+        message: 'Global password configuration command.',
+        ruleId: 'NET-SEC-001',
+        nodeId: node.id,
+        level: 'info',
+        loc: node.loc,
+      };
+    }
+
+    if (params.length >= 2) {
+      const typeOrValue = params[1];
+      if (!typeOrValue) {
+        return {
+          passed: false,
+          message:
+            'Possible plaintext password detected. Use encryption type 7 or "secret" command.',
+          ruleId: 'NET-SEC-001',
+          nodeId: node.id,
+          level: 'error',
+          loc: node.loc,
+        };
+      }
+
+      // If second param is a number, it's the encryption type
+      if (
+        typeOrValue === '7' ||
+        typeOrValue === '5' ||
+        typeOrValue === '8' ||
+        typeOrValue === '9'
+      ) {
+        return {
+          passed: true,
+          message: 'Password is encrypted.',
+          ruleId: 'NET-SEC-001',
+          nodeId: node.id,
+          level: 'info',
+          loc: node.loc,
+        };
+      }
+
+      // Type 0 is explicitly plaintext
+      if (typeOrValue === '0') {
+        return {
+          passed: false,
+          message: 'Plaintext password detected (type 0).',
+          ruleId: 'NET-SEC-001',
+          nodeId: node.id,
+          level: 'error',
+          loc: node.loc,
+        };
+      }
+
+      // If no type specified, it's likely plaintext
+      if (!/^\d+$/.test(typeOrValue)) {
+        return {
+          passed: false,
+          message:
+            'Possible plaintext password detected. Use encryption type 7 or "secret" command.',
+          ruleId: 'NET-SEC-001',
+          nodeId: node.id,
+          level: 'error',
+          loc: node.loc,
+        };
+      }
+    }
+
+    return {
+      passed: true,
+      message: 'Password check passed.',
+      ruleId: 'NET-SEC-001',
+      nodeId: node.id,
+      level: 'info',
+      loc: node.loc,
+    };
+  },
+};
+
 // ============================================================================
 // Export all Cisco IOS rules - proof-of-concept subset
-// NOTE: Additional rules available in basic-netsec-pack
+// NOTE: Additional rules available in sf-essentials
 // ============================================================================
 
 export const allCiscoRules: IRule[] = [
@@ -1158,6 +1258,7 @@ export const allCiscoRules: IRule[] = [
   TrunkNoDTP,
   // Layer 2 Access
   AccessExplicitMode,
-  // Service Hardening
+  // Security
+  CiscoNoPlaintextPasswords,
   EnableSecretStrong,
 ];

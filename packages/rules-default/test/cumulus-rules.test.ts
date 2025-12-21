@@ -391,7 +391,7 @@ iface lo inet loopback
 describe('Cumulus Rules Export', () => {
   test('should export all Cumulus rules', () => {
     expect(allCumulusRules.length).toBeGreaterThan(0);
-    // Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
+    // Reduced to 3 proof-of-concept rules; full set available in sf-essentials
     expect(allCumulusRules.length).toBe(3);
   });
 

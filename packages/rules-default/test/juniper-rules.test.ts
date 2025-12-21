@@ -146,7 +146,7 @@ describe('Juniper Firewall Rules', () => {
 
 describe('Juniper Rules Integration', () => {
   test('allJuniperRules array should contain expected rules', () => {
-    // Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
+    // Reduced to 3 proof-of-concept rules; full set available in sf-essentials
     expect(allJuniperRules.length).toBe(3);
 
     const ruleIds = allJuniperRules.map((r) => r.id);
