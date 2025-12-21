@@ -234,6 +234,52 @@ export const VyosUserAuthRequired: IRule = {
 };
 
 /**
+ * VYOS-SEC-001: Plaintext passwords should not appear in configuration.
+ * In VyOS, plaintext-password is only used during configuration entry.
+ * Saved configs should only contain encrypted-password with hashes.
+ */
+export const VyosNoPlaintextPassword: IRule = {
+  id: 'VYOS-SEC-001',
+  selector: 'authentication',
+  vendor: 'vyos',
+  metadata: {
+    level: 'error',
+    obu: 'Security',
+    owner: 'SecOps',
+    remediation:
+      'Use "encrypted-password" with a pre-hashed password, or let VyOS hash it during configuration.',
+  },
+  check: (node: ConfigNode): RuleResult => {
+    // Check if plaintext-password appears in the config
+    // This shouldn't happen in a properly saved config
+    const hasPlaintext = node.children.some((child) =>
+      startsWithIgnoreCase(child.id, 'plaintext-password')
+    );
+
+    if (hasPlaintext) {
+      return {
+        passed: false,
+        message:
+          'Plaintext password found in configuration. VyOS should store hashed passwords only.',
+        ruleId: 'VYOS-SEC-001',
+        nodeId: node.id,
+        level: 'error',
+        loc: node.loc,
+      };
+    }
+
+    return {
+      passed: true,
+      message: 'No plaintext passwords in configuration.',
+      ruleId: 'VYOS-SEC-001',
+      nodeId: node.id,
+      level: 'info',
+      loc: node.loc,
+    };
+  },
+};
+
+/**
  * VYOS-SYS-005: Name servers should be configured
  */
 export const VyosNameServersRequired: IRule = {
@@ -1299,12 +1345,14 @@ export const VyosVrrpPreemptDelay: IRule = {
 
 // ============================================================================
 // Export all VyOS rules - proof-of-concept subset
-// NOTE: Additional rules available in basic-netsec-pack
+// NOTE: Additional rules available in sf-essentials
 // ============================================================================
 
 export const allVyosRules: IRule[] = [
   // System
   VyosHostnameRequired,
+  // Security
+  VyosNoPlaintextPassword,
   // Firewall
   VyosFirewallDefaultAction,
   // Interfaces

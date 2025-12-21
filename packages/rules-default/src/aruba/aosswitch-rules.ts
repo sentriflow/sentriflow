@@ -455,7 +455,7 @@ export const AosSwitchTimesync: IRule = {
 
 // =============================================================================
 // Export all AOS-Switch rules - proof-of-concept subset
-// NOTE: Additional rules available in basic-netsec-pack
+// NOTE: Additional rules available in sf-essentials
 // =============================================================================
 
 export const allAosSwitchRules: IRule[] = [

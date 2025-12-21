@@ -28,15 +28,19 @@ import {
 } from './json';
 
 // Legacy exports for backward compatibility
-// NOTE: SSHVersion2Required, VTYAccessClassRequired, OspfNetworkBestPractice moved to basic-netsec-pack
+// NOTE: SSHVersion2Required, VTYAccessClassRequired, OspfNetworkBestPractice moved to sf-essentials
 export {
   NoMulticastBroadcastIp,
   InterfaceDescriptionRequired,
-  NoPlaintextPasswords,
 } from './common/network-rules';
 
 // Re-export the cisco rules array for backward compatibility
-export { allCiscoRules, OspfNetworkBestPractice } from './cisco/ios-rules';
+export {
+  allCiscoRules,
+  OspfNetworkBestPractice,
+  CiscoNoPlaintextPasswords,
+  CiscoNoPlaintextPasswords as NoPlaintextPasswords, // backward compat alias
+} from './cisco/ios-rules';
 
 // Export JSON rules
 export {

@@ -276,7 +276,7 @@ describe('Extreme EXOS MLAG Rules', () => {
 describe('Extreme EXOS Rules Export', () => {
   test('should export all EXOS rules', () => {
     expect(allExosRules.length).toBeGreaterThan(0);
-    // Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
+    // Reduced to 3 proof-of-concept rules; full set available in sf-essentials
     expect(allExosRules.length).toBe(3);
   });
 
@@ -562,7 +562,7 @@ describe('Extreme VOSS DVR Rules', () => {
 describe('Extreme VOSS Rules Export', () => {
   test('should export all VOSS rules', () => {
     expect(allVossRules.length).toBeGreaterThan(0);
-    // Reduced to 3 proof-of-concept rules; full set available in basic-netsec-pack
+    // Reduced to 3 proof-of-concept rules; full set available in sf-essentials
     expect(allVossRules.length).toBe(3);
   });
 
