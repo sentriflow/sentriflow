@@ -2,11 +2,15 @@
 
 /**
  * Version bump script for SentriFlow monorepo.
- * Updates version in all package.json files.
+ * npm packages and VS Code extension have independent versioning.
  *
  * Usage:
- *   node scripts/bump-version.mjs <version>
+ *   node scripts/bump-version.mjs <version>           # npm packages only
+ *   node scripts/bump-version.mjs --vscode <version>  # VS Code extension only
+ *
+ * Examples:
  *   node scripts/bump-version.mjs 1.3.0
+ *   node scripts/bump-version.mjs --vscode 1.0.0
  */
 
 import { readFileSync, writeFileSync } from 'fs';
@@ -16,11 +20,17 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 
-const version = process.argv[2];
+const isVscode = process.argv[2] === '--vscode';
+const version = isVscode ? process.argv[3] : process.argv[2];
 
 if (!version) {
-  console.error('Usage: node scripts/bump-version.mjs <version>');
-  console.error('Example: node scripts/bump-version.mjs 1.3.0');
+  console.error('Usage:');
+  console.error('  node scripts/bump-version.mjs <version>           # npm packages');
+  console.error('  node scripts/bump-version.mjs --vscode <version>  # VS Code extension');
+  console.error('');
+  console.error('Examples:');
+  console.error('  node scripts/bump-version.mjs 1.3.0');
+  console.error('  node scripts/bump-version.mjs --vscode 1.0.0');
   process.exit(1);
 }
 
@@ -31,15 +41,23 @@ if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
   process.exit(1);
 }
 
-const packagePaths = [
+// npm packages (core, cli, rules-default) share version with root
+const npmPackagePaths = [
   'package.json',
   'packages/core/package.json',
   'packages/cli/package.json',
   'packages/rules-default/package.json',
+];
+
+// VS Code extension has independent versioning
+const vscodePackagePaths = [
   'packages/vscode/package.json',
 ];
 
-console.log(`Bumping version to ${version}\n`);
+const packagePaths = isVscode ? vscodePackagePaths : npmPackagePaths;
+const target = isVscode ? 'VS Code extension' : 'npm packages';
+
+console.log(`Bumping ${target} to ${version}\n`);
 
 for (const pkgPath of packagePaths) {
   const fullPath = join(rootDir, pkgPath);
