@@ -1,6 +1,6 @@
 {
   "name": "@sentriflow/core",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "SentriFlow core engine for network configuration validation",
   "license": "Apache-2.0",
   "module": "src/index.ts",
