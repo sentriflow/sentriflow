@@ -2219,6 +2219,11 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
 // Scanning Logic
 // ============================================================================
 function scheduleScan(document: vscode.TextDocument, delay: number) {
+  // Skip non-file schemes (git, gitlens, untitled, etc.)
+  if (document.uri.scheme !== 'file') {
+    return;
+  }
+
   // Skip unsupported languages
   if (!SUPPORTED_LANGUAGES.includes(document.languageId)) {
     return;
@@ -2248,6 +2253,11 @@ function scheduleScan(document: vscode.TextDocument, delay: number) {
 }
 
 function runScan(document: vscode.TextDocument, force: boolean) {
+  // Skip non-file schemes (git, gitlens, untitled, etc.)
+  if (document.uri.scheme !== 'file') {
+    return;
+  }
+
   const uri = document.uri.toString();
 
   // Skip unsupported languages unless forced
