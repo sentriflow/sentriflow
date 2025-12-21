@@ -251,3 +251,45 @@ Apache 2.0 - see [LICENSE](LICENSE) for details.
 
 For enterprise features including encrypted rule packs, premium rules, and support, visit [sentriflow.com.au](https://sentriflow.com.au).
 
+## Business Model: Open Core
+
+SentriFlow uses an **Open Core** model. The core scanning engine, CLI, VS Code extension, and default rules are fully open source under Apache-2.0. Commercial extensions provide premium content and enterprise features.
+
+| Feature | OSS (Apache-2.0) | Commercial |
+|---------|:----------------:|:----------:|
+| Core scanning engine | ✅ | ✅ |
+| Default rules (Cisco, Juniper, Arista, etc.) | ✅ | ✅ |
+| CLI & VS Code extension | ✅ | ✅ |
+| Local custom rules (JSON/TypeScript) | ✅ | ✅ |
+| Encrypted rule packs (.grpx) | ✅ (local) | ✅ |
+| Premium vendor-specific rules | ❌ | ✅ |
+| Cloud-based pack updates | ❌ | ✅ |
+| Online license management | ❌ | ✅ |
+| Enterprise support | ❌ | ✅ |
+
+The OSS version is fully functional for security scanning. Commercial features provide premium content and convenience, not core functionality.
+
+### Extensibility: Pack Providers
+
+The core exposes an `IPackProvider` interface for loading rule packs from custom sources:
+
+```typescript
+import { setPackProvider, IPackProvider, RulePack } from '@sentriflow/core';
+
+class MyPackProvider implements IPackProvider {
+  async loadPacks(): Promise<RulePack[]> {
+    // Load packs from your custom source
+    return [];
+  }
+}
+
+setPackProvider(new MyPackProvider());
+```
+
+This enables:
+- Community-built pack sources (Git repos, internal APIs, etc.)
+- Private enterprise integrations
+- The optional `@sentriflow/licensing` commercial package
+
+See [LICENSING.md](LICENSING.md) for detailed licensing information.
+

@@ -547,11 +547,16 @@ program
   });
 
 /**
- * Extension hook for @sentriflow/licensing commands
+ * Extension hook for @sentriflow/licensing commercial package.
  *
- * Attempts to dynamically import the licensing package and register
- * its CLI commands (activate, update, offline, license status).
- * Silently continues if the package is not installed (OSS mode).
+ * This is part of SentriFlow's Open Core model (see README.md).
+ *
+ * - OSS users: This silently does nothing if @sentriflow/licensing is not installed.
+ *   The CLI works fully without it.
+ * - Commercial users: This adds 'activate', 'update', 'offline', and 'license' commands
+ *   for managing cloud-based rule packs.
+ *
+ * The dynamic import prevents any hard dependency on the commercial package.
  */
 async function loadLicensingExtension(): Promise<void> {
   try {
