@@ -546,4 +546,33 @@ program
     }
   });
 
-program.parse();
+/**
+ * Extension hook for @sentriflow/licensing commands
+ *
+ * Attempts to dynamically import the licensing package and register
+ * its CLI commands (activate, update, offline, license status).
+ * Silently continues if the package is not installed (OSS mode).
+ */
+async function loadLicensingExtension(): Promise<void> {
+  try {
+    // Dynamic import - will fail if @sentriflow/licensing is not installed
+    // Use variable to avoid TypeScript static analysis error for optional package
+    const licensingModulePath = '@sentriflow/licensing/cli';
+    const licensing = await import(/* @vite-ignore */ licensingModulePath) as {
+      registerCommands?: (program: unknown) => void;
+    };
+
+    // Register licensing commands with the CLI
+    if (licensing.registerCommands) {
+      licensing.registerCommands(program);
+    }
+  } catch {
+    // @sentriflow/licensing not installed - running in OSS mode
+    // This is expected for open-source users
+  }
+}
+
+// Load licensing extension (if available) before parsing
+loadLicensingExtension().finally(() => {
+  program.parse();
+});

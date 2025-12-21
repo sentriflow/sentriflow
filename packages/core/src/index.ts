@@ -15,6 +15,9 @@ export * from './errors';
 // SEC-012: Encrypted rule pack loader
 export * from './pack-loader';
 
+// Pack Provider abstraction for cloud licensing extension
+export * from './pack-provider';
+
 // SEC-001: Declarative rules and sandboxed execution
 export * from './types/DeclarativeRule';
 export * from './engine/SandboxedExecutor';
