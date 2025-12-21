@@ -22,6 +22,21 @@ To indicate your agreement, include the following line in your pull request desc
 I have read and agree to the SentriFlow Contributor License Agreement.
 ```
 
+### Why This CLA?
+
+We use a CLA that allows dual-licensing because SentriFlow uses an **Open Core** business model:
+
+1. **Your code stays open source.** All code in this repository remains Apache-2.0 licensed. Anyone can use, modify, and distribute it.
+
+2. **Contributions fund development.** The CLA grants us rights to *also* use contributions in commercial offerings. Revenue from commercial licenses funds continued open-source development.
+
+3. **Transparent intent.** We're upfront about this model. See [README.md](README.md#business-model-open-core) for the feature breakdown and [LICENSING.md](LICENSING.md) for detailed licensing info.
+
+**If you prefer not to sign this CLA, you can still:**
+- Report issues and suggest improvements
+- Create external rule packs or tools that integrate with SentriFlow
+- Fork under Apache-2.0 (without our commercial extensions)
+
 ## How to Contribute
 
 ### Reporting Issues
