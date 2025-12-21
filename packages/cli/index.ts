@@ -546,4 +546,38 @@ program
     }
   });
 
-program.parse();
+/**
+ * Extension hook for @sentriflow/licensing commercial package.
+ *
+ * This is part of SentriFlow's Open Core model (see README.md).
+ *
+ * - OSS users: This silently does nothing if @sentriflow/licensing is not installed.
+ *   The CLI works fully without it.
+ * - Commercial users: This adds 'activate', 'update', 'offline', and 'license' commands
+ *   for managing cloud-based rule packs.
+ *
+ * The dynamic import prevents any hard dependency on the commercial package.
+ */
+async function loadLicensingExtension(): Promise<void> {
+  try {
+    // Dynamic import - will fail if @sentriflow/licensing is not installed
+    // Use variable to avoid TypeScript static analysis error for optional package
+    const licensingModulePath = '@sentriflow/licensing/cli';
+    const licensing = await import(/* @vite-ignore */ licensingModulePath) as {
+      registerCommands?: (program: unknown) => void;
+    };
+
+    // Register licensing commands with the CLI
+    if (licensing.registerCommands) {
+      licensing.registerCommands(program);
+    }
+  } catch {
+    // @sentriflow/licensing not installed - running in OSS mode
+    // This is expected for open-source users
+  }
+}
+
+// Load licensing extension (if available) before parsing
+loadLicensingExtension().finally(() => {
+  program.parse();
+});
