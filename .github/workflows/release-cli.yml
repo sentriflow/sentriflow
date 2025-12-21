@@ -1,0 +1,94 @@
+name: Release CLI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+            artifact: sentriflow-linux-x64
+          - os: macos-latest
+            target: darwin-x64
+            artifact: sentriflow-darwin-x64
+          - os: macos-latest
+            target: darwin-arm64
+            artifact: sentriflow-darwin-arm64
+          - os: windows-latest
+            target: windows-x64
+            artifact: sentriflow-windows-x64.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build CLI
+        run: bun build packages/cli/index.ts --compile --target=bun-${{ matrix.target }} --outfile ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' packages/cli/package.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=cli-v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          cp artifacts/sentriflow-linux-x64/sentriflow-linux-x64 release/
+          cp artifacts/sentriflow-darwin-x64/sentriflow-darwin-x64 release/
+          cp artifacts/sentriflow-darwin-arm64/sentriflow-darwin-arm64 release/
+          cp artifacts/sentriflow-windows-x64.exe/sentriflow-windows-x64.exe release/
+          chmod +x release/sentriflow-linux-x64
+          chmod +x release/sentriflow-darwin-x64
+          chmod +x release/sentriflow-darwin-arm64
+          cd release && sha256sum * > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: CLI ${{ steps.version.outputs.version }}
+          files: release/*
+          body: |
+            ## SentriFlow CLI ${{ steps.version.outputs.version }}
+
+            | Platform | Binary |
+            |----------|--------|
+            | Linux x64 | sentriflow-linux-x64 |
+            | macOS Intel | sentriflow-darwin-x64 |
+            | macOS ARM | sentriflow-darwin-arm64 |
+            | Windows x64 | sentriflow-windows-x64.exe |
