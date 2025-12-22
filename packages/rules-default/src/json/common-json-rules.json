@@ -40,55 +40,6 @@
         ]
       },
       "failureMessage": "Interface {nodeId} is missing documentation (description)"
-    },
-    {
-      "id": "JSON-COMMON-002",
-      "selector": "interface",
-      "vendor": "common",
-      "metadata": {
-        "level": "warning",
-        "obu": "Network Engineering",
-        "owner": "NetOps",
-        "description": "Shutdown interfaces should have a description explaining why",
-        "remediation": "Add a description to shutdown interfaces documenting the reason"
-      },
-      "check": {
-        "type": "and",
-        "conditions": [
-          {
-            "type": "helper",
-            "helper": "isInterfaceDefinition",
-            "args": [{ "$ref": "node" }]
-          },
-          {
-            "type": "helper",
-            "helper": "isShutdown",
-            "args": [{ "$ref": "node" }]
-          },
-          {
-            "type": "child_not_exists",
-            "selector": "description"
-          }
-        ]
-      },
-      "failureMessage": "Shutdown interface {nodeId} should have a description explaining why it's disabled"
-    },
-    {
-      "id": "JSON-COMMON-003",
-      "selector": "ntp",
-      "vendor": "common",
-      "metadata": {
-        "level": "warning",
-        "obu": "Operations",
-        "owner": "SysOps",
-        "description": "NTP should be configured for time synchronization",
-        "remediation": "Configure NTP servers for accurate time synchronization"
-      },
-      "check": {
-        "type": "child_not_exists",
-        "selector": "server"
-      },
-      "failureMessage": "NTP configuration is missing server entries"
     }
   ]
 }
