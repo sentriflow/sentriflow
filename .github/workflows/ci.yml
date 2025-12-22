@@ -46,8 +46,22 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build CLI
-        run: bun build packages/cli/index.ts --compile --outfile sentriflow
+      - name: Bundle CLI with esbuild
+        run: bun run build
+        working-directory: packages/cli
+
+      - name: Compile CLI binary
+        run: bun build packages/cli/dist/index.js --compile --outfile sentriflow
+
+      - name: Verify CLI version
+        run: |
+          VERSION=$(jq -r '.version' packages/cli/package.json)
+          OUTPUT=$(./sentriflow --version)
+          if [[ "$OUTPUT" != "$VERSION" ]]; then
+            echo "Version mismatch: expected '$VERSION', got '$OUTPUT'"
+            exit 1
+          fi
+          echo "✓ Version verified: $VERSION"
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
