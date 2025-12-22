@@ -1,8 +1,8 @@
 {
   "name": "sentriflow-vscode",
-  "displayName": "SentriFlow Configuration Validator",
-  "description": "Real-time network configuration validation for Cisco IOS, Juniper, and more.",
-  "version": "0.1.5",
+  "displayName": "SentriFlow Compliance Validator",
+  "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
+  "version": "0.1.6",
   "license": "Apache-2.0",
   "publisher": "sentriflow",
   "engines": {
@@ -10,17 +10,19 @@
   },
   "main": "./dist/extension.js",
   "categories": [
-    "Linters",
-    "Programming Languages"
+    "Other",
+    "Linters"
   ],
   "keywords": [
-    "cisco",
     "network",
+    "compliance",
+    "security",
     "configuration",
-    "linter",
-    "validator",
-    "ios",
-    "juniper"
+    "validation",
+    "cisco",
+    "juniper",
+    "arista",
+    "best-practices"
   ],
   "activationEvents": [
     "onLanguage:network-config",
