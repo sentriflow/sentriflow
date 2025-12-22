@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build:cli": "bun build packages/cli/index.ts --compile --env=disable --outfile sentriflow.exe",
+    "build:cli": "cd packages/cli && bun run build && cd ../.. && bun build packages/cli/dist/index.js --compile --env=disable --outfile sentriflow.exe",
     "type-check": "tsc --noEmit",
     "test": "bun test",
     "version": "node scripts/bump-version.mjs",
