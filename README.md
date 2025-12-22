@@ -1,12 +1,12 @@
 # SentriFlow
 
-Network configuration validation and linting for Cisco, Juniper, Arista, and more.
+Network configuration compliance validation for Cisco, Juniper, Arista, and more.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Overview
 
-SentriFlow is an open-source network configuration linter that validates device configurations against security best practices and compliance rules. It supports multiple network vendors and can be used via CLI or VS Code extension.
+SentriFlow is an open-source compliance validator for network device configurations. It checks configurations against security best practices and policy rules - either industry standards or your company-specific requirements. It supports multiple network vendors and can be used via CLI or VS Code extension.
 
 ## Packages
 
@@ -24,7 +24,7 @@ Starter set of example rules covering security (SEC-XXX), network (NET-XXX), and
 
 ### [sentriflow-vscode](./packages/vscode)
 
-VS Code extension with real-time validation, multi-vendor support, quick fixes, and SARIF export. See issues as you type.
+VS Code extension for real-time compliance validation. Checks configurations against best practices and custom policies as you type. Multi-vendor support and SARIF export for CI/CD.
 
 ## Supported Vendors
 

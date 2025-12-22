@@ -1,12 +1,17 @@
 # SentriFlow for VS Code
 
-Real-time network configuration linting and validation in Visual Studio Code.
+Validate network device configurations against security best practices and compliance rules in Visual Studio Code.
+
+## What It Does
+
+SentriFlow checks your network configurations (Cisco, Juniper, Arista, etc.) against defined compliance rules - either industry best practices or your company-specific policies. It's not a syntax checker; it validates that configurations meet security and operational standards.
 
 ## Features
 
-- **Real-time validation**: See issues as you type
+- **Real-time compliance checks**: See policy violations as you type
 - **Multi-vendor support**: Cisco, Juniper, Arista, Fortinet, Palo Alto, and more
 - **Auto-detection**: Automatically detects vendor from configuration content
+- **Customizable rules**: Use default best-practice rules or define company-specific policies
 - **Rule management**: Enable/disable individual rules or entire rule packs
 - **SARIF export**: Export results for CI/CD integration
 
