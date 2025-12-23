@@ -33,8 +33,12 @@ import {
   validateConfigPath,
   validateEncryptedPackPath,
   validateJsonRulesPath,
-  type PathValidationResult,
 } from './security/pathValidator';
+import {
+  loadAndValidate,
+  validatePathOrThrow,
+  wrapLoadError,
+} from './loaders';
 
 /** Configuration file structure */
 export interface SentriflowConfig {
@@ -297,7 +301,7 @@ function isValidRulePack(pack: unknown): pack is RulePack {
 
 /**
  * Load configuration from a file.
- * Validates the path and configuration structure before returning.
+ * Uses generic loader with path validation and structure checking.
  *
  * @param configPath - Path to the configuration file
  * @param baseDirs - SEC-011: Optional allowed base directories
@@ -306,33 +310,22 @@ export async function loadConfigFile(
   configPath: string,
   baseDirs?: string[]
 ): Promise<SentriflowConfig> {
-  // Validate the path first
-  const validation = validateConfigPath(configPath, baseDirs);
-  if (!validation.valid) {
-    throw new SentriflowConfigError(`Invalid config path: ${validation.error}`);
-  }
-
-  try {
-    const module = await import(validation.canonicalPath!);
-    const config = module.default ?? module;
-
-    // Validate config structure
-    if (!isValidSentriflowConfig(config)) {
-      throw new SentriflowConfigError('Invalid configuration structure');
-    }
-
-    return config;
-  } catch (error) {
-    if (error instanceof SentriflowConfigError) {
-      throw error;
-    }
-    throw new SentriflowConfigError('Failed to load configuration file');
-  }
+  return loadAndValidate<SentriflowConfig>({
+    path: configPath,
+    baseDirs,
+    pathValidator: validateConfigPath,
+    loader: async (p) => {
+      const m = await import(p);
+      return m.default ?? m;
+    },
+    validator: isValidSentriflowConfig,
+    errorContext: 'config',
+  });
 }
 
 /**
  * Load rules from an external file (for --rules flag).
- * Validates path and each rule before returning.
+ * Uses helpers for path validation and error handling.
  *
  * @param rulesPath - Path to the rules file
  * @param baseDirs - SEC-011: Optional allowed base directories
@@ -341,39 +334,33 @@ export async function loadExternalRules(
   rulesPath: string,
   baseDirs?: string[]
 ): Promise<IRule[]> {
-  // Validate the path first
-  const validation = validateConfigPath(rulesPath, baseDirs);
-  if (!validation.valid) {
-    throw new SentriflowConfigError(`Invalid rules path: ${validation.error}`);
-  }
+  const canonicalPath = validatePathOrThrow(
+    rulesPath,
+    validateConfigPath,
+    'rules',
+    baseDirs
+  );
 
-  try {
-    const module = await import(validation.canonicalPath!);
-
-    // Support: export default [], export const rules = [], or module.exports = []
+  return wrapLoadError(async () => {
+    const module = await import(canonicalPath);
     const rules = module.default ?? module.rules ?? module;
 
     if (!Array.isArray(rules)) {
-      throw new SentriflowConfigError(
-        'Rules file must export an array of rules'
-      );
+      throw new SentriflowConfigError('Rules file must export an array of rules');
     }
 
-    // Validate each rule
+    // Validate each rule, warn on invalid ones
     const validRules: IRule[] = [];
     for (const rule of rules) {
       if (isValidRule(rule)) {
         validRules.push(rule);
       } else {
-        // SEC-005: Sanitize error message to prevent information disclosure
-        // Only log rule ID (if available) rather than potentially sensitive content
+        // SEC-005: Sanitize error message
         const safeRuleId =
           typeof rule === 'object' && rule !== null && 'id' in rule
             ? String((rule as Record<string, unknown>).id).slice(0, 50)
             : 'unknown';
-        console.warn(
-          `Skipping invalid rule: ${safeRuleId} (validation failed)`
-        );
+        console.warn(`Skipping invalid rule: ${safeRuleId} (validation failed)`);
       }
     }
 
@@ -382,17 +369,12 @@ export async function loadExternalRules(
     }
 
     return validRules;
-  } catch (error) {
-    if (error instanceof SentriflowConfigError) {
-      throw error;
-    }
-    throw new SentriflowConfigError('Failed to load rules file');
-  }
+  }, 'rules');
 }
 
 /**
  * Load rules from a JSON rules file.
- * Validates path, structure, and compiles JSON rules to IRule[].
+ * Uses helpers for path validation and error handling.
  *
  * @param jsonPath - Path to the JSON rules file
  * @param baseDirs - SEC-011: Optional allowed base directories
@@ -401,15 +383,15 @@ export async function loadJsonRules(
   jsonPath: string,
   baseDirs?: string[]
 ): Promise<IRule[]> {
-  // Validate the path first
-  const validation = validateJsonRulesPath(jsonPath, baseDirs);
-  if (!validation.valid) {
-    throw new SentriflowConfigError(`Invalid JSON rules path: ${validation.error}`);
-  }
+  const canonicalPath = validatePathOrThrow(
+    jsonPath,
+    validateJsonRulesPath,
+    'JSON rules',
+    baseDirs
+  );
 
-  try {
-    // Read the JSON file
-    const content = await readFileAsync(validation.canonicalPath!, 'utf-8');
+  return wrapLoadError(async () => {
+    const content = await readFileAsync(canonicalPath, 'utf-8');
     let jsonData: unknown;
 
     try {
@@ -418,25 +400,16 @@ export async function loadJsonRules(
       throw new SentriflowConfigError('Invalid JSON syntax in rules file');
     }
 
-    // Validate the JSON rule file structure
     const validationResult = validateJsonRuleFile(jsonData);
     if (!validationResult.valid) {
-      const errorMessages = validationResult.errors
-        .map((e) => `  ${e.path}: ${e.message}`)
-        .join('\n');
-      throw new SentriflowConfigError(
-        `Invalid JSON rules file:\n${errorMessages}`
-      );
+      const errors = validationResult.errors.map((e) => `  ${e.path}: ${e.message}`).join('\n');
+      throw new SentriflowConfigError(`Invalid JSON rules file:\n${errors}`);
     }
 
-    // Log warnings if any
-    if (validationResult.warnings.length > 0) {
-      for (const warning of validationResult.warnings) {
-        console.warn(`[JSON Rules] Warning: ${warning.path}: ${warning.message}`);
-      }
+    for (const warning of validationResult.warnings) {
+      console.warn(`[JSON Rules] Warning: ${warning.path}: ${warning.message}`);
     }
 
-    // Compile the rules
     const ruleFile = jsonData as JsonRuleFile;
     const compiledRules = compileJsonRules(ruleFile.rules);
 
@@ -445,12 +418,7 @@ export async function loadJsonRules(
     }
 
     return compiledRules;
-  } catch (error) {
-    if (error instanceof SentriflowConfigError) {
-      throw error;
-    }
-    throw new SentriflowConfigError('Failed to load JSON rules file');
-  }
+  }, 'JSON rules');
 }
 
 export interface ResolveOptions {
@@ -530,6 +498,7 @@ function isDefaultRuleDisabled(
 
 /**
  * Load a rule pack from a file.
+ * Uses generic loader with path validation and structure checking.
  *
  * @param packPath - Path to the rule pack file
  * @param baseDirs - SEC-011: Optional allowed base directories
@@ -538,93 +507,71 @@ export async function loadRulePackFile(
   packPath: string,
   baseDirs?: string[]
 ): Promise<RulePack> {
-  const validation = validateConfigPath(packPath, baseDirs);
-  if (!validation.valid) {
-    throw new SentriflowConfigError(
-      `Invalid rule pack path: ${validation.error}`
-    );
-  }
+  return loadAndValidate<RulePack>({
+    path: packPath,
+    baseDirs,
+    pathValidator: validateConfigPath,
+    loader: async (p) => {
+      const m = await import(p);
+      return m.default ?? m;
+    },
+    validator: isValidRulePack,
+    errorContext: 'rule pack',
+  });
+}
 
-  try {
-    const module = await import(validation.canonicalPath!);
-    const pack = module.default ?? module;
-
-    if (!isValidRulePack(pack)) {
-      throw new SentriflowConfigError('Invalid rule pack structure');
-    }
-
-    return pack;
-  } catch (error) {
-    if (error instanceof SentriflowConfigError) throw error;
-    throw new SentriflowConfigError('Failed to load rule pack file');
-  }
+/** Map PackLoadError codes to user-friendly messages */
+function mapPackLoadError(error: PackLoadError): never {
+  const messages: Record<string, string> = {
+    DECRYPTION_FAILED: 'Invalid license key for encrypted pack',
+    EXPIRED: 'Encrypted pack has expired',
+    MACHINE_MISMATCH: 'License is not valid for this machine',
+    ACTIVATION_LIMIT: 'Maximum activations exceeded for this license',
+  };
+  throw new SentriflowConfigError(
+    messages[error.code] ?? `Failed to load encrypted pack: ${error.message}`
+  );
 }
 
 /**
  * SEC-012: Load an encrypted rule pack (.grpx) file.
+ * Uses helper for path validation with specialized error mapping.
  *
  * @param packPath - Path to the encrypted pack file
  * @param licenseKey - License key for decryption
  * @param baseDirs - Optional allowed base directories
- * @returns Promise resolving to a RulePack
  */
 export async function loadEncryptedRulePack(
   packPath: string,
   licenseKey: string,
   baseDirs?: string[]
 ): Promise<RulePack> {
-  const validation = validateEncryptedPackPath(packPath, baseDirs);
-  if (!validation.valid) {
-    throw new SentriflowConfigError(
-      `Invalid encrypted pack path: ${validation.error}`
-    );
-  }
+  const canonicalPath = validatePathOrThrow(
+    packPath,
+    validateEncryptedPackPath,
+    'encrypted pack',
+    baseDirs
+  );
 
   try {
-    // Read the binary pack file
-    const packData = await readFileAsync(validation.canonicalPath!);
+    const packData = await readFileAsync(canonicalPath);
 
-    // Validate format before attempting to decrypt
     if (!validatePackFormat(packData)) {
       throw new SentriflowConfigError('Invalid encrypted pack format');
     }
 
-    // Load and decrypt the pack
     const loadedPack = await loadEncryptedPack(packData, {
       licenseKey,
-      timeout: 10000, // 10 seconds for pack validation
+      timeout: 10000,
     });
 
-    // Convert LoadedPack to RulePack
     return {
       ...loadedPack.metadata,
-      priority: 200, // High priority for licensed packs
+      priority: 200,
       rules: loadedPack.rules,
     };
   } catch (error) {
-    if (error instanceof PackLoadError) {
-      // Map PackLoadError codes to user-friendly messages
-      switch (error.code) {
-        case 'DECRYPTION_FAILED':
-          throw new SentriflowConfigError(
-            'Invalid license key for encrypted pack'
-          );
-        case 'EXPIRED':
-          throw new SentriflowConfigError('Encrypted pack has expired');
-        case 'MACHINE_MISMATCH':
-          throw new SentriflowConfigError(
-            'License is not valid for this machine'
-          );
-        case 'ACTIVATION_LIMIT':
-          throw new SentriflowConfigError(
-            'Maximum activations exceeded for this license'
-          );
-        default:
-          throw new SentriflowConfigError(
-            `Failed to load encrypted pack: ${error.message}`
-          );
-      }
-    }
+    if (error instanceof PackLoadError) mapPackLoadError(error);
     if (error instanceof SentriflowConfigError) throw error;
     throw new SentriflowConfigError('Failed to load encrypted rule pack');
   }
