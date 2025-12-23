@@ -1,6 +1,6 @@
 # @sentriflow/cli
 
-Command-line interface for SentriFlow - lint and validate network configurations.
+Command-line interface for SentriFlow - check network configurations for compliance against best practices or organization-specific policies.
 
 ## Installation
 
@@ -17,10 +17,10 @@ bun add -g @sentriflow/cli
 ## Quick Start
 
 ```bash
-# Validate a single configuration file
+# Check a single configuration file
 sentriflow router.conf
 
-# Validate with specific vendor
+# Check with specific vendor
 sentriflow -v cisco-ios router.conf
 
 # Scan a directory of configs
@@ -44,7 +44,7 @@ sentriflow --list-rules
 ```
 Usage: sentriflow [options] [file]
 
-SentriFlow Network Configuration Validator
+SentriFlow Network Configuration Compliance Checker
 
 Arguments:
   file                          Path to the configuration file
@@ -164,7 +164,7 @@ sentriflow router.conf -f sarif > results.sarif
 ### GitHub Actions
 
 ```yaml
-- name: Lint network configs
+- name: Check network config compliance
   run: |
     npx @sentriflow/cli -D configs/ -R -f sarif > results.sarif
 
@@ -190,8 +190,8 @@ SentriFlow automatically looks for `.sentriflowrc` or `.sentriflowrc.json` in th
 
 ## Related Packages
 
-- [`@sentriflow/core`](https://github.com/sentriflow/sentriflow/tree/main/packages/core) - Core parsing engine
-- [`@sentriflow/rules-default`](https://github.com/sentriflow/sentriflow/tree/main/packages/rules-default) - Default validation rules
+- [`@sentriflow/core`](https://github.com/sentriflow/sentriflow/tree/main/packages/core) - Core parsing and compliance engine
+- [`@sentriflow/rules-default`](https://github.com/sentriflow/sentriflow/tree/main/packages/rules-default) - Default compliance rules
 
 ## License
 

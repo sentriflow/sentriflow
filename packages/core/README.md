@@ -1,10 +1,10 @@
 # @sentriflow/core
 
-Core engine for SentriFlow - a network configuration linter and validator.
+Core engine for SentriFlow - a network configuration compliance validator.
 
 ## Overview
 
-`@sentriflow/core` provides the fundamental building blocks for parsing, analyzing, and validating network device configurations across multiple vendors.
+`@sentriflow/core` provides the fundamental building blocks for parsing and analyzing network device configurations across multiple vendors, checking them against compliance rules—whether industry best practices or your organization's specific requirements.
 
 ## Installation
 
@@ -18,7 +18,7 @@ bun add @sentriflow/core
 
 - **Multi-vendor support**: Cisco IOS/NX-OS, Juniper JunOS, Arista EOS, Fortinet FortiGate, Palo Alto PAN-OS, and more
 - **AST-based parsing**: Converts configurations into a vendor-agnostic Abstract Syntax Tree
-- **Extensible rule engine**: Create custom validation rules using the rule API
+- **Extensible rule engine**: Define compliance rules for best practices or organization-specific policies
 - **TypeScript native**: Full type safety with comprehensive type definitions
 
 ## Supported Vendors
@@ -53,7 +53,7 @@ interface GigabitEthernet0/1
 
 const ast = parse(config, { vendor: 'cisco-ios' });
 
-// Validate against rules
+// Check compliance against rules
 const results = validate(ast, defaultRules);
 
 for (const issue of results) {
@@ -69,7 +69,7 @@ Parses a network configuration string into an AST.
 
 ### `validate(ast: AST, rules: Rule[]): ValidationResult[]`
 
-Validates an AST against a set of rules.
+Checks an AST for compliance against a set of rules.
 
 ### `detect(config: string): VendorInfo | null`
 
@@ -78,7 +78,7 @@ Auto-detects the vendor/platform from configuration content.
 ## Related Packages
 
 - [`@sentriflow/cli`](https://github.com/sentriflow/sentriflow/tree/main/packages/cli) - Command-line interface
-- [`@sentriflow/rules-default`](https://github.com/sentriflow/sentriflow/tree/main/packages/rules-default) - Default validation rules
+- [`@sentriflow/rules-default`](https://github.com/sentriflow/sentriflow/tree/main/packages/rules-default) - Default compliance rules
 - [`@sentriflow/rule-helpers`](https://github.com/sentriflow/sentriflow/tree/main/packages/rule-helpers) - Helper functions for rule development
 
 ## License
