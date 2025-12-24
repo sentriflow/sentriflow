@@ -25,6 +25,8 @@ import type {
   IncrementalParserOptions,
 } from '@sentriflow/core';
 import { allRules, getRulesByVendor } from '@sentriflow/rules-default';
+import { RulesTreeProvider, RuleTreeItem } from './providers/RulesTreeProvider';
+import { SettingsWebviewProvider } from './providers/SettingsWebviewProvider';
 
 // ============================================================================
 // Rule Pack Management
@@ -538,7 +540,7 @@ async function handlePackDisables(pack: RulePack): Promise<void> {
     vscode.window.showInformationMessage(
       `SENTRIFLOW: Applied disable settings from '${pack.name}'`
     );
-    updateRulePacksStatusBar();
+    rulesTreeProvider.refresh();
     rescanActiveEditor();
   } else {
     log(`Pack '${pack.name}': User declined disable settings`);
@@ -583,7 +585,7 @@ async function promptDefaultRulesOnce(): Promise<void> {
     vscode.window.showInformationMessage(
       'SENTRIFLOW: Default rules disabled. You can re-enable them in settings.'
     );
-    updateRulePacksStatusBar();
+    rulesTreeProvider.refresh();
     rescanActiveEditor();
   } else if (result === 'Yes, Enable') {
     log('Default rules confirmed enabled by user during first activation');
@@ -670,8 +672,9 @@ let extensionContext: vscode.ExtensionContext;
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
 let vendorStatusBarItem: vscode.StatusBarItem;
-let rulePacksStatusBarItem: vscode.StatusBarItem;
 let diagnosticCollection: vscode.DiagnosticCollection;
+let rulesTreeProvider: RulesTreeProvider;
+let settingsWebviewProvider: SettingsWebviewProvider;
 
 // Debounce timers per document URI
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -716,21 +719,41 @@ export function activate(context: vscode.ExtensionContext) {
     vendorStatusBarItem.tooltip = 'Click to change vendor';
     vendorStatusBarItem.show();
 
-    // Create status bar item for rule packs
-    rulePacksStatusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Left,
-      98
-    );
-    rulePacksStatusBarItem.command = 'sentriflow.showRulePacks';
-    rulePacksStatusBarItem.show();
-
-    // Initialize status bar displays (must be after all items are created)
+    // Initialize status bar displays
     updateStatusBar('ready');
-    updateRulePacksStatusBar();
 
     // Create diagnostic collection
     diagnosticCollection =
       vscode.languages.createDiagnosticCollection('sentriflow');
+
+    // Create and register Rules TreeView
+    rulesTreeProvider = new RulesTreeProvider();
+    rulesTreeProvider.initialize(
+      () => defaultPack,
+      () => registeredPacks,
+      () => allRules,
+      getDisabledRulesSet
+    );
+    const rulesTreeView = vscode.window.createTreeView('sentriflowRules', {
+      treeDataProvider: rulesTreeProvider,
+      showCollapseAll: true,
+    });
+    context.subscriptions.push(rulesTreeView);
+
+    // Create and register Settings Webview
+    settingsWebviewProvider = new SettingsWebviewProvider(context.extensionUri);
+    settingsWebviewProvider.initialize(
+      () => defaultPack,
+      () => registeredPacks,
+      () => allRules,
+      getDisabledRulesSet
+    );
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        SettingsWebviewProvider.viewType,
+        settingsWebviewProvider
+      )
+    );
 
     // Register commands
     context.subscriptions.push(
@@ -748,6 +771,46 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand(
         'sentriflow.showRulePacks',
         cmdShowRulePacks
+      ),
+      // TreeView commands
+      vscode.commands.registerCommand(
+        'sentriflow.disableTreeItem',
+        cmdDisableTreeItem
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.enableTreeItem',
+        cmdEnableTreeItem
+      ),
+      vscode.commands.registerCommand('sentriflow.copyRuleId', cmdCopyRuleId),
+      vscode.commands.registerCommand(
+        'sentriflow.viewRuleDetails',
+        cmdViewRuleDetails
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.refreshRulesTree',
+        () => rulesTreeProvider.refresh()
+      ),
+      // Direct commands
+      vscode.commands.registerCommand('sentriflow.togglePack', cmdTogglePack),
+      vscode.commands.registerCommand(
+        'sentriflow.toggleVendor',
+        cmdToggleVendor
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.disableRuleById',
+        cmdDisableRuleById
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.enableRuleById',
+        cmdEnableRuleById
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.showDisabled',
+        cmdShowDisabled
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.focusRulesView',
+        () => vscode.commands.executeCommand('sentriflowRules.focus')
       )
     );
 
@@ -766,7 +829,6 @@ export function activate(context: vscode.ExtensionContext) {
       outputChannel,
       statusBarItem,
       vendorStatusBarItem,
-      rulePacksStatusBarItem,
       diagnosticCollection
     );
 
@@ -874,7 +936,7 @@ export function activate(context: vscode.ExtensionContext) {
             `Registered rule pack '${validPack.name}' v${validPack.version} (${validPack.rules.length} rules, priority ${validPack.priority})`
           );
 
-          updateRulePacksStatusBar();
+          rulesTreeProvider.refresh();
           rescanActiveEditor();
 
           // Handle disables config (async, don't block registration)
@@ -907,7 +969,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (registeredPacks.has(packName)) {
           registeredPacks.delete(packName);
           log(`Unregistered rule pack '${packName}'`);
-          updateRulePacksStatusBar();
+          rulesTreeProvider.refresh();
           rescanActiveEditor();
           return true;
         }
@@ -2100,6 +2162,601 @@ async function toggleRule(ruleId: string, currentlyDisabled: boolean) {
     newDisabledRules,
     vscode.ConfigurationTarget.Workspace
   );
+
+  // Refresh tree view
+  rulesTreeProvider.refresh();
+}
+
+// ============================================================================
+// TreeView Command Handlers
+// ============================================================================
+
+/**
+ * Disable a tree item (pack, vendor, or rule)
+ */
+async function cmdDisableTreeItem(item: RuleTreeItem) {
+  if (!item) return;
+
+  const config = vscode.workspace.getConfiguration('sentriflow');
+
+  switch (item.itemType) {
+    case 'pack': {
+      const packName = item.packName!;
+      if (packName === DEFAULT_PACK_NAME) {
+        await config.update(
+          'enableDefaultRules',
+          false,
+          vscode.ConfigurationTarget.Workspace
+        );
+        vscode.window.showInformationMessage(
+          `SENTRIFLOW: Default rules disabled`
+        );
+      } else {
+        const blockedPacks = config.get<string[]>('blockedPacks', []);
+        if (!blockedPacks.includes(packName)) {
+          await config.update(
+            'blockedPacks',
+            [...blockedPacks, packName],
+            vscode.ConfigurationTarget.Workspace
+          );
+        }
+        vscode.window.showInformationMessage(
+          `SENTRIFLOW: Pack '${packName}' disabled`
+        );
+      }
+      break;
+    }
+
+    case 'vendor': {
+      const packName = item.packName!;
+      const vendorId = item.vendorId!;
+      const overrides = config.get<Record<string, { disabledVendors?: string[] }>>(
+        'packVendorOverrides',
+        {}
+      );
+      const packOverride = overrides[packName] ?? { disabledVendors: [] };
+      const disabledVendors = packOverride.disabledVendors ?? [];
+
+      if (!disabledVendors.includes(vendorId)) {
+        const newOverrides = {
+          ...overrides,
+          [packName]: { disabledVendors: [...disabledVendors, vendorId] },
+        };
+        await config.update(
+          'packVendorOverrides',
+          newOverrides,
+          vscode.ConfigurationTarget.Workspace
+        );
+      }
+      vscode.window.showInformationMessage(
+        `SENTRIFLOW: Vendor '${vendorId}' in pack '${packName}' disabled`
+      );
+      break;
+    }
+
+    case 'rule': {
+      const ruleId = item.rule!.id;
+      await toggleRule(ruleId, false); // false = enable is false, so disable
+      break;
+    }
+  }
+
+  rulesTreeProvider.refresh();
+  rescanActiveEditor();
+}
+
+/**
+ * Enable a tree item (pack, vendor, or rule)
+ */
+async function cmdEnableTreeItem(item: RuleTreeItem) {
+  if (!item) return;
+
+  const config = vscode.workspace.getConfiguration('sentriflow');
+
+  switch (item.itemType) {
+    case 'pack': {
+      const packName = item.packName!;
+      if (packName === DEFAULT_PACK_NAME) {
+        await config.update(
+          'enableDefaultRules',
+          true,
+          vscode.ConfigurationTarget.Workspace
+        );
+        vscode.window.showInformationMessage(
+          `SENTRIFLOW: Default rules enabled`
+        );
+      } else {
+        const blockedPacks = config.get<string[]>('blockedPacks', []);
+        const newBlockedPacks = blockedPacks.filter((p) => p !== packName);
+        await config.update(
+          'blockedPacks',
+          newBlockedPacks.length > 0 ? newBlockedPacks : undefined,
+          vscode.ConfigurationTarget.Workspace
+        );
+        vscode.window.showInformationMessage(
+          `SENTRIFLOW: Pack '${packName}' enabled`
+        );
+      }
+      break;
+    }
+
+    case 'vendor': {
+      const packName = item.packName!;
+      const vendorId = item.vendorId!;
+      const overrides = config.get<Record<string, { disabledVendors?: string[] }>>(
+        'packVendorOverrides',
+        {}
+      );
+      const packOverride = overrides[packName] ?? { disabledVendors: [] };
+      const disabledVendors = packOverride.disabledVendors ?? [];
+
+      const newDisabledVendors = disabledVendors.filter((v) => v !== vendorId);
+      const newOverrides = { ...overrides };
+
+      if (newDisabledVendors.length === 0) {
+        delete newOverrides[packName];
+      } else {
+        newOverrides[packName] = { disabledVendors: newDisabledVendors };
+      }
+
+      await config.update(
+        'packVendorOverrides',
+        Object.keys(newOverrides).length > 0 ? newOverrides : undefined,
+        vscode.ConfigurationTarget.Workspace
+      );
+      vscode.window.showInformationMessage(
+        `SENTRIFLOW: Vendor '${vendorId}' in pack '${packName}' enabled`
+      );
+      break;
+    }
+
+    case 'rule': {
+      const ruleId = item.rule!.id;
+      const packName = item.packName!;
+      const vendorId = item.vendorId!;
+
+      // Check if parent vendor is disabled
+      const overrides = config.get<Record<string, { disabledVendors?: string[] }>>(
+        'packVendorOverrides',
+        {}
+      );
+      const packOverride = overrides[packName] ?? { disabledVendors: [] };
+      const disabledVendors = packOverride.disabledVendors ?? [];
+
+      if (disabledVendors.includes(vendorId)) {
+        // Vendor is disabled - need to enable vendor but disable all other rules
+        // 1. Get all rules for this vendor in this pack
+        const isDefault = packName === DEFAULT_PACK_NAME;
+        const packRules = isDefault ? allRules : (registeredPacks.get(packName)?.rules ?? []);
+        const vendorRules = packRules.filter((r) => {
+          if (!r.vendor) return vendorId === 'common';
+          if (Array.isArray(r.vendor)) return r.vendor.includes(vendorId as RuleVendor);
+          return r.vendor === vendorId;
+        });
+
+        // 2. Enable the vendor (remove from disabledVendors)
+        const newDisabledVendors = disabledVendors.filter((v) => v !== vendorId);
+        const newOverrides = { ...overrides };
+        if (newDisabledVendors.length === 0) {
+          delete newOverrides[packName];
+        } else {
+          newOverrides[packName] = { disabledVendors: newDisabledVendors };
+        }
+        await config.update(
+          'packVendorOverrides',
+          Object.keys(newOverrides).length > 0 ? newOverrides : undefined,
+          vscode.ConfigurationTarget.Workspace
+        );
+
+        // 3. Disable all OTHER rules in this vendor (except the one we're enabling)
+        const currentDisabled = config.get<string[]>('disabledRules', []);
+        const disabledSet = new Set(currentDisabled);
+        for (const rule of vendorRules) {
+          if (rule.id !== ruleId) {
+            disabledSet.add(rule.id);
+          }
+        }
+        // Make sure the enabled rule is NOT in disabled set
+        disabledSet.delete(ruleId);
+        await config.update(
+          'disabledRules',
+          disabledSet.size > 0 ? Array.from(disabledSet) : undefined,
+          vscode.ConfigurationTarget.Workspace
+        );
+
+        vscode.window.showInformationMessage(
+          `SENTRIFLOW: Enabled rule '${ruleId}' - vendor '${vendorId}' enabled, ${vendorRules.length - 1} other rules disabled`
+        );
+      } else {
+        // Vendor is enabled, just toggle the rule
+        await toggleRule(ruleId, true); // true = enable
+      }
+      break;
+    }
+  }
+
+  rulesTreeProvider.refresh();
+  rescanActiveEditor();
+}
+
+/**
+ * Copy rule ID to clipboard
+ */
+async function cmdCopyRuleId(item: RuleTreeItem) {
+  if (!item || !item.rule) return;
+  await vscode.env.clipboard.writeText(item.rule.id);
+  vscode.window.showInformationMessage(`SENTRIFLOW: Copied '${item.rule.id}' to clipboard`);
+}
+
+/**
+ * View details for a tree item in the output channel
+ */
+async function cmdViewRuleDetails(item: RuleTreeItem) {
+  if (!item) return;
+
+  outputChannel.show(true);
+  outputChannel.appendLine(`\n${'='.repeat(60)}`);
+
+  switch (item.itemType) {
+    case 'pack': {
+      const pack = item.packName === DEFAULT_PACK_NAME
+        ? defaultPack
+        : registeredPacks.get(item.packName!);
+      if (pack) {
+        outputChannel.appendLine(`Pack: ${pack.name}`);
+        outputChannel.appendLine(`${'='.repeat(60)}`);
+        outputChannel.appendLine(`Publisher:   ${pack.publisher}`);
+        outputChannel.appendLine(`Version:     ${pack.version}`);
+        outputChannel.appendLine(`Description: ${pack.description}`);
+        outputChannel.appendLine(`Priority:    ${pack.priority}`);
+        outputChannel.appendLine(`Rules:       ${item.packName === DEFAULT_PACK_NAME ? allRules.length : pack.rules.length}`);
+        outputChannel.appendLine(`Status:      ${item.isEnabled ? 'Enabled' : 'DISABLED'}`);
+      }
+      break;
+    }
+
+    case 'vendor': {
+      outputChannel.appendLine(`Vendor: ${item.vendorId}`);
+      outputChannel.appendLine(`${'='.repeat(60)}`);
+      outputChannel.appendLine(`Pack:   ${item.packName}`);
+      outputChannel.appendLine(`Status: ${item.isEnabled ? 'Enabled' : 'DISABLED'}`);
+      break;
+    }
+
+    case 'rule': {
+      const rule = item.rule!;
+      outputChannel.appendLine(`Rule: ${rule.id}`);
+      outputChannel.appendLine(`${'='.repeat(60)}`);
+      outputChannel.appendLine(`Level:       ${rule.metadata.level}`);
+      outputChannel.appendLine(`Vendor:      ${rule.vendor ?? 'common'}`);
+      outputChannel.appendLine(`Selector:    ${rule.selector ?? '(none)'}`);
+      outputChannel.appendLine(`Status:      ${item.isEnabled ? 'Enabled' : 'DISABLED'}`);
+      if (rule.metadata.description) {
+        outputChannel.appendLine(`Description: ${rule.metadata.description}`);
+      }
+      if (rule.metadata.remediation) {
+        outputChannel.appendLine(`Remediation: ${rule.metadata.remediation}`);
+      }
+      if (rule.metadata.obu) {
+        outputChannel.appendLine(`OBU:         ${rule.metadata.obu}`);
+      }
+      if (rule.metadata.owner) {
+        outputChannel.appendLine(`Owner:       ${rule.metadata.owner}`);
+      }
+      if (rule.metadata.security) {
+        const sec = rule.metadata.security;
+        if (sec.cwe?.length) {
+          outputChannel.appendLine(`CWE:         ${sec.cwe.join(', ')}`);
+        }
+        if (sec.cvssScore !== undefined) {
+          outputChannel.appendLine(`CVSS Score:  ${sec.cvssScore}`);
+        }
+        if (sec.tags?.length) {
+          outputChannel.appendLine(`Tags:        ${sec.tags.join(', ')}`);
+        }
+      }
+      break;
+    }
+  }
+
+  outputChannel.appendLine('');
+}
+
+// ============================================================================
+// Direct Command Handlers (Command Palette)
+// ============================================================================
+
+/**
+ * Toggle a pack via command palette
+ */
+async function cmdTogglePack() {
+  interface PackPickItem extends vscode.QuickPickItem {
+    packName: string;
+    isEnabled: boolean;
+  }
+
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const enableDefaultRules = config.get<boolean>('enableDefaultRules', true);
+  const blockedPacks = new Set(config.get<string[]>('blockedPacks', []));
+
+  const items: PackPickItem[] = [];
+
+  // Default pack
+  items.push({
+    label: `${enableDefaultRules ? '$(check)' : '$(circle-slash)'} ${DEFAULT_PACK_NAME}`,
+    description: enableDefaultRules ? 'Enabled' : 'Disabled',
+    detail: `${allRules.length} rules`,
+    packName: DEFAULT_PACK_NAME,
+    isEnabled: enableDefaultRules,
+  });
+
+  // External packs
+  for (const [name, pack] of registeredPacks) {
+    const isEnabled = !blockedPacks.has(name);
+    items.push({
+      label: `${isEnabled ? '$(check)' : '$(circle-slash)'} ${name}`,
+      description: isEnabled ? 'Enabled' : 'Disabled',
+      detail: `${pack.rules.length} rules | ${pack.publisher}`,
+      packName: name,
+      isEnabled,
+    });
+  }
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select a pack to toggle',
+    title: 'SENTRIFLOW: Toggle Pack',
+  });
+
+  if (!selected) return;
+
+  // Create a synthetic tree item to reuse toggle logic
+  const item = new RuleTreeItem(
+    selected.packName,
+    vscode.TreeItemCollapsibleState.None,
+    'pack',
+    selected.packName,
+    undefined,
+    undefined,
+    selected.isEnabled,
+  );
+
+  await cmdToggleTreeItem(item);
+}
+
+/**
+ * Toggle a vendor via command palette
+ */
+async function cmdToggleVendor() {
+  interface VendorPickItem extends vscode.QuickPickItem {
+    packName: string;
+    vendorId: string;
+    isEnabled: boolean;
+  }
+
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const overrides = config.get<Record<string, { disabledVendors?: string[] }>>(
+    'packVendorOverrides',
+    {}
+  );
+
+  const items: VendorPickItem[] = [];
+
+  // Collect vendors from default pack
+  const defaultVendors = new Set<string>();
+  for (const rule of allRules) {
+    if (rule.vendor) {
+      const vendors = Array.isArray(rule.vendor) ? rule.vendor : [rule.vendor];
+      vendors.forEach((v) => defaultVendors.add(v));
+    } else {
+      defaultVendors.add('common');
+    }
+  }
+
+  const defaultDisabled = new Set(overrides[DEFAULT_PACK_NAME]?.disabledVendors ?? []);
+  for (const vendor of Array.from(defaultVendors).sort()) {
+    const isEnabled = !defaultDisabled.has(vendor);
+    items.push({
+      label: `${isEnabled ? '$(check)' : '$(circle-slash)'} ${vendor}`,
+      description: `${DEFAULT_PACK_NAME}`,
+      packName: DEFAULT_PACK_NAME,
+      vendorId: vendor,
+      isEnabled,
+    });
+  }
+
+  // Collect vendors from external packs
+  for (const [packName, pack] of registeredPacks) {
+    const packVendors = new Set<string>();
+    for (const rule of pack.rules) {
+      if (rule.vendor) {
+        const vendors = Array.isArray(rule.vendor) ? rule.vendor : [rule.vendor];
+        vendors.forEach((v) => packVendors.add(v));
+      } else {
+        packVendors.add('common');
+      }
+    }
+
+    const packDisabled = new Set(overrides[packName]?.disabledVendors ?? []);
+    for (const vendor of Array.from(packVendors).sort()) {
+      const isEnabled = !packDisabled.has(vendor);
+      items.push({
+        label: `${isEnabled ? '$(check)' : '$(circle-slash)'} ${vendor}`,
+        description: packName,
+        packName,
+        vendorId: vendor,
+        isEnabled,
+      });
+    }
+  }
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select a vendor to toggle',
+    title: 'SENTRIFLOW: Toggle Vendor',
+    matchOnDescription: true,
+  });
+
+  if (!selected) return;
+
+  const item = new RuleTreeItem(
+    selected.vendorId,
+    vscode.TreeItemCollapsibleState.None,
+    'vendor',
+    selected.packName,
+    selected.vendorId,
+    undefined,
+    selected.isEnabled,
+  );
+
+  await cmdToggleTreeItem(item);
+}
+
+/**
+ * Disable a rule via command palette with fuzzy search
+ */
+async function cmdDisableRuleById() {
+  const disabledRules = getDisabledRulesSet();
+
+  interface RulePickItem extends vscode.QuickPickItem {
+    ruleId: string;
+  }
+
+  const items: RulePickItem[] = allRules
+    .filter((r) => !disabledRules.has(r.id))
+    .map((r) => ({
+      label: `$(${r.metadata.level}) ${r.id}`,
+      description: r.vendor
+        ? Array.isArray(r.vendor)
+          ? r.vendor.join(', ')
+          : r.vendor
+        : 'common',
+      detail: r.metadata.remediation ?? r.metadata.description,
+      ruleId: r.id,
+    }));
+
+  if (items.length === 0) {
+    vscode.window.showInformationMessage('SENTRIFLOW: All rules are already disabled');
+    return;
+  }
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Type to search rules to disable...',
+    title: 'SENTRIFLOW: Disable Rule',
+    matchOnDescription: true,
+    matchOnDetail: true,
+  });
+
+  if (!selected) return;
+
+  await toggleRule(selected.ruleId, false);
+}
+
+/**
+ * Enable a disabled rule via command palette
+ */
+async function cmdEnableRuleById() {
+  const disabledRules = Array.from(getDisabledRulesSet());
+
+  if (disabledRules.length === 0) {
+    vscode.window.showInformationMessage('SENTRIFLOW: No rules are disabled');
+    return;
+  }
+
+  interface RulePickItem extends vscode.QuickPickItem {
+    ruleId: string;
+  }
+
+  const items: RulePickItem[] = disabledRules.map((id) => {
+    const rule = allRules.find((r) => r.id === id);
+    return {
+      label: `$(circle-slash) ${id}`,
+      description: rule?.vendor
+        ? Array.isArray(rule.vendor)
+          ? rule.vendor.join(', ')
+          : rule.vendor
+        : 'common',
+      detail: rule?.metadata.remediation ?? rule?.metadata.description ?? 'Currently disabled',
+      ruleId: id,
+    };
+  });
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select a rule to enable',
+    title: 'SENTRIFLOW: Enable Disabled Rule',
+    matchOnDescription: true,
+    matchOnDetail: true,
+  });
+
+  if (!selected) return;
+
+  await toggleRule(selected.ruleId, true);
+}
+
+/**
+ * Show all disabled items in the output channel
+ */
+async function cmdShowDisabled() {
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const enableDefaultRules = config.get<boolean>('enableDefaultRules', true);
+  const blockedPacks = config.get<string[]>('blockedPacks', []);
+  const overrides = config.get<Record<string, { disabledVendors?: string[] }>>(
+    'packVendorOverrides',
+    {}
+  );
+  const disabledRules = Array.from(getDisabledRulesSet());
+
+  outputChannel.show(true);
+  outputChannel.appendLine(`\n${'='.repeat(60)}`);
+  outputChannel.appendLine('SENTRIFLOW: Disabled Items Summary');
+  outputChannel.appendLine(`${'='.repeat(60)}`);
+
+  // Packs
+  outputChannel.appendLine('\n--- Disabled Packs ---');
+  if (!enableDefaultRules) {
+    outputChannel.appendLine(`  - ${DEFAULT_PACK_NAME} (default rules disabled)`);
+  }
+  for (const pack of blockedPacks) {
+    outputChannel.appendLine(`  - ${pack}`);
+  }
+  if (enableDefaultRules && blockedPacks.length === 0) {
+    outputChannel.appendLine('  (none)');
+  }
+
+  // Vendors
+  outputChannel.appendLine('\n--- Disabled Vendors ---');
+  let hasDisabledVendors = false;
+  for (const [packName, packOverride] of Object.entries(overrides)) {
+    if (packOverride.disabledVendors && packOverride.disabledVendors.length > 0) {
+      for (const vendor of packOverride.disabledVendors) {
+        outputChannel.appendLine(`  - ${vendor} (in ${packName})`);
+        hasDisabledVendors = true;
+      }
+    }
+  }
+  if (!hasDisabledVendors) {
+    outputChannel.appendLine('  (none)');
+  }
+
+  // Rules
+  outputChannel.appendLine('\n--- Disabled Rules ---');
+  if (disabledRules.length > 0) {
+    for (const ruleId of disabledRules.sort()) {
+      outputChannel.appendLine(`  - ${ruleId}`);
+    }
+  } else {
+    outputChannel.appendLine('  (none)');
+  }
+
+  const totalDisabled =
+    (enableDefaultRules ? 0 : 1) +
+    blockedPacks.length +
+    Object.values(overrides).reduce(
+      (sum, o) => sum + (o.disabledVendors?.length ?? 0),
+      0
+    ) +
+    disabledRules.length;
+
+  outputChannel.appendLine(`\nTotal disabled items: ${totalDisabled}`);
+  outputChannel.appendLine('');
 }
 
 // ============================================================================
@@ -2186,8 +2843,9 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
 
   if (event.affectsConfiguration('sentriflow.enableDefaultRules')) {
     log(`Default rules setting changed`);
-    // Update status bar and re-scan
-    updateRulePacksStatusBar();
+    // Update tree view, settings webview, and re-scan
+    rulesTreeProvider.refresh();
+    settingsWebviewProvider.refresh();
     rescanActiveEditor();
   }
 
@@ -2195,12 +2853,15 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
     log(`Blocked packs setting changed`);
     // Note: This only affects future registrations
     // Already registered packs remain active until extension reload
+    rulesTreeProvider.refresh();
+    settingsWebviewProvider.refresh();
   }
 
   if (event.affectsConfiguration('sentriflow.packVendorOverrides')) {
     log(`Pack vendor overrides changed`);
-    // Update status bar and re-scan
-    updateRulePacksStatusBar();
+    // Update tree view, settings webview, and re-scan
+    rulesTreeProvider.refresh();
+    settingsWebviewProvider.refresh();
     rescanActiveEditor();
   }
 
@@ -2210,7 +2871,8 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
     log(`Disabled rules setting changed: ${JSON.stringify(disabledRules)}`);
     // Increment rules version to force index rebuild
     rulesVersion++;
-    updateRulePacksStatusBar();
+    rulesTreeProvider.refresh();
+    settingsWebviewProvider.refresh();
     rescanActiveEditor();
   }
 }
@@ -2408,6 +3070,9 @@ function updateStatusBar(
   errors = 0,
   warnings = 0
 ) {
+  // Count disabled items for tooltip
+  const disabledRulesCount = getDisabledRulesSet().size;
+
   switch (state) {
     case 'scanning':
       statusBarItem.text = '$(sync~spin) SENTRIFLOW';
@@ -2421,25 +3086,50 @@ function updateStatusBar(
       );
       statusBarItem.tooltip = 'Scan error - click to retry';
       break;
-    case 'ready':
+    case 'ready': {
+      // Build rich markdown tooltip
+      const tooltip = new vscode.MarkdownString();
+      tooltip.isTrusted = true;
+      tooltip.supportThemeIcons = true;
+      tooltip.appendMarkdown('**SentriFlow Compliance Validator**\n\n');
+
       if (errors > 0) {
         statusBarItem.text = `$(error) SENTRIFLOW: ${errors}`;
         statusBarItem.backgroundColor = new vscode.ThemeColor(
           'statusBarItem.errorBackground'
         );
-        statusBarItem.tooltip = `${errors} error(s), ${warnings} warning(s) - Click to scan`;
+        tooltip.appendMarkdown(`$(error) **Errors:** ${errors}\n\n`);
+        tooltip.appendMarkdown(`$(warning) **Warnings:** ${warnings}\n\n`);
       } else if (warnings > 0) {
         statusBarItem.text = `$(warning) SENTRIFLOW: ${warnings}`;
         statusBarItem.backgroundColor = new vscode.ThemeColor(
           'statusBarItem.warningBackground'
         );
-        statusBarItem.tooltip = `${warnings} warning(s) - Click to scan`;
+        tooltip.appendMarkdown(`$(warning) **Warnings:** ${warnings}\n\n`);
       } else {
         statusBarItem.text = '$(check) SENTRIFLOW';
         statusBarItem.backgroundColor = undefined;
-        statusBarItem.tooltip = 'No issues - Click to scan';
+        tooltip.appendMarkdown('$(check) **No issues found**\n\n');
       }
+
+      // Add disabled rules info if any
+      if (disabledRulesCount > 0) {
+        tooltip.appendMarkdown(`$(circle-slash) **Disabled Rules:** ${disabledRulesCount}\n\n`);
+      }
+
+      // Add vendor info
+      if (currentVendor) {
+        tooltip.appendMarkdown(`$(server) **Vendor:** ${currentVendor.name}\n\n`);
+      }
+
+      tooltip.appendMarkdown('---\n\n');
+      tooltip.appendMarkdown('[$(search) Scan](command:sentriflow.scan) · ');
+      tooltip.appendMarkdown('[$(list-tree) Rules](command:sentriflow.focusRulesView) · ');
+      tooltip.appendMarkdown('[$(circle-slash) Disabled](command:sentriflow.showDisabled)');
+
+      statusBarItem.tooltip = tooltip;
       break;
+    }
   }
 
   // Update vendor status bar whenever main status changes
@@ -2457,91 +3147,35 @@ function updateVendorStatusBar() {
   const config = vscode.workspace.getConfiguration('sentriflow');
   const vendorSetting = config.get<string>('defaultVendor', 'auto');
 
+  // Build rich markdown tooltip
+  const tooltip = new vscode.MarkdownString();
+  tooltip.isTrusted = true;
+  tooltip.supportThemeIcons = true;
+
   if (vendorSetting === 'auto') {
     if (currentVendor) {
       // Auto mode with detected vendor
       vendorStatusBarItem.text = `$(server) ${currentVendor.name}`;
-      vendorStatusBarItem.tooltip = `Vendor: ${currentVendor.name} (auto-detected)\nClick to change`;
+      tooltip.appendMarkdown(`**Vendor:** ${currentVendor.name}\n\n`);
+      tooltip.appendMarkdown('$(info) *Auto-detected from configuration*\n\n');
     } else {
       // Auto mode, no detection yet
       vendorStatusBarItem.text = '$(server) Auto';
-      vendorStatusBarItem.tooltip = 'Vendor: Auto-detect\nClick to change';
+      tooltip.appendMarkdown('**Vendor:** Auto-detect\n\n');
+      tooltip.appendMarkdown('$(info) *Open a config file to detect vendor*\n\n');
     }
   } else {
     // Manual vendor selection
     const vendorName = currentVendor?.name ?? vendorSetting;
     vendorStatusBarItem.text = `$(server) ${vendorName}`;
-    vendorStatusBarItem.tooltip = `Vendor: ${vendorName} (manual)\nClick to change`;
-  }
-}
-
-/**
- * Update rule packs status bar item with current pack/rule counts
- */
-function updateRulePacksStatusBar() {
-  const config = vscode.workspace.getConfiguration('sentriflow');
-  const enableDefaultRules = config.get<boolean>('enableDefaultRules', true);
-  const packVendorOverrides = config.get<
-    Record<string, { disabledVendors?: string[] }>
-  >('packVendorOverrides', {});
-
-  // Count active packs and rules
-  let activePacks = 0;
-  let totalRules = 0;
-  const packSummaries: string[] = [];
-
-  // Check default pack
-  if (enableDefaultRules) {
-    activePacks++;
-    totalRules += allRules.length;
-    packSummaries.push(`${DEFAULT_PACK_NAME}: ${allRules.length} rules`);
-  } else {
-    packSummaries.push(`${DEFAULT_PACK_NAME}: disabled`);
+    tooltip.appendMarkdown(`**Vendor:** ${vendorName}\n\n`);
+    tooltip.appendMarkdown('$(gear) *Manually configured*\n\n');
   }
 
-  // Check registered packs
-  for (const [name, pack] of registeredPacks) {
-    const packOverride = packVendorOverrides[name];
-    const disabledVendors = new Set(packOverride?.disabledVendors ?? []);
+  tooltip.appendMarkdown('---\n\n');
+  tooltip.appendMarkdown('[$(server) Change Vendor](command:sentriflow.selectVendor)');
 
-    // Count active rules (not disabled by vendor)
-    let activeRules = 0;
-    for (const rule of pack.rules) {
-      if (disabledVendors.size > 0) {
-        // Rules without vendor or with vendor='common' are treated as 'common'
-        const ruleVendors = rule.vendor
-          ? Array.isArray(rule.vendor)
-            ? rule.vendor
-            : [rule.vendor]
-          : ['common'];
-        const allVendorsDisabled = ruleVendors.every((v) =>
-          disabledVendors.has(v)
-        );
-        if (allVendorsDisabled) continue;
-      }
-      activeRules++;
-    }
-
-    if (activeRules > 0) {
-      activePacks++;
-      totalRules += activeRules;
-      if (activeRules < pack.rules.length) {
-        packSummaries.push(
-          `${name}: ${activeRules}/${pack.rules.length} rules`
-        );
-      } else {
-        packSummaries.push(`${name}: ${activeRules} rules`);
-      }
-    } else {
-      packSummaries.push(`${name}: disabled`);
-    }
-  }
-
-  // Update status bar
-  rulePacksStatusBarItem.text = `$(package) ${totalRules} rules`;
-  rulePacksStatusBarItem.tooltip = `Rule Packs (${activePacks} active)\n${packSummaries.join(
-    '\n'
-  )}\n\nClick to manage`;
+  vendorStatusBarItem.tooltip = tooltip;
 }
 
 function log(message: string) {

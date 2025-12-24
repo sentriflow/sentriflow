@@ -26,9 +26,33 @@
   ],
   "activationEvents": [
     "onLanguage:network-config",
-    "onLanguage:plaintext"
+    "onLanguage:plaintext",
+    "onView:sentriflowRules"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sentriflow",
+          "title": "SentriFlow",
+          "icon": "resources/sentriflow-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "sentriflow": [
+        {
+          "id": "sentriflowRules",
+          "name": "Rules",
+          "type": "tree"
+        },
+        {
+          "id": "sentriflowSettings",
+          "name": "Settings",
+          "type": "webview"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "network-config",
@@ -84,6 +108,72 @@
         "title": "Show Rule Packs",
         "category": "SentriFlow",
         "icon": "$(package)"
+      },
+      {
+        "command": "sentriflow.togglePack",
+        "title": "Enable/Disable Pack...",
+        "category": "SentriFlow",
+        "icon": "$(package)"
+      },
+      {
+        "command": "sentriflow.toggleVendor",
+        "title": "Enable/Disable Vendor...",
+        "category": "SentriFlow",
+        "icon": "$(server)"
+      },
+      {
+        "command": "sentriflow.disableRuleById",
+        "title": "Disable Rule...",
+        "category": "SentriFlow",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "sentriflow.enableRuleById",
+        "title": "Enable Disabled Rule...",
+        "category": "SentriFlow",
+        "icon": "$(check)"
+      },
+      {
+        "command": "sentriflow.showDisabled",
+        "title": "Show All Disabled Items",
+        "category": "SentriFlow",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "sentriflow.focusRulesView",
+        "title": "Show Rules Panel",
+        "category": "SentriFlow",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "sentriflow.disableTreeItem",
+        "title": "Disable",
+        "category": "SentriFlow",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "sentriflow.enableTreeItem",
+        "title": "Enable",
+        "category": "SentriFlow",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "sentriflow.copyRuleId",
+        "title": "Copy Rule ID",
+        "category": "SentriFlow",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "sentriflow.viewRuleDetails",
+        "title": "View Details",
+        "category": "SentriFlow",
+        "icon": "$(info)"
+      },
+      {
+        "command": "sentriflow.refreshRulesTree",
+        "title": "Refresh Rules",
+        "category": "SentriFlow",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -110,6 +200,80 @@
         {
           "command": "sentriflow.scanSelection",
           "when": "editorHasSelection"
+        },
+        {
+          "command": "sentriflow.disableTreeItem",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.enableTreeItem",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.copyRuleId",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.viewRuleDetails",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.refreshRulesTree",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "sentriflow.refreshRulesTree",
+          "when": "view == sentriflowRules",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "sentriflow.disableTreeItem",
+          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|rule)-enabled$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "sentriflow.enableTreeItem",
+          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|rule)-disabled$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "sentriflow.viewRuleDetails",
+          "when": "view == sentriflowRules && viewItem =~ /^rule-/",
+          "group": "inline@2"
+        },
+        {
+          "command": "sentriflow.disableTreeItem",
+          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|rule)-enabled$/",
+          "group": "1_toggle@1"
+        },
+        {
+          "command": "sentriflow.enableTreeItem",
+          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|rule)-disabled$/",
+          "group": "1_toggle@1"
+        },
+        {
+          "command": "sentriflow.viewRuleDetails",
+          "when": "view == sentriflowRules && viewItem =~ /^pack-/",
+          "group": "2_view@1"
+        },
+        {
+          "command": "sentriflow.viewRuleDetails",
+          "when": "view == sentriflowRules && viewItem =~ /^vendor-/",
+          "group": "2_view@1"
+        },
+        {
+          "command": "sentriflow.copyRuleId",
+          "when": "view == sentriflowRules && viewItem =~ /^rule-/",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "sentriflow.viewRuleDetails",
+          "when": "view == sentriflowRules && viewItem =~ /^rule-/",
+          "group": "3_view@1"
         }
       ]
     },
@@ -120,21 +284,41 @@
           "type": "string",
           "enum": [
             "auto",
-            "cisco-ios",
-            "cisco-nxos",
-            "juniper-junos",
+            "arista-eos",
             "aruba-aoscx",
             "aruba-aosswitch",
-            "aruba-wlc"
+            "aruba-wlc",
+            "cisco-ios",
+            "cisco-nxos",
+            "cumulus-linux",
+            "extreme-exos",
+            "extreme-voss",
+            "fortinet-fortigate",
+            "huawei-vrp",
+            "juniper-junos",
+            "mikrotik-routeros",
+            "nokia-sros",
+            "paloalto-panos",
+            "vyos-vyos"
           ],
           "enumDescriptions": [
             "Auto-detect vendor from configuration content",
-            "Cisco IOS/IOS-XE (indentation-based)",
-            "Cisco NX-OS (indentation-based, feature commands)",
-            "Juniper JunOS (brace-based hierarchy)",
+            "Arista EOS (datacenter switch)",
             "Aruba AOS-CX (modern campus switch)",
             "Aruba AOS-Switch/ProVision (legacy switch)",
-            "Aruba Wireless LAN Controller"
+            "Aruba Wireless LAN Controller",
+            "Cisco IOS/IOS-XE (indentation-based)",
+            "Cisco NX-OS (datacenter switch, feature commands)",
+            "NVIDIA Cumulus Linux (NCLU/NVUE)",
+            "Extreme Networks EXOS",
+            "Extreme Networks VOSS (Fabric Connect)",
+            "Fortinet FortiGate (FortiOS)",
+            "Huawei VRP",
+            "Juniper JunOS (brace-based hierarchy)",
+            "MikroTik RouterOS",
+            "Nokia SR OS",
+            "Palo Alto PAN-OS",
+            "VyOS/EdgeOS"
           ],
           "default": "auto",
           "description": "Default vendor for configuration parsing. Use 'auto' to detect automatically, or select a specific vendor."
@@ -182,7 +366,71 @@
           "description": "List of rule IDs to disable globally (e.g., [\"SEC-001\", \"NET-002\"])"
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "sentriflow.welcome",
+        "title": "Get Started with SentriFlow",
+        "description": "Learn how to validate network configurations against compliance rules",
+        "steps": [
+          {
+            "id": "openFile",
+            "title": "Open a Configuration File",
+            "description": "Open a network configuration file (.conf, .cfg, .ios, or .junos) to get started.\n\n[Open File](command:workbench.action.files.openFile)",
+            "media": {
+              "markdown": "Open any network device configuration file. SentriFlow will automatically detect the vendor and start scanning."
+            },
+            "completionEvents": [
+              "onLanguage:network-config"
+            ]
+          },
+          {
+            "id": "scan",
+            "title": "Scan for Compliance Issues",
+            "description": "SentriFlow automatically scans your configuration. You can also manually trigger a scan.\n\n[Scan Now](command:sentriflow.scan)",
+            "media": {
+              "markdown": "Issues are shown as inline diagnostics in the editor and in the Problems panel."
+            },
+            "completionEvents": [
+              "onCommand:sentriflow.scan"
+            ]
+          },
+          {
+            "id": "selectVendor",
+            "title": "Select Your Vendor",
+            "description": "SentriFlow auto-detects vendors, but you can override the selection if needed.\n\n[Select Vendor](command:sentriflow.selectVendor)",
+            "media": {
+              "markdown": "Choose from Cisco IOS/NX-OS, Juniper JunOS, Aruba, Arista, and more."
+            },
+            "completionEvents": [
+              "onCommand:sentriflow.selectVendor"
+            ]
+          },
+          {
+            "id": "manageRules",
+            "title": "Manage Rules",
+            "description": "Browse and toggle rules in the SentriFlow sidebar. Enable or disable rules, vendors, or entire packs.\n\n[Open Rules Panel](command:sentriflow.focusRulesView)",
+            "media": {
+              "markdown": "The Rules TreeView shows all available rules organized by Pack > Vendor > Rule. Click the toggle icon to enable or disable."
+            },
+            "completionEvents": [
+              "onView:sentriflowRules"
+            ]
+          },
+          {
+            "id": "customizeSettings",
+            "title": "Customize Settings",
+            "description": "Configure SentriFlow to match your environment using the Settings panel.\n\n[Open Settings](command:sentriflowSettings.focus)",
+            "media": {
+              "markdown": "The Settings panel provides a visual interface for all configuration options."
+            },
+            "completionEvents": [
+              "onView:sentriflowSettings"
+            ]
+          }
+        ]
+      }
+    ]
   },
   "repository": {
     "type": "git",
