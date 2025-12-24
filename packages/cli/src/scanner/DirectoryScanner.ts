@@ -23,6 +23,8 @@ export interface DirectoryScanOptions {
     allowedBaseDirs?: string[];
     /** Exclude patterns (glob-like) */
     exclude?: string[];
+    /** Exclude patterns (regex) - FR-001: JavaScript regular expressions */
+    excludePatterns?: RegExp[];
 }
 
 /**
@@ -117,11 +119,53 @@ function matchesAnyPattern(fileName: string, patterns: string[]): boolean {
 }
 
 /**
- * Checks if a path matches any exclude pattern.
+ * Checks if a path matches any exclude pattern (glob).
  */
 function isExcluded(relativePath: string, excludePatterns: string[]): boolean {
     if (excludePatterns.length === 0) return false;
     return excludePatterns.some(pattern => matchesPattern(relativePath, pattern));
+}
+
+/**
+ * Result of regex pattern validation.
+ */
+export interface RegexValidationResult {
+    /** Whether the pattern is valid */
+    valid: boolean;
+    /** Compiled RegExp if valid */
+    regex?: RegExp;
+    /** Error message if invalid */
+    error?: string;
+}
+
+/**
+ * Validates a regex pattern string and compiles it to a RegExp.
+ * FR-003: Validate regex patterns at startup with clear error messages.
+ *
+ * @param pattern - The regex pattern string to validate
+ * @returns Validation result with compiled regex or error message
+ */
+export function validateRegexPattern(pattern: string): RegexValidationResult {
+    try {
+        const regex = new RegExp(pattern);
+        return { valid: true, regex };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid regex pattern';
+        return { valid: false, error: message };
+    }
+}
+
+/**
+ * Checks if a file path should be excluded based on regex patterns.
+ * FR-004: Patterns are matched against relative file path from scanned directory.
+ *
+ * @param relativePath - Relative path from the scanned directory (forward slashes)
+ * @param patterns - Array of compiled RegExp patterns
+ * @returns true if the path matches any pattern and should be excluded
+ */
+export function isExcludedByRegex(relativePath: string, patterns: RegExp[]): boolean {
+    if (patterns.length === 0 || relativePath === '') return false;
+    return patterns.some(pattern => pattern.test(relativePath));
 }
 
 /**
@@ -143,6 +187,7 @@ export async function scanDirectory(
         maxDepth = 100,
         allowedBaseDirs,
         exclude = [],
+        excludePatterns = [],
     } = options;
 
     const result: DirectoryScanResult = {
@@ -198,9 +243,16 @@ export async function scanDirectory(
         for (const entry of entries) {
             const fullPath = join(currentDir, entry);
             const relativePath = join(basePath, entry);
+            // Normalize path separators for cross-platform regex matching (FR-004)
+            const normalizedRelativePath = normalizeSeparators(relativePath);
 
-            // Check exclusion patterns
-            if (isExcluded(relativePath, exclude)) {
+            // Check exclusion patterns (glob)
+            if (isExcluded(normalizedRelativePath, exclude)) {
+                continue;
+            }
+
+            // Check exclusion patterns (regex) - FR-001, FR-002
+            if (isExcludedByRegex(normalizedRelativePath, excludePatterns)) {
                 continue;
             }
 

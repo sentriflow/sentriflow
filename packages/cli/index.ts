@@ -21,13 +21,22 @@ import {
   resolveRules,
   findConfigFile,
   ruleAppliesToVendor,
+  mergeDirectoryOptions,
+  loadConfigFile,
+  type DirectoryConfig,
 } from './src/config';
 import { validateInputFilePath } from './src/security/pathValidator';
 import {
   scanDirectory,
   validateDirectoryPath,
   DEFAULT_CONFIG_EXTENSIONS,
+  validateRegexPattern,
 } from './src/scanner/DirectoryScanner';
+import {
+  readStdin,
+  validateStdinArgument,
+  isStdinRequested,
+} from './src/loaders/stdin';
 
 const program = new Command();
 
@@ -35,7 +44,7 @@ program
   .name('sentriflow')
   .description('SentriFlow Network Configuration Validator')
   .version(__VERSION__)
-  .argument('[file]', 'Path to the configuration file')
+  .argument('[files...]', 'Path(s) to configuration file(s) (supports multiple files)')
   .option('--ast', 'Output the AST instead of rule results')
   .option('-f, --format <format>', 'Output format (json, sarif)', 'json')
   .option('-q, --quiet', 'Only output failures (suppress passed results)')
@@ -97,8 +106,17 @@ program
     'Exclude patterns (comma-separated glob patterns)',
     (val) => val.split(',')
   )
+  .option(
+    '--exclude-pattern <pattern...>',
+    'Regex pattern(s) to exclude files (JavaScript regex syntax, can specify multiple)'
+  )
+  .option(
+    '--max-depth <number>',
+    'Maximum recursion depth for directory scanning (use with -R)',
+    (val) => parseInt(val, 10)
+  )
   .option('--progress', 'Show progress during directory scanning')
-  .action(async (file, options) => {
+  .action(async (files: string[], options) => {
     try {
       // List vendors mode
       if (options.listVendors) {
@@ -132,12 +150,27 @@ program
       const workingDir = process.cwd();
       const allowedBaseDirs = options.allowExternal ? undefined : [workingDir];
 
+      // FR-003: Validate and compile regex exclusion patterns at startup
+      const excludePatterns: RegExp[] = [];
+      if (options.excludePattern) {
+        for (const pattern of options.excludePattern) {
+          const result = validateRegexPattern(pattern);
+          if (!result.valid) {
+            console.error(`Error: Invalid regex pattern '${pattern}'`);
+            console.error(`  ${result.error}`);
+            process.exit(2);
+          }
+          excludePatterns.push(result.regex!);
+        }
+      }
+
       // SEC-012: Resolve license key from CLI option or environment variable
       const licenseKey =
         options.licenseKey || process.env.SENTRIFLOW_LICENSE_KEY;
 
       // Resolve rules from config + CLI options
-      const configSearchDir = file ? dirname(resolve(file)) : workingDir;
+      const firstFile = files.length > 0 ? files[0] : undefined;
+      const configSearchDir = firstFile ? dirname(resolve(firstFile)) : workingDir;
       const rules = await resolveRules({
         configPath: options.config,
         noConfig: options.config === false, // --no-config sets this to false
@@ -191,22 +224,53 @@ program
 
         const canonicalDir = dirValidation.canonicalPath!;
 
+        // FR-005: Load directory config from config file
+        let directoryConfig: DirectoryConfig | undefined;
+        if (options.config !== false) {
+          const configPath = options.config ?? findConfigFile(canonicalDir);
+          if (configPath) {
+            try {
+              const config = await loadConfigFile(configPath, allowedBaseDirs);
+              directoryConfig = config.directory;
+            } catch (err) {
+              // Config loading failed - continue without config
+              if (options.progress) {
+                const msg = err instanceof Error ? err.message : 'Unknown error';
+                console.error(`Warning: Failed to load config: ${msg}`);
+              }
+            }
+          }
+        }
+
+        // FR-011: Merge CLI options with config file options
+        const cliDirOptions = {
+          recursive: options.recursive,
+          extensions: options.extensions,
+          exclude: options.exclude,
+          excludePatterns: excludePatterns.length > 0 ? excludePatterns : undefined,
+          maxDepth: options.maxDepth,
+        };
+        const mergedOptions = mergeDirectoryOptions(cliDirOptions, directoryConfig);
+
         // Scan directory for config files
         if (options.progress) {
+          const recursive = mergedOptions.recursive ?? false;
           console.error(
             `Scanning directory: ${canonicalDir}${
-              options.recursive ? ' (recursive)' : ''
+              recursive ? ' (recursive)' : ''
             }`
           );
         }
 
         const scanResult = await scanDirectory(canonicalDir, {
-          recursive: options.recursive ?? false,
+          recursive: mergedOptions.recursive ?? false,
           patterns: options.glob ? [options.glob] : [],
-          extensions: options.extensions ?? DEFAULT_CONFIG_EXTENSIONS,
+          extensions: mergedOptions.extensions ?? DEFAULT_CONFIG_EXTENSIONS,
           maxFileSize: MAX_CONFIG_SIZE,
+          maxDepth: mergedOptions.maxDepth,
           allowedBaseDirs,
-          exclude: options.exclude ?? [],
+          exclude: mergedOptions.exclude ?? [],
+          excludePatterns: mergedOptions.excludePatterns ?? [],
         });
 
         // Report scan errors (non-fatal)
@@ -412,11 +476,219 @@ program
         return;
       }
 
-      // Single file mode - Require file for scanning
-      if (!file) {
+      // File mode - Require at least one file for scanning (FR-014)
+      if (files.length === 0) {
         program.help();
         return;
       }
+
+      // FR-020: Validate stdin argument usage
+      const stdinValidation = validateStdinArgument(files, !!options.directory);
+      if (!stdinValidation.valid) {
+        console.error(`Error: ${stdinValidation.error}`);
+        process.exit(2);
+      }
+
+      // FR-017: Stdin mode - read configuration from stdin
+      if (isStdinRequested(files)) {
+        const stdinResult = await readStdin();
+
+        if (!stdinResult.success) {
+          console.error(`Error: ${stdinResult.error}`);
+          process.exit(2);
+        }
+
+        const content = stdinResult.content!;
+
+        // Resolve vendor (FR-018: auto-detect unless --vendor specified)
+        let vendor: VendorSchema;
+        if (options.vendor === 'auto') {
+          vendor = detectVendor(content);
+          if (!options.quiet && !options.ast) {
+            console.error(`Detected vendor: ${vendor.name} (${vendor.id})`);
+          }
+        } else {
+          try {
+            vendor = getVendor(options.vendor);
+          } catch {
+            console.error(`Error: Unknown vendor '${options.vendor}'`);
+            console.error(`Available vendors: ${getAvailableVendors().join(', ')}, auto`);
+            process.exit(2);
+          }
+        }
+
+        // Resolve rules with detected vendor
+        const stdinRules = await resolveRules({
+          configPath: options.config,
+          noConfig: options.config === false,
+          rulesPath: options.rules,
+          rulePackPath: options.rulePack,
+          encryptedPackPaths: options.encryptedPack,
+          licenseKey,
+          strictPacks: options.strictPacks,
+          jsonRulesPaths: options.jsonRules,
+          disableIds: options.disable ?? [],
+          vendorId: vendor.id,
+          cwd: workingDir,
+          allowedBaseDirs,
+        });
+
+        const parser = new SchemaAwareParser({ vendor });
+        const nodes = parser.parse(content);
+
+        if (options.ast) {
+          const output = {
+            vendor: { id: vendor.id, name: vendor.name },
+            ast: nodes,
+          };
+          console.log(JSON.stringify(output, null, 2));
+          return;
+        }
+
+        const engine = new RuleEngine();
+        let results = engine.run(nodes, stdinRules);
+
+        if (options.quiet) {
+          results = results.filter((r) => !r.passed);
+        }
+
+        // FR-021: Use <stdin> as filename in output
+        if (options.format === 'sarif') {
+          const sarifOptions = {
+            relativePaths: options.relativePaths,
+            baseDir: process.cwd(),
+          };
+          console.log(generateSarif(results, '<stdin>', stdinRules, sarifOptions));
+        } else {
+          const output = {
+            file: '<stdin>',
+            vendor: { id: vendor.id, name: vendor.name },
+            results,
+          };
+          console.log(JSON.stringify(output, null, 2));
+        }
+
+        const hasFailures = results.some((r) => !r.passed);
+        if (hasFailures) {
+          process.exit(1);
+        }
+        return;
+      }
+
+      // FR-014/FR-015: Multi-file mode - process all files and aggregate results
+      if (files.length > 1) {
+        const allFileResults: FileResults[] = [];
+        let totalFailures = 0;
+        let totalPassed = 0;
+        const engine = new RuleEngine();
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (!file) continue;
+
+          // Validate file path
+          const fileValidation = validateInputFilePath(
+            file,
+            MAX_CONFIG_SIZE,
+            allowedBaseDirs
+          );
+
+          if (!fileValidation.valid) {
+            // FR-016: Continue processing remaining files on error
+            console.error(`Error processing ${file}: ${fileValidation.error}`);
+            allFileResults.push({
+              filePath: file,
+              results: [],
+            });
+            continue;
+          }
+
+          const filePath = fileValidation.canonicalPath!;
+
+          try {
+            const stats = statSync(filePath);
+            if (stats.size > MAX_CONFIG_SIZE) {
+              console.error(`Error: ${file} exceeds maximum size`);
+              allFileResults.push({ filePath: file, results: [] });
+              continue;
+            }
+
+            const content = await readFile(filePath, 'utf-8');
+
+            // Resolve vendor per file
+            let vendor: VendorSchema;
+            if (options.vendor === 'auto') {
+              vendor = detectVendor(content);
+            } else {
+              vendor = getVendor(options.vendor);
+            }
+
+            // Filter rules by vendor for this file
+            const fileRules = rules.filter((rule) =>
+              ruleAppliesToVendor(rule, vendor.id)
+            );
+
+            const parser = new SchemaAwareParser({ vendor });
+            const nodes = parser.parse(content);
+            let results = engine.run(nodes, fileRules);
+
+            // Filter to failures only if quiet mode
+            if (options.quiet) {
+              results = results.filter((r) => !r.passed);
+            }
+
+            const failures = results.filter((r) => !r.passed).length;
+            const passed = results.filter((r) => r.passed).length;
+            totalFailures += failures;
+            totalPassed += passed;
+
+            allFileResults.push({
+              filePath,
+              results,
+              vendor: { id: vendor.id, name: vendor.name },
+            });
+          } catch (err) {
+            // FR-016: Continue processing remaining files
+            const errMsg = err instanceof Error ? err.message : 'Unknown error';
+            console.error(`Error processing ${basename(file)}: ${errMsg}`);
+            allFileResults.push({ filePath: file, results: [] });
+          }
+        }
+
+        // Output combined results (FR-015)
+        if (options.format === 'sarif') {
+          const sarifOptions = {
+            relativePaths: options.relativePaths,
+            baseDir: process.cwd(),
+          };
+          console.log(
+            generateMultiFileSarif(allFileResults, rules, sarifOptions)
+          );
+        } else {
+          const output = {
+            summary: {
+              filesScanned: allFileResults.length,
+              totalResults: totalFailures + totalPassed,
+              failures: totalFailures,
+              passed: totalPassed,
+            },
+            files: allFileResults.map((fr) => ({
+              file: fr.filePath,
+              vendor: fr.vendor,
+              results: fr.results,
+            })),
+          };
+          console.log(JSON.stringify(output, null, 2));
+        }
+
+        if (totalFailures > 0) {
+          process.exit(1);
+        }
+        return;
+      }
+
+      // Single file mode
+      const file = files[0]!;
 
       // Validate file path (security: path traversal, symlink resolution, boundary check)
       const fileValidation = validateInputFilePath(

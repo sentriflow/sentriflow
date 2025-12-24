@@ -40,6 +40,22 @@ import {
   wrapLoadError,
 } from './loaders';
 
+/**
+ * Directory scanning options from config file (FR-005)
+ */
+export interface DirectoryConfig {
+  /** Regex patterns to exclude files (FR-006) */
+  excludePatterns?: string[];
+  /** File extensions to include (without dots) (FR-007) */
+  extensions?: string[];
+  /** Enable recursive directory scanning (FR-008) */
+  recursive?: boolean;
+  /** Maximum recursion depth (FR-009) */
+  maxDepth?: number;
+  /** Glob patterns to exclude (FR-010) */
+  exclude?: string[];
+}
+
 /** Configuration file structure */
 export interface SentriflowConfig {
   /** Additional rules to include (legacy, use rulePacks instead) */
@@ -56,6 +72,9 @@ export interface SentriflowConfig {
 
   /** JSON rule file paths (relative to config file or absolute) */
   jsonRules?: string[];
+
+  /** Directory scanning options (FR-005) */
+  directory?: DirectoryConfig;
 }
 
 /** Resolved configuration with final rule set */
@@ -168,7 +187,152 @@ function isValidSentriflowConfig(config: unknown): config is SentriflowConfig {
     }
   }
 
+  // Validate optional 'directory' config
+  if (obj.directory !== undefined) {
+    if (!isValidDirectoryConfig(obj.directory)) {
+      return false;
+    }
+  }
+
   return true;
+}
+
+/**
+ * Validates that an object conforms to the DirectoryConfig interface.
+ * TR-004: Validates structure, regex patterns, and type constraints.
+ */
+export function isValidDirectoryConfig(config: unknown): config is DirectoryConfig {
+  if (config === null || config === undefined) {
+    return false;
+  }
+
+  if (typeof config !== 'object') {
+    return false;
+  }
+
+  const obj = config as Record<string, unknown>;
+
+  // Validate excludePatterns: must be array of valid regex strings
+  if (obj.excludePatterns !== undefined) {
+    if (!Array.isArray(obj.excludePatterns)) {
+      return false;
+    }
+    for (const pattern of obj.excludePatterns) {
+      if (typeof pattern !== 'string') {
+        return false;
+      }
+      // Validate regex syntax
+      try {
+        new RegExp(pattern);
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  // Validate extensions: must be array of strings
+  if (obj.extensions !== undefined) {
+    if (!Array.isArray(obj.extensions)) {
+      return false;
+    }
+    for (const ext of obj.extensions) {
+      if (typeof ext !== 'string') {
+        return false;
+      }
+    }
+  }
+
+  // Validate recursive: must be boolean
+  if (obj.recursive !== undefined && typeof obj.recursive !== 'boolean') {
+    return false;
+  }
+
+  // Validate maxDepth: must be number between 0 and 1000
+  if (obj.maxDepth !== undefined) {
+    if (typeof obj.maxDepth !== 'number') {
+      return false;
+    }
+    if (obj.maxDepth < 0 || obj.maxDepth > 1000) {
+      return false;
+    }
+  }
+
+  // Validate exclude: must be array of strings
+  if (obj.exclude !== undefined) {
+    if (!Array.isArray(obj.exclude)) {
+      return false;
+    }
+    for (const pattern of obj.exclude) {
+      if (typeof pattern !== 'string') {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+import type { DirectoryScanOptions } from './scanner/DirectoryScanner';
+
+/**
+ * Merge CLI options with config file directory options.
+ * TR-005: Arrays are merged (union), scalars use CLI precedence.
+ */
+export function mergeDirectoryOptions(
+  cliOptions: Partial<DirectoryScanOptions>,
+  configOptions: DirectoryConfig | undefined
+): Partial<DirectoryScanOptions> {
+  const result: Partial<DirectoryScanOptions> = {};
+
+  // Start with CLI options
+  if (cliOptions.excludePatterns) {
+    result.excludePatterns = [...cliOptions.excludePatterns];
+  } else {
+    result.excludePatterns = [];
+  }
+
+  // Add config excludePatterns (compile strings to RegExp)
+  if (configOptions?.excludePatterns) {
+    for (const pattern of configOptions.excludePatterns) {
+      try {
+        const regex = new RegExp(pattern);
+        result.excludePatterns.push(regex);
+      } catch {
+        // Skip invalid patterns (already validated by isValidDirectoryConfig)
+      }
+    }
+  }
+
+  // Merge exclude patterns (union)
+  const excludeSet = new Set<string>();
+  if (cliOptions.exclude) {
+    for (const p of cliOptions.exclude) excludeSet.add(p);
+  }
+  if (configOptions?.exclude) {
+    for (const p of configOptions.exclude) excludeSet.add(p);
+  }
+  result.exclude = [...excludeSet];
+
+  // Scalar options: CLI wins if defined
+  if (cliOptions.recursive !== undefined) {
+    result.recursive = cliOptions.recursive;
+  } else if (configOptions?.recursive !== undefined) {
+    result.recursive = configOptions.recursive;
+  }
+
+  if (cliOptions.maxDepth !== undefined) {
+    result.maxDepth = cliOptions.maxDepth;
+  } else if (configOptions?.maxDepth !== undefined) {
+    result.maxDepth = configOptions.maxDepth;
+  }
+
+  if (cliOptions.extensions !== undefined) {
+    result.extensions = cliOptions.extensions;
+  } else if (configOptions?.extensions !== undefined) {
+    result.extensions = configOptions.extensions;
+  }
+
+  return result;
 }
 
 /**
