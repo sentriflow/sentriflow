@@ -31,3 +31,6 @@ export { VENDOR_NAMESPACES, type VendorNamespace, getAllVendorModules, getVendor
 
 // Re-export common helpers at top level for convenience
 export * from './helpers/common';
+
+// IP/Subnet extraction module
+export * from './ip';

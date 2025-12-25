@@ -9,6 +9,7 @@ import {
   detectVendor,
   getVendor,
   getAvailableVendors,
+  extractIPSummary,
 } from '@sentriflow/core';
 import type { VendorSchema } from '@sentriflow/core';
 import type { IRule, RuleResult } from '@sentriflow/core';
@@ -417,10 +418,14 @@ program
             totalFailures += failures;
             totalPassed += passed;
 
+            // Extract IP summary for this file
+            const fileIpSummary = extractIPSummary(content);
+
             allFileResults.push({
               filePath,
               results,
               vendor: { id: vendor.id, name: vendor.name },
+              ipSummary: fileIpSummary,
             });
           } catch (err) {
             // Report per-file errors but continue scanning
@@ -457,6 +462,7 @@ program
               file: fr.filePath,
               vendor: fr.vendor,
               results: fr.results,
+              ipSummary: fr.ipSummary,
             })),
           };
           console.log(JSON.stringify(output, null, 2));
@@ -552,18 +558,22 @@ program
           results = results.filter((r) => !r.passed);
         }
 
+        // Extract IP summary from stdin content
+        const stdinIpSummary = extractIPSummary(content);
+
         // FR-021: Use <stdin> as filename in output
         if (options.format === 'sarif') {
           const sarifOptions = {
             relativePaths: options.relativePaths,
             baseDir: process.cwd(),
           };
-          console.log(generateSarif(results, '<stdin>', stdinRules, sarifOptions));
+          console.log(generateSarif(results, '<stdin>', stdinRules, sarifOptions, stdinIpSummary));
         } else {
           const output = {
             file: '<stdin>',
             vendor: { id: vendor.id, name: vendor.name },
             results,
+            ipSummary: stdinIpSummary,
           };
           console.log(JSON.stringify(output, null, 2));
         }
@@ -642,10 +652,14 @@ program
             totalFailures += failures;
             totalPassed += passed;
 
+            // Extract IP summary for this file
+            const fileIpSummary = extractIPSummary(content);
+
             allFileResults.push({
               filePath,
               results,
               vendor: { id: vendor.id, name: vendor.name },
+              ipSummary: fileIpSummary,
             });
           } catch (err) {
             // FR-016: Continue processing remaining files
@@ -676,6 +690,7 @@ program
               file: fr.filePath,
               vendor: fr.vendor,
               results: fr.results,
+              ipSummary: fr.ipSummary,
             })),
           };
           console.log(JSON.stringify(output, null, 2));
@@ -781,6 +796,9 @@ program
         results = results.filter((r) => !r.passed);
       }
 
+      // Extract IP summary from content
+      const ipSummary = extractIPSummary(content);
+
       // Output results based on format
       if (options.format === 'sarif') {
         const sarifOptions = {
@@ -788,16 +806,17 @@ program
           baseDir: process.cwd(),
         };
         console.log(
-          generateSarif(results, filePath, singleFileRules, sarifOptions)
+          generateSarif(results, filePath, singleFileRules, sarifOptions, ipSummary)
         );
       } else {
-        // Include vendor info in JSON output
+        // Include vendor info and IP summary in JSON output
         const output = {
           vendor: {
             id: vendor.id,
             name: vendor.name,
           },
           results,
+          ipSummary,
         };
         console.log(JSON.stringify(output, null, 2));
       }
