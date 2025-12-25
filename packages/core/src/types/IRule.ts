@@ -257,6 +257,16 @@ export interface IRule {
     vendor?: RuleVendor | RuleVendor[];
 
     /**
+     * Optional category/framework for grouping rules in the tree view.
+     * Used for compliance frameworks (NIST, PCI-DSS, CIS) or custom categories.
+     * - Single category: 'NIST-AC'
+     * - Multiple categories: ['NIST-AC', 'PCI-DSS-8']
+     *
+     * When omitted, rules are grouped under 'Uncategorized' if category grouping is enabled.
+     */
+    category?: string | string[];
+
+    /**
      * The function that contains the core logic of the rule.
      * It takes a `ConfigNode` and a `Context` object, and returns a `RuleResult`.
      */

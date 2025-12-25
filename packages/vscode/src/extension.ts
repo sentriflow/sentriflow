@@ -2517,10 +2517,16 @@ async function cmdTogglePack() {
     selected.packName,
     undefined,
     undefined,
+    undefined,
     selected.isEnabled,
   );
 
-  await cmdToggleTreeItem(item);
+  // Toggle: if enabled, disable it; if disabled, enable it
+  if (selected.isEnabled) {
+    await cmdDisableTreeItem(item);
+  } else {
+    await cmdEnableTreeItem(item);
+  }
 }
 
 /**
@@ -2604,10 +2610,16 @@ async function cmdToggleVendor() {
     selected.packName,
     selected.vendorId,
     undefined,
+    undefined,
     selected.isEnabled,
   );
 
-  await cmdToggleTreeItem(item);
+  // Toggle: if enabled, disable it; if disabled, enable it
+  if (selected.isEnabled) {
+    await cmdDisableTreeItem(item);
+  } else {
+    await cmdEnableTreeItem(item);
+  }
 }
 
 /**

@@ -2,20 +2,26 @@ import * as vscode from 'vscode';
 import type { IRule, RulePack, RuleVendor } from '@sentriflow/core';
 
 /**
+ * Tree grouping modes for the rules hierarchy
+ */
+export type TreeGrouping = 'vendor' | 'category' | 'category-vendor' | 'vendor-category';
+
+/**
  * Tree item types for the rules hierarchy
  */
-export type TreeItemType = 'pack' | 'vendor' | 'rule';
+export type TreeItemType = 'pack' | 'vendor' | 'category' | 'rule';
 
 /**
  * Extended tree item with metadata for the rules tree
  */
 export class RuleTreeItem extends vscode.TreeItem {
   constructor(
-    public readonly label: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+    public override readonly label: string,
+    public override readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly itemType: TreeItemType,
     public readonly packName?: string,
     public readonly vendorId?: string,
+    public readonly categoryId?: string,
     public readonly rule?: IRule,
     public readonly isEnabled: boolean = true,
   ) {
@@ -45,18 +51,28 @@ export class RuleTreeItem extends vscode.TreeItem {
           : `Vendor: ${this.vendorId} (disabled)`;
         break;
 
+      case 'category':
+        this.iconPath = this.isEnabled
+          ? new vscode.ThemeIcon('shield', new vscode.ThemeColor('testing.iconPassed'))
+          : new vscode.ThemeIcon('shield', new vscode.ThemeColor('testing.iconSkipped'));
+        this.tooltip = this.isEnabled
+          ? `Category: ${this.categoryId} (enabled)`
+          : `Category: ${this.categoryId} (disabled)`;
+        break;
+
       case 'rule':
         if (!this.rule) break;
-        // Use eye/eye-closed for state (consistent with packs/vendors)
-        // Color indicates severity level
+        // Use severity icon with appropriate color
+        // State (enabled/disabled) is shown via toggle button on the right
+        const levelIcon = this.getLevelIcon(this.rule.metadata.level);
         const levelColor = this.getLevelColor(this.rule.metadata.level);
-        this.iconPath = this.isEnabled
-          ? new vscode.ThemeIcon('eye', new vscode.ThemeColor(levelColor))
-          : new vscode.ThemeIcon('eye-closed', new vscode.ThemeColor('testing.iconSkipped'));
-        this.description = `[${this.rule.metadata.level}]${this.isEnabled ? '' : ' (disabled)'}`;
+        this.iconPath = new vscode.ThemeIcon(
+          levelIcon,
+          new vscode.ThemeColor(this.isEnabled ? levelColor : 'testing.iconSkipped')
+        );
+        this.description = this.isEnabled ? undefined : '(disabled)';
         this.tooltip = new vscode.MarkdownString();
-        this.tooltip.appendMarkdown(`**${this.rule.id}**\n\n`);
-        this.tooltip.appendMarkdown(`Level: ${this.rule.metadata.level}\n\n`);
+        this.tooltip.appendMarkdown(`**${this.rule.id}** [${this.rule.metadata.level}]\n\n`);
         if (this.rule.metadata.description) {
           this.tooltip.appendMarkdown(`${this.rule.metadata.description}\n\n`);
         }
@@ -64,6 +80,15 @@ export class RuleTreeItem extends vscode.TreeItem {
           this.tooltip.appendMarkdown(`*Remediation:* ${this.rule.metadata.remediation}`);
         }
         break;
+    }
+  }
+
+  private getLevelIcon(level: string): string {
+    switch (level) {
+      case 'error': return 'error';
+      case 'warning': return 'warning';
+      case 'info': return 'info';
+      default: return 'circle-outline';
     }
   }
 
@@ -78,18 +103,8 @@ export class RuleTreeItem extends vscode.TreeItem {
 }
 
 /**
- * Interface for pack state information
- */
-interface PackState {
-  pack: RulePack;
-  isDefault: boolean;
-  isEnabled: boolean;
-  disabledVendors: Set<string>;
-}
-
-/**
  * TreeDataProvider for the SentriFlow rules hierarchy
- * Shows: Packs -> Vendors -> Rules with toggle support at each level
+ * Supports flexible grouping: Pack -> [Vendor|Category] -> [Category|Vendor] -> Rules
  */
 export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<RuleTreeItem | undefined>();
@@ -125,6 +140,14 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
     this._onDidChangeTreeData.fire(undefined);
   }
 
+  /**
+   * Get the current tree grouping mode from settings
+   */
+  private getGroupingMode(): TreeGrouping {
+    const config = vscode.workspace.getConfiguration('sentriflow');
+    return config.get<TreeGrouping>('treeGrouping', 'vendor');
+  }
+
   getTreeItem(element: RuleTreeItem): vscode.TreeItem {
     return element;
   }
@@ -135,14 +158,98 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
       return this.getPackNodes();
     }
 
+    const grouping = this.getGroupingMode();
+
     switch (element.itemType) {
       case 'pack':
-        return this.getVendorNodes(element.packName!);
+        return this.getFirstLevelNodes(element.packName!, grouping);
       case 'vendor':
-        return this.getRuleNodes(element.packName!, element.vendorId!);
+        // Pass both vendorId and categoryId (categoryId may be set in three-level mode)
+        return this.getNodesUnderVendor(element.packName!, element.vendorId!, element.categoryId, grouping);
+      case 'category':
+        // Pass both categoryId and vendorId (vendorId may be set in three-level mode)
+        return this.getNodesUnderCategory(element.packName!, element.categoryId!, element.vendorId, grouping);
       default:
         return [];
     }
+  }
+
+  /**
+   * Get first level nodes under a pack (vendor or category based on grouping)
+   */
+  private getFirstLevelNodes(packName: string, grouping: TreeGrouping): RuleTreeItem[] {
+    switch (grouping) {
+      case 'vendor':
+      case 'vendor-category':
+        return this.getVendorNodes(packName);
+      case 'category':
+      case 'category-vendor':
+        return this.getCategoryNodes(packName);
+      default:
+        return this.getVendorNodes(packName);
+    }
+  }
+
+  /**
+   * Get children under a vendor node
+   */
+  private getNodesUnderVendor(
+    packName: string,
+    vendorId: string,
+    categoryId: string | undefined,
+    grouping: TreeGrouping
+  ): RuleTreeItem[] {
+    switch (grouping) {
+      case 'vendor':
+        // Two-level: Pack -> Vendor -> Rules
+        return this.getRuleNodesFiltered(packName, vendorId, undefined);
+      case 'vendor-category':
+        // Three-level: Pack -> Vendor -> Category -> Rules
+        // At vendor level, show categories
+        return this.getCategoryNodesForVendor(packName, vendorId);
+      case 'category-vendor':
+        // Three-level: Pack -> Category -> Vendor -> Rules
+        // At vendor level (under category), show rules filtered by BOTH
+        return this.getRuleNodesFiltered(packName, vendorId, categoryId);
+      default:
+        return this.getRuleNodesFiltered(packName, vendorId, undefined);
+    }
+  }
+
+  /**
+   * Get children under a category node
+   */
+  private getNodesUnderCategory(
+    packName: string,
+    categoryId: string,
+    vendorId: string | undefined,
+    grouping: TreeGrouping
+  ): RuleTreeItem[] {
+    switch (grouping) {
+      case 'category':
+        // Two-level: Pack -> Category -> Rules
+        return this.getRuleNodesFiltered(packName, undefined, categoryId);
+      case 'category-vendor':
+        // Three-level: Pack -> Category -> Vendor -> Rules
+        // At category level, show vendors
+        return this.getVendorNodesForCategory(packName, categoryId);
+      case 'vendor-category':
+        // Three-level: Pack -> Vendor -> Category -> Rules
+        // At category level (under vendor), show rules filtered by BOTH
+        return this.getRuleNodesFiltered(packName, vendorId, categoryId);
+      default:
+        return this.getRuleNodesFiltered(packName, undefined, categoryId);
+    }
+  }
+
+  /**
+   * Get rules for this pack
+   */
+  private getPackRules(packName: string): IRule[] {
+    const defaultPack = this._getDefaultPack();
+    const registeredPacks = this._getRegisteredPacks();
+    const isDefault = packName === defaultPack.name;
+    return isDefault ? this._getAllRules() : (registeredPacks.get(packName)?.rules ?? []);
   }
 
   /**
@@ -164,6 +271,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
       defaultPack.name,
       undefined,
       undefined,
+      undefined,
       enableDefaultRules,
     ));
 
@@ -176,6 +284,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
         vscode.TreeItemCollapsibleState.Collapsed,
         'pack',
         name,
+        undefined,
         undefined,
         undefined,
         isEnabled,
@@ -200,11 +309,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
       ?? {};
     const disabledVendors = new Set(packVendorOverrides[packName]?.disabledVendors ?? []);
 
-    // Get all rules for this pack
-    const defaultPack = this._getDefaultPack();
-    const registeredPacks = this._getRegisteredPacks();
-    const isDefault = packName === defaultPack.name;
-    const rules = isDefault ? this._getAllRules() : (registeredPacks.get(packName)?.rules ?? []);
+    const rules = this.getPackRules(packName);
 
     // Group rules by vendor
     const vendorRules = new Map<string, IRule[]>();
@@ -232,6 +337,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
         packName,
         vendor,
         undefined,
+        undefined,
         isEnabled,
       ));
     }
@@ -240,19 +346,51 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
   }
 
   /**
-   * Get rule nodes for a vendor within a pack
+   * Get category nodes for a pack
    */
-  private getRuleNodes(packName: string, vendorId: string): RuleTreeItem[] {
+  private getCategoryNodes(packName: string): RuleTreeItem[] {
     const items: RuleTreeItem[] = [];
-    const disabledRules = this._getDisabledRulesSet();
+    const rules = this.getPackRules(packName);
 
-    // Get all rules for this pack
-    const defaultPack = this._getDefaultPack();
-    const registeredPacks = this._getRegisteredPacks();
-    const isDefault = packName === defaultPack.name;
-    const rules = isDefault ? this._getAllRules() : (registeredPacks.get(packName)?.rules ?? []);
+    // Group rules by category
+    const categoryRules = new Map<string, IRule[]>();
+    for (const rule of rules) {
+      const categories = this.getRuleCategories(rule);
+      for (const category of categories) {
+        if (!categoryRules.has(category)) {
+          categoryRules.set(category, []);
+        }
+        categoryRules.get(category)!.push(rule);
+      }
+    }
 
-    // Filter rules for this vendor
+    // Create category nodes
+    const sortedCategories = Array.from(categoryRules.keys()).sort();
+    for (const category of sortedCategories) {
+      const categoryRuleList = categoryRules.get(category)!;
+      items.push(new RuleTreeItem(
+        `${category} (${categoryRuleList.length} rules)`,
+        vscode.TreeItemCollapsibleState.Collapsed,
+        'category',
+        packName,
+        undefined,
+        category,
+        undefined,
+        true, // Categories don't have enable/disable state yet
+      ));
+    }
+
+    return items;
+  }
+
+  /**
+   * Get category nodes for a specific vendor within a pack (for vendor-category mode)
+   */
+  private getCategoryNodesForVendor(packName: string, vendorId: string): RuleTreeItem[] {
+    const items: RuleTreeItem[] = [];
+    const rules = this.getPackRules(packName);
+
+    // Filter rules for this vendor first
     const vendorRules = rules.filter(rule => {
       if (!rule.vendor) return vendorId === 'common';
       if (Array.isArray(rule.vendor)) {
@@ -261,8 +399,127 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
       return rule.vendor === vendorId;
     });
 
+    // Group by category
+    const categoryRules = new Map<string, IRule[]>();
+    for (const rule of vendorRules) {
+      const categories = this.getRuleCategories(rule);
+      for (const category of categories) {
+        if (!categoryRules.has(category)) {
+          categoryRules.set(category, []);
+        }
+        categoryRules.get(category)!.push(rule);
+      }
+    }
+
+    // Create category nodes (with vendor context stored for rule filtering)
+    const sortedCategories = Array.from(categoryRules.keys()).sort();
+    for (const category of sortedCategories) {
+      const categoryRuleList = categoryRules.get(category)!;
+      items.push(new RuleTreeItem(
+        `${category} (${categoryRuleList.length} rules)`,
+        vscode.TreeItemCollapsibleState.Collapsed,
+        'category',
+        packName,
+        vendorId, // Store parent vendor
+        category,
+        undefined,
+        true,
+      ));
+    }
+
+    return items;
+  }
+
+  /**
+   * Get vendor nodes for a specific category within a pack (for category-vendor mode)
+   */
+  private getVendorNodesForCategory(packName: string, categoryId: string): RuleTreeItem[] {
+    const items: RuleTreeItem[] = [];
+    const config = vscode.workspace.getConfiguration('sentriflow');
+
+    const overridesInspect = config.inspect<Record<string, { disabledVendors?: string[] }>>('packVendorOverrides');
+    const packVendorOverrides = overridesInspect?.workspaceValue
+      ?? overridesInspect?.globalValue
+      ?? overridesInspect?.defaultValue
+      ?? {};
+    const disabledVendors = new Set(packVendorOverrides[packName]?.disabledVendors ?? []);
+
+    const rules = this.getPackRules(packName);
+
+    // Filter rules for this category first
+    const categoryRules = rules.filter(rule => {
+      const categories = this.getRuleCategories(rule);
+      return categories.includes(categoryId);
+    });
+
+    // Group by vendor
+    const vendorRules = new Map<string, IRule[]>();
+    for (const rule of categoryRules) {
+      const vendors = rule.vendor
+        ? (Array.isArray(rule.vendor) ? rule.vendor : [rule.vendor])
+        : ['common'];
+      for (const vendor of vendors) {
+        if (!vendorRules.has(vendor)) {
+          vendorRules.set(vendor, []);
+        }
+        vendorRules.get(vendor)!.push(rule);
+      }
+    }
+
+    // Create vendor nodes (with category context stored for rule filtering)
+    const sortedVendors = Array.from(vendorRules.keys()).sort();
+    for (const vendor of sortedVendors) {
+      const vendorRuleList = vendorRules.get(vendor)!;
+      const isEnabled = !disabledVendors.has(vendor);
+      items.push(new RuleTreeItem(
+        `${vendor} (${vendorRuleList.length} rules)`,
+        vscode.TreeItemCollapsibleState.Collapsed,
+        'vendor',
+        packName,
+        vendor,
+        categoryId, // Store parent category
+        undefined,
+        isEnabled,
+      ));
+    }
+
+    return items;
+  }
+
+  /**
+   * Get rule nodes filtered by vendor and/or category
+   */
+  private getRuleNodesFiltered(
+    packName: string,
+    vendorId: string | undefined,
+    categoryId: string | undefined
+  ): RuleTreeItem[] {
+    const items: RuleTreeItem[] = [];
+    const disabledRules = this._getDisabledRulesSet();
+    const rules = this.getPackRules(packName);
+
+    // Filter rules
+    let filteredRules = rules;
+
+    if (vendorId) {
+      filteredRules = filteredRules.filter(rule => {
+        if (!rule.vendor) return vendorId === 'common';
+        if (Array.isArray(rule.vendor)) {
+          return rule.vendor.includes(vendorId as RuleVendor);
+        }
+        return rule.vendor === vendorId;
+      });
+    }
+
+    if (categoryId) {
+      filteredRules = filteredRules.filter(rule => {
+        const categories = this.getRuleCategories(rule);
+        return categories.includes(categoryId);
+      });
+    }
+
     // Sort by level (errors first), then by ID
-    vendorRules.sort((a, b) => {
+    filteredRules.sort((a, b) => {
       const levelOrder = { error: 0, warning: 1, info: 2 };
       const aLevel = levelOrder[a.metadata.level as keyof typeof levelOrder] ?? 3;
       const bLevel = levelOrder[b.metadata.level as keyof typeof levelOrder] ?? 3;
@@ -271,7 +528,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
     });
 
     // Create rule nodes
-    for (const rule of vendorRules) {
+    for (const rule of filteredRules) {
       const isEnabled = !disabledRules.has(rule.id);
       items.push(new RuleTreeItem(
         rule.id,
@@ -279,11 +536,26 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
         'rule',
         packName,
         vendorId,
+        categoryId,
         rule,
         isEnabled,
       ));
     }
 
     return items;
+  }
+
+  /**
+   * Get categories for a rule
+   */
+  private getRuleCategories(rule: IRule): string[] {
+    if (rule.category) {
+      return Array.isArray(rule.category) ? rule.category : [rule.category];
+    }
+    // Fallback to security tags if no category
+    if (rule.metadata.security?.tags?.length) {
+      return rule.metadata.security.tags;
+    }
+    return ['Uncategorized'];
   }
 }
