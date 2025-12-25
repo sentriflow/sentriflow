@@ -2,7 +2,7 @@
 
 declare const __VERSION__: string;
 
-import type { RuleResult, IRule, SecurityMetadata } from '@sentriflow/core';
+import type { RuleResult, IRule, SecurityMetadata, IPSummary } from '@sentriflow/core';
 import { relative } from 'path';
 
 /**
@@ -44,6 +44,8 @@ export interface FileResults {
   filePath: string;
   results: RuleResult[];
   vendor?: { id: string; name: string };
+  /** IP/subnet summary extracted from the file */
+  ipSummary?: IPSummary;
 }
 
 /**
@@ -53,13 +55,15 @@ export interface FileResults {
  * @param filePath The path to the scanned file.
  * @param rules Optional array of rules to include metadata in report.
  * @param options Optional SARIF generation options.
+ * @param ipSummary Optional IP/subnet summary to include in properties.
  * @returns A string containing the JSON-formatted SARIF report.
  */
 export function generateSarif(
   results: RuleResult[],
   filePath: string,
   rules?: IRule[],
-  options: SarifOptions = {}
+  options: SarifOptions = {},
+  ipSummary?: IPSummary
 ): string {
   // Determine the URI to use in the report (L-3 fix: path disclosure)
   const fileUri = options.relativePaths
@@ -176,11 +180,70 @@ export function generateSarif(
           ],
         }),
         results: sarifResults,
+        // Include IP summary in properties if available
+        ...(ipSummary && {
+          properties: {
+            ipSummary,
+          },
+        }),
       },
     ],
   };
 
   return JSON.stringify(report, null, 2);
+}
+
+/**
+ * Aggregates multiple IPSummary objects into a single deduplicated summary.
+ */
+function aggregateIPSummaries(summaries: IPSummary[]): IPSummary | undefined {
+  if (summaries.length === 0) return undefined;
+
+  // Use Sets for deduplication
+  const ipv4Set = new Set<string>();
+  const ipv6Set = new Set<string>();
+  const ipv4SubnetSet = new Set<string>();
+  const ipv6SubnetSet = new Set<string>();
+
+  for (const summary of summaries) {
+    for (const ip of summary.ipv4Addresses) ipv4Set.add(ip);
+    for (const ip of summary.ipv6Addresses) ipv6Set.add(ip);
+    for (const subnet of summary.ipv4Subnets) ipv4SubnetSet.add(subnet);
+    for (const subnet of summary.ipv6Subnets) ipv6SubnetSet.add(subnet);
+  }
+
+  const ipv4Addresses = [...ipv4Set].sort((a, b) => {
+    const aParts = a.split('.').map(Number);
+    const bParts = b.split('.').map(Number);
+    for (let i = 0; i < 4; i++) {
+      if ((aParts[i] ?? 0) !== (bParts[i] ?? 0)) {
+        return (aParts[i] ?? 0) - (bParts[i] ?? 0);
+      }
+    }
+    return 0;
+  });
+
+  const ipv6Addresses = [...ipv6Set].sort();
+  const ipv4Subnets = [...ipv4SubnetSet].sort();
+  const ipv6Subnets = [...ipv6SubnetSet].sort();
+
+  return {
+    ipv4Addresses,
+    ipv6Addresses,
+    ipv4Subnets,
+    ipv6Subnets,
+    counts: {
+      ipv4: ipv4Addresses.length,
+      ipv6: ipv6Addresses.length,
+      ipv4Subnets: ipv4Subnets.length,
+      ipv6Subnets: ipv6Subnets.length,
+      total:
+        ipv4Addresses.length +
+        ipv6Addresses.length +
+        ipv4Subnets.length +
+        ipv6Subnets.length,
+    },
+  };
 }
 
 /**
@@ -196,6 +259,11 @@ export function generateMultiFileSarif(
   rules?: IRule[],
   options: SarifOptions = {}
 ): string {
+  // Aggregate IP summaries from all files
+  const aggregatedIpSummary = aggregateIPSummaries(
+    fileResults.map((fr) => fr.ipSummary).filter((s): s is IPSummary => !!s)
+  );
+
   // Aggregate all results from all files
   const allSarifResults = fileResults.flatMap(({ filePath, results }) => {
     const fileUri = options.relativePaths
@@ -327,6 +395,12 @@ export function generateMultiFileSarif(
           ],
         }),
         results: allSarifResults,
+        // Include aggregated IP summary in properties if available
+        ...(aggregatedIpSummary && {
+          properties: {
+            ipSummary: aggregatedIpSummary,
+          },
+        }),
       },
     ],
   };

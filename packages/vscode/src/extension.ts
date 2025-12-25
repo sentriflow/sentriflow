@@ -27,6 +27,7 @@ import type {
 import { allRules, getRulesByVendor } from '@sentriflow/rules-default';
 import { RulesTreeProvider, RuleTreeItem } from './providers/RulesTreeProvider';
 import { SettingsWebviewProvider } from './providers/SettingsWebviewProvider';
+import { registerIPCommands, deactivateIPCommands } from './commands/ipCommands';
 
 // ============================================================================
 // Rule Pack Management
@@ -813,6 +814,9 @@ export function activate(context: vscode.ExtensionContext) {
         () => vscode.commands.executeCommand('sentriflowRules.focus')
       )
     );
+
+    // Register IP extraction commands
+    context.subscriptions.push(...registerIPCommands(context));
 
     // Register event handlers with debouncing
     context.subscriptions.push(
@@ -3200,6 +3204,9 @@ function log(message: string) {
 // Deactivation
 // ============================================================================
 export function deactivate() {
+  // Cleanup IP command resources
+  deactivateIPCommands();
+
   // Clear all pending timers
   for (const timer of debounceTimers.values()) {
     clearTimeout(timer);

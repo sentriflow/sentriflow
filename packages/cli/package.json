@@ -1,6 +1,6 @@
 {
   "name": "@sentriflow/cli",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "SentriFlow CLI - Network configuration linter and validator",
   "license": "Apache-2.0",
   "main": "dist/index.js",
