@@ -27,6 +27,7 @@ export const RootAuthRequired: IRule = {
   id: 'JUN-SYS-001',
   selector: 'system',
   vendor: 'juniper-junos',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -79,6 +80,7 @@ export const SshServiceRequired: IRule = {
   id: 'JUN-SYS-002',
   selector: 'system',
   vendor: 'juniper-junos',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -128,6 +130,7 @@ export const SyslogRequired: IRule = {
   id: 'JUN-SYS-003',
   selector: 'system',
   vendor: 'juniper-junos',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -180,6 +183,7 @@ export const NtpRequired: IRule = {
   id: 'JUN-SYS-004',
   selector: 'system',
   vendor: 'juniper-junos',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -234,6 +238,7 @@ export const JunosInterfaceDescription: IRule = {
   id: 'JUN-IF-001',
   selector: 'interfaces',
   vendor: 'juniper-junos',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -295,6 +300,7 @@ export const JunosBgpRouterId: IRule = {
   id: 'JUN-BGP-001',
   selector: 'routing-options',
   vendor: 'juniper-junos',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -332,6 +338,7 @@ export const JunosBgpAsNumber: IRule = {
   id: 'JUN-BGP-002',
   selector: 'routing-options',
   vendor: 'juniper-junos',
+  category: 'Routing',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -396,6 +403,7 @@ export const JunosOspfAreaInterfaces: IRule = {
   id: 'JUN-OSPF-001',
   selector: 'protocols',
   vendor: 'juniper-junos',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -461,6 +469,7 @@ export const JunosPolicyAction: IRule = {
   id: 'JUN-POL-001',
   selector: 'policy-options',
   vendor: 'juniper-junos',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -530,6 +539,7 @@ export const JunosFirewallDefaultDeny: IRule = {
   id: 'JUN-FW-001',
   selector: 'firewall',
   vendor: 'juniper-junos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -607,6 +617,7 @@ export const JunosSnmpNoCommunity: IRule = {
   id: 'JUN-SNMP-001',
   selector: 'snmp',
   vendor: 'juniper-junos',
+  category: 'Protocol-Security',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -662,6 +673,7 @@ export const JunosLldpExternal: IRule = {
   id: 'JUN-SEC-001',
   selector: 'protocols',
   vendor: 'juniper-junos',
+  category: 'Protocol-Security',
   metadata: {
     level: 'info',
     obu: 'Security',

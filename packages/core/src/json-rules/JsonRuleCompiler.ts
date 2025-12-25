@@ -89,6 +89,7 @@ export class JsonRuleCompiler {
             id: jsonRule.id,
             selector: jsonRule.selector,
             vendor: jsonRule.vendor,
+            category: jsonRule.category,
             metadata: jsonRule.metadata,
             check: (node: ConfigNode, _ctx: Context): RuleResult => {
                 // Check defines failure conditions - invert to get pass status

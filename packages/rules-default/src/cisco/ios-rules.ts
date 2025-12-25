@@ -33,6 +33,7 @@ export const TrunkNoDTP: IRule = {
   id: 'NET-TRUNK-001',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -75,6 +76,7 @@ export const TrunkNativeVlanNotOne: IRule = {
   id: 'NET-TRUNK-002',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -125,6 +127,7 @@ export const TrunkAllowedVlans: IRule = {
   id: 'NET-TRUNK-003',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -178,6 +181,7 @@ export const AccessExplicitMode: IRule = {
   id: 'NET-ACCESS-001',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -214,6 +218,7 @@ export const AccessVlanNotOne: IRule = {
   id: 'NET-ACCESS-002',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -264,6 +269,7 @@ export const AccessBpduGuard: IRule = {
   id: 'NET-ACCESS-004',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -307,6 +313,7 @@ export const VtpConfiguration: IRule = {
   id: 'NET-VLAN-004',
   selector: 'vtp',
   vendor: 'cisco-ios',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -345,6 +352,7 @@ export const VtyNoTelnet: IRule = {
   id: 'NET-MGMT-001',
   selector: 'line vty',
   vendor: 'cisco-ios',
+  category: 'Session-Management',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -398,6 +406,7 @@ export const VtyExecTimeout: IRule = {
   id: 'NET-MGMT-003',
   selector: 'line vty',
   vendor: 'cisco-ios',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -461,6 +470,7 @@ export const NoHttpServer: IRule = {
   id: 'NET-MGMT-005',
   selector: 'ip http',
   vendor: 'cisco-ios',
+  category: 'Service-Hardening',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -507,6 +517,7 @@ export const OspfRouterId: IRule = {
   id: 'NET-ROUTE-001',
   selector: 'router ospf',
   vendor: 'cisco-ios',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -536,6 +547,7 @@ export const BgpRouterId: IRule = {
   id: 'NET-ROUTE-001',
   selector: 'router bgp',
   vendor: 'cisco-ios',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -565,6 +577,7 @@ export const BgpAllNeighborsShutdown: IRule = {
   id: 'NET-ROUTE-005',
   selector: 'router bgp',
   vendor: 'cisco-ios',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -634,6 +647,7 @@ export const OspfNetworkBestPractice: IRule = {
   id: 'NET-OSPF-001',
   selector: 'router ospf',
   vendor: 'cisco-ios',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -778,6 +792,7 @@ export const SnmpNoDefaultCommunity: IRule = {
   id: 'NET-SNMP-002',
   selector: 'snmp-server community',
   vendor: 'cisco-ios',
+  category: 'Protocol-Security',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -809,6 +824,7 @@ export const SnmpNoRwAccess: IRule = {
   id: 'NET-SNMP-004',
   selector: 'snmp-server community',
   vendor: 'cisco-ios',
+  category: 'Protocol-Security',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -844,6 +860,7 @@ export const CdpDisabledOnExternal: IRule = {
   id: 'NET-SVC-005',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'Protocol-Security',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -910,6 +927,7 @@ export const LldpDisabledOnExternal: IRule = {
   id: 'NET-SVC-006',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'Protocol-Security',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -986,6 +1004,7 @@ export const FhrpAuthentication: IRule = {
   id: 'NET-FHRP-002',
   selector: 'interface',
   vendor: 'cisco-ios',
+  category: 'High-Availability',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -1036,6 +1055,7 @@ export const VlanNameRequired: IRule = {
   id: 'NET-VLAN-001',
   selector: 'vlan',
   vendor: 'cisco-ios',
+  category: 'Documentation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -1084,6 +1104,7 @@ export const NoIpSourceRoute: IRule = {
   id: 'NET-SVC-002',
   selector: 'ip source-route',
   vendor: 'cisco-ios',
+  category: 'Service-Hardening',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -1113,6 +1134,7 @@ export const EnableSecretStrong: IRule = {
   id: 'NET-AAA-003',
   selector: 'enable',
   vendor: 'cisco-ios',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -1157,6 +1179,7 @@ export const CiscoNoPlaintextPasswords: IRule = {
   id: 'NET-SEC-001',
   selector: 'password',
   vendor: ['cisco-ios', 'cisco-nxos'],
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',

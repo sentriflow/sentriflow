@@ -29,6 +29,7 @@ export const WlcSsidEncryption: IRule = {
   id: 'ARUWLC-WLAN-001',
   selector: 'wlan ssid-profile',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -90,6 +91,7 @@ export const WlcOpenSsidCaptivePortal: IRule = {
   id: 'ARUWLC-WLAN-002',
   selector: 'wlan ssid-profile',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -130,6 +132,7 @@ export const WlcSsidEssid: IRule = {
   id: 'ARUWLC-WLAN-003',
   selector: 'wlan ssid-profile',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -173,6 +176,7 @@ export const WlcVapAaaProfile: IRule = {
   id: 'ARUWLC-VAP-001',
   selector: 'wlan virtual-ap',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -212,6 +216,7 @@ export const WlcVapSsidProfile: IRule = {
   id: 'ARUWLC-VAP-002',
   selector: 'wlan virtual-ap',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -251,6 +256,7 @@ export const WlcVapVlan: IRule = {
   id: 'ARUWLC-VAP-003',
   selector: 'wlan virtual-ap',
   vendor: 'aruba-wlc',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -293,6 +299,7 @@ export const WlcRadiusHost: IRule = {
   id: 'ARUWLC-AAA-001',
   selector: 'aaa authentication-server radius',
   vendor: 'aruba-wlc',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -332,6 +339,7 @@ export const WlcRadiusKey: IRule = {
   id: 'ARUWLC-AAA-002',
   selector: 'aaa authentication-server radius',
   vendor: 'aruba-wlc',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -370,6 +378,7 @@ export const WlcServerGroupHasServers: IRule = {
   id: 'ARUWLC-AAA-003',
   selector: 'aaa server-group',
   vendor: 'aruba-wlc',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -412,6 +421,7 @@ export const WlcApGroupVaps: IRule = {
   id: 'ARUWLC-AP-001',
   selector: 'ap-group',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -451,6 +461,7 @@ export const WlcApGroupRegDomain: IRule = {
   id: 'ARUWLC-AP-002',
   selector: 'ap-group',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -493,6 +504,7 @@ export const WlcArmProfile: IRule = {
   id: 'ARUWLC-RF-001',
   selector: 'rf arm-profile',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -520,6 +532,7 @@ export const WlcRadioArmProfile: IRule = {
   id: 'ARUWLC-RF-002',
   selector: 'rf dot11',
   vendor: 'aruba-wlc',
+  category: 'Wireless',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',

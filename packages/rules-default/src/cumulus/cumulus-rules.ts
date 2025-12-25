@@ -44,6 +44,7 @@ export const CumulusInterfaceDescription: IRule = {
   id: 'CUM-IF-001',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -94,6 +95,7 @@ export const CumulusBpduGuard: IRule = {
   id: 'CUM-IF-002',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -160,6 +162,7 @@ export const CumulusPortAdminEdge: IRule = {
   id: 'CUM-IF-003',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -229,6 +232,7 @@ export const CumulusBridgeVlans: IRule = {
   id: 'CUM-BR-001',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -289,6 +293,7 @@ export const CumulusBridgePorts: IRule = {
   id: 'CUM-BR-002',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -342,6 +347,7 @@ export const CumulusBondSlaves: IRule = {
   id: 'CUM-BOND-001',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'Link-Aggregation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -391,6 +397,7 @@ export const CumulusBondClagId: IRule = {
   id: 'CUM-BOND-002',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'High-Availability',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -447,6 +454,7 @@ export const CumulusVlanAddress: IRule = {
   id: 'CUM-VLAN-001',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'IP-Addressing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -496,6 +504,7 @@ export const CumulusVlanRawDevice: IRule = {
   id: 'CUM-VLAN-002',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -553,6 +562,7 @@ export const CumulusBgpRouterId: IRule = {
   id: 'CUM-BGP-001',
   selector: 'router bgp',
   vendor: 'cumulus-linux',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -589,6 +599,7 @@ export const CumulusBgpNeighbors: IRule = {
   id: 'CUM-BGP-002',
   selector: 'router bgp',
   vendor: 'cumulus-linux',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -625,6 +636,7 @@ export const CumulusBgpUnnumbered: IRule = {
   id: 'CUM-BGP-003',
   selector: 'router bgp',
   vendor: 'cumulus-linux',
+  category: 'Routing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -686,6 +698,7 @@ export const CumulusPeerlinkMtu: IRule = {
   id: 'CUM-MLAG-001',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'High-Availability',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -761,6 +774,7 @@ export const CumulusNcluCommit: IRule = {
   id: 'CUM-CMD-001',
   selector: 'net',
   vendor: 'cumulus-linux',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -801,6 +815,7 @@ export const CumulusNvueApply: IRule = {
   id: 'CUM-CMD-002',
   selector: 'nv',
   vendor: 'cumulus-linux',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -843,6 +858,7 @@ export const CumulusLoopbackAddress: IRule = {
   id: 'CUM-LO-001',
   selector: 'iface',
   vendor: 'cumulus-linux',
+  category: 'IP-Addressing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',

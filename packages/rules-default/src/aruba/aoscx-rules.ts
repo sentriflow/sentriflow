@@ -32,6 +32,7 @@ export const AosCxInterfaceDescription: IRule = {
   id: 'AOSCX-IF-001',
   selector: 'interface',
   vendor: 'aruba-aoscx',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -87,6 +88,7 @@ export const AosCxTrunkAllowedVlans: IRule = {
   id: 'AOSCX-L2-001',
   selector: 'interface',
   vendor: 'aruba-aoscx',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -139,6 +141,7 @@ export const AosCxAccessVlanAssigned: IRule = {
   id: 'AOSCX-L2-002',
   selector: 'interface',
   vendor: 'aruba-aoscx',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -207,6 +210,7 @@ export const AosCxNativeVlanNotDefault: IRule = {
   id: 'AOSCX-L2-003',
   selector: 'interface',
   vendor: 'aruba-aoscx',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -263,6 +267,7 @@ export const AosCxBpduGuardOnEdge: IRule = {
   id: 'AOSCX-STP-001',
   selector: 'interface',
   vendor: 'aruba-aoscx',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -315,6 +320,7 @@ export const AosCxAccessPortEdge: IRule = {
   id: 'AOSCX-STP-002',
   selector: 'interface',
   vendor: 'aruba-aoscx',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -375,6 +381,7 @@ export const AosCxVlanName: IRule = {
   id: 'AOSCX-VLAN-001',
   selector: 'vlan',
   vendor: 'aruba-aoscx',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -428,6 +435,7 @@ export const AosCxOspfRouterId: IRule = {
   id: 'AOSCX-ROUTE-001',
   selector: 'router ospf',
   vendor: 'aruba-aoscx',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -464,6 +472,7 @@ export const AosCxBgpRouterId: IRule = {
   id: 'AOSCX-ROUTE-002',
   selector: 'router bgp',
   vendor: 'aruba-aoscx',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -504,6 +513,7 @@ export const AosCxLagLacp: IRule = {
   id: 'AOSCX-LAG-001',
   selector: 'interface lag',
   vendor: 'aruba-aoscx',
+  category: 'Link-Aggregation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',

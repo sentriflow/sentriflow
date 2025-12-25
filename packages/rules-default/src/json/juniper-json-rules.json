@@ -12,6 +12,7 @@
       "id": "JSON-JUNOS-001",
       "selector": "system services",
       "vendor": "juniper-junos",
+      "category": "Session-Management",
       "metadata": {
         "level": "error",
         "obu": "Security",
@@ -44,6 +45,7 @@
       "id": "JSON-JUNOS-002",
       "selector": "system services",
       "vendor": "juniper-junos",
+      "category": "Service-Hardening",
       "metadata": {
         "level": "error",
         "obu": "Security",
@@ -66,6 +68,7 @@
       "id": "JSON-JUNOS-003",
       "selector": "system",
       "vendor": "juniper-junos",
+      "category": "Session-Management",
       "metadata": {
         "level": "warning",
         "obu": "Security",
@@ -85,6 +88,7 @@
       "id": "JSON-JUNOS-004",
       "selector": "protocols ospf area",
       "vendor": "juniper-junos",
+      "category": "Routing",
       "metadata": {
         "level": "warning",
         "obu": "Network Engineering",
@@ -104,6 +108,7 @@
       "id": "JSON-JUNOS-005",
       "selector": "system syslog",
       "vendor": "juniper-junos",
+      "category": "Logging",
       "metadata": {
         "level": "warning",
         "obu": "Operations",

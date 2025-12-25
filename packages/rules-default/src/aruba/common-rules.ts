@@ -16,6 +16,7 @@ export const SshEnabled: IRule = {
   id: 'ARU-SEC-001',
   selector: 'ssh',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Session-Management',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -61,6 +62,7 @@ export const SnmpNotDefault: IRule = {
   id: 'ARU-SEC-002',
   selector: 'snmp-server',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Protocol-Security',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -106,6 +108,7 @@ export const TelnetDisabled: IRule = {
   id: 'ARU-SEC-003',
   selector: 'telnet',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Service-Hardening',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -153,6 +156,7 @@ export const NtpConfigured: IRule = {
   id: 'ARU-NTP-001',
   selector: 'ntp',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -193,6 +197,7 @@ export const SntpConfigured: IRule = {
   id: 'ARU-NTP-002',
   selector: 'sntp',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -236,6 +241,7 @@ export const LoggingConfigured: IRule = {
   id: 'ARU-LOG-001',
   selector: 'logging',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -284,6 +290,7 @@ export const AaaConfigured: IRule = {
   id: 'ARU-AAA-001',
   selector: 'aaa',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Authentication',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -332,6 +339,7 @@ export const RadiusKeyConfigured: IRule = {
   id: 'ARU-RAD-001',
   selector: 'radius-server',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -372,6 +380,7 @@ export const TacacsKeyConfigured: IRule = {
   id: 'ARU-TAC-001',
   selector: 'tacacs-server',
   vendor: ['aruba-aoscx', 'aruba-aosswitch', 'aruba-wlc'],
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',

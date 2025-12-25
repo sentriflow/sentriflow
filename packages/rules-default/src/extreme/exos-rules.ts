@@ -33,6 +33,7 @@ export const ExosSysnameRequired: IRule = {
   id: 'EXOS-SYS-001',
   selector: 'configure snmp sysname',
   vendor: 'extreme-exos',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -72,6 +73,7 @@ export const ExosSntpRequired: IRule = {
   id: 'EXOS-SYS-002',
   selector: 'configure sntp-client',
   vendor: 'extreme-exos',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -108,6 +110,7 @@ export const ExosSntpEnabled: IRule = {
   id: 'EXOS-SYS-003',
   selector: 'enable sntp-client',
   vendor: 'extreme-exos',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -144,6 +147,7 @@ export const ExosSyslogRequired: IRule = {
   id: 'EXOS-SYS-004',
   selector: 'configure syslog',
   vendor: 'extreme-exos',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -184,6 +188,7 @@ export const ExosSsh2Enabled: IRule = {
   id: 'EXOS-SEC-001',
   selector: 'enable ssh2',
   vendor: 'extreme-exos',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -220,6 +225,7 @@ export const ExosTelnetDisabled: IRule = {
   id: 'EXOS-SEC-002',
   selector: 'disable telnet',
   vendor: 'extreme-exos',
+  category: 'Service-Hardening',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -268,6 +274,7 @@ export const ExosAaaRequired: IRule = {
   id: 'EXOS-SEC-003',
   selector: 'configure radius',
   vendor: 'extreme-exos',
+  category: 'Authentication',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -308,6 +315,7 @@ export const ExosVlanNaming: IRule = {
   id: 'EXOS-VLAN-001',
   selector: 'create vlan',
   vendor: 'extreme-exos',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -364,6 +372,7 @@ export const ExosVlanTagRequired: IRule = {
   id: 'EXOS-VLAN-002',
   selector: 'create vlan',
   vendor: 'extreme-exos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -419,6 +428,7 @@ export const ExosLagLacp: IRule = {
   id: 'EXOS-LAG-001',
   selector: 'enable sharing',
   vendor: 'extreme-exos',
+  category: 'Link-Aggregation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -473,6 +483,7 @@ export const ExosEapsControlVlan: IRule = {
   id: 'EXOS-EAPS-001',
   selector: 'configure eaps',
   vendor: 'extreme-exos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -514,6 +525,7 @@ export const ExosStackingPriority: IRule = {
   id: 'EXOS-STACK-001',
   selector: 'configure stacking',
   vendor: 'extreme-exos',
+  category: 'High-Availability',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -554,6 +566,7 @@ export const ExosMlagIsc: IRule = {
   id: 'EXOS-MLAG-001',
   selector: 'configure mlag peer',
   vendor: 'extreme-exos',
+  category: 'High-Availability',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',

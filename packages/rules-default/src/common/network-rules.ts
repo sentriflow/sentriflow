@@ -23,10 +23,12 @@ export const NoMulticastBroadcastIp: IRule = {
   id: 'NET-IP-001',
   selector: 'ip address',
   vendor: 'common',
+  category: 'IP-Addressing',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
     owner: 'NetOps',
+    description: 'Ensure IP addresses are not Multicast, Broadcast, or Network ID addresses.',
     remediation:
       'Configure a valid unicast IP address. Do not use Multicast, Broadcast, or Network ID addresses.',
   },
@@ -160,10 +162,12 @@ export const InterfaceDescriptionRequired: IRule = {
   id: 'NET-DOC-001',
   selector: 'interface',
   vendor: 'common',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
     owner: 'NetOps',
+    description: 'Ensure interfaces have descriptive labels for operational clarity.',
     remediation:
       'Add a description to the interface using the "description" command.',
   },

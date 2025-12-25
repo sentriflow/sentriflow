@@ -12,6 +12,7 @@
       "id": "JSON-COMMON-001",
       "selector": "interface",
       "vendor": "common",
+      "category": "Documentation",
       "metadata": {
         "level": "info",
         "obu": "Network Engineering",

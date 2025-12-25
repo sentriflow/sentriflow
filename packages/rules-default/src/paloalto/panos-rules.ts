@@ -35,6 +35,7 @@ export const HostnameRequired: IRule = {
   id: 'PAN-SYS-001',
   selector: 'deviceconfig',
   vendor: 'paloalto-panos',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -84,6 +85,7 @@ export const NtpRequired: IRule = {
   id: 'PAN-SYS-002',
   selector: 'deviceconfig',
   vendor: 'paloalto-panos',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -133,6 +135,7 @@ export const DnsRequired: IRule = {
   id: 'PAN-SYS-003',
   selector: 'deviceconfig',
   vendor: 'paloalto-panos',
+  category: 'IP-Addressing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -194,6 +197,7 @@ export const ManagementAccessRestricted: IRule = {
   id: 'PAN-SYS-004',
   selector: 'deviceconfig',
   vendor: 'paloalto-panos',
+  category: 'Session-Management',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -243,6 +247,7 @@ export const LoginBannerRequired: IRule = {
   id: 'PAN-SYS-005',
   selector: 'deviceconfig',
   vendor: 'paloalto-panos',
+  category: 'Session-Management',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -296,6 +301,7 @@ export const SecurityRuleLogging: IRule = {
   id: 'PAN-SEC-001',
   selector: 'rulebase',
   vendor: 'paloalto-panos',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -355,6 +361,7 @@ export const SecurityProfileRequired: IRule = {
   id: 'PAN-SEC-002',
   selector: 'rulebase',
   vendor: 'paloalto-panos',
+  category: 'Security-Profiles',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -414,6 +421,7 @@ export const NoAnyApplication: IRule = {
   id: 'PAN-SEC-003',
   selector: 'rulebase',
   vendor: 'paloalto-panos',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -473,6 +481,7 @@ export const NoOverlyPermissiveRules: IRule = {
   id: 'PAN-SEC-004',
   selector: 'rulebase',
   vendor: 'paloalto-panos',
+  category: 'Security-Profiles',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -538,6 +547,7 @@ export const SecurityRuleDescription: IRule = {
   id: 'PAN-SEC-005',
   selector: 'rulebase',
   vendor: 'paloalto-panos',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -600,6 +610,7 @@ export const ZoneProtectionRequired: IRule = {
   id: 'PAN-ZONE-001',
   selector: 'zone',
   vendor: 'paloalto-panos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -660,6 +671,7 @@ export const WildfireRequired: IRule = {
   id: 'PAN-PROF-001',
   selector: 'profiles',
   vendor: 'paloalto-panos',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -696,6 +708,7 @@ export const UrlFilteringRequired: IRule = {
   id: 'PAN-PROF-002',
   selector: 'profiles',
   vendor: 'paloalto-panos',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -732,6 +745,7 @@ export const AntiVirusRequired: IRule = {
   id: 'PAN-PROF-003',
   selector: 'profiles',
   vendor: 'paloalto-panos',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -768,6 +782,7 @@ export const AntiSpywareRequired: IRule = {
   id: 'PAN-PROF-004',
   selector: 'profiles',
   vendor: 'paloalto-panos',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -804,6 +819,7 @@ export const VulnerabilityProtectionRequired: IRule = {
   id: 'PAN-PROF-005',
   selector: 'profiles',
   vendor: 'paloalto-panos',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -844,6 +860,7 @@ export const NatRuleDescription: IRule = {
   id: 'PAN-NAT-001',
   selector: 'rulebase',
   vendor: 'paloalto-panos',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -904,6 +921,7 @@ export const HARecommended: IRule = {
   id: 'PAN-HA-001',
   selector: 'deviceconfig',
   vendor: 'paloalto-panos',
+  category: 'High-Availability',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -945,6 +963,7 @@ export const VirtualRouterDefaultRoute: IRule = {
   id: 'PAN-NET-001',
   selector: 'network',
   vendor: 'paloalto-panos',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',

@@ -12,6 +12,7 @@
       "id": "JSON-CISCO-001",
       "selector": "interface",
       "vendor": "cisco-ios",
+      "category": "Network-Segmentation",
       "metadata": {
         "level": "warning",
         "obu": "Network Engineering",
@@ -50,6 +51,7 @@
       "id": "JSON-CISCO-002",
       "selector": "interface",
       "vendor": "cisco-ios",
+      "category": "Network-Segmentation",
       "metadata": {
         "level": "info",
         "obu": "Network Engineering",
@@ -88,6 +90,7 @@
       "id": "JSON-CISCO-003",
       "selector": "interface",
       "vendor": "cisco-ios",
+      "category": "Documentation",
       "metadata": {
         "level": "warning",
         "obu": "Network Engineering",
@@ -121,6 +124,7 @@
       "id": "JSON-CISCO-004",
       "selector": "interface",
       "vendor": "cisco-ios",
+      "category": "Protocol-Security",
       "metadata": {
         "level": "error",
         "obu": "Security",
@@ -163,6 +167,7 @@
       "id": "JSON-CISCO-005",
       "selector": "line vty",
       "vendor": "cisco-ios",
+      "category": "Session-Management",
       "metadata": {
         "level": "error",
         "obu": "Security",

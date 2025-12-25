@@ -29,6 +29,7 @@ export const MikrotikSystemIdentity: IRule = {
   id: 'MIK-SYS-001',
   selector: '/system identity',
   vendor: 'mikrotik-routeros',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -68,6 +69,7 @@ export const MikrotikDisableUnusedServices: IRule = {
   id: 'MIK-SEC-001',
   selector: '/ip service',
   vendor: 'mikrotik-routeros',
+  category: 'Service-Hardening',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -121,6 +123,7 @@ export const MikrotikInputChainDrop: IRule = {
   id: 'MIK-FW-001',
   selector: '/ip firewall filter',
   vendor: 'mikrotik-routeros',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Security',

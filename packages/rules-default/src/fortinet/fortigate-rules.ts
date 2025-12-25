@@ -43,6 +43,7 @@ export const HostnameRequired: IRule = {
   id: 'FGT-SYS-001',
   selector: 'config system global',
   vendor: 'fortinet-fortigate',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -80,6 +81,7 @@ export const NtpRequired: IRule = {
   id: 'FGT-SYS-002',
   selector: 'config system ntp',
   vendor: 'fortinet-fortigate',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -130,6 +132,7 @@ export const DnsRequired: IRule = {
   id: 'FGT-SYS-003',
   selector: 'config system dns',
   vendor: 'fortinet-fortigate',
+  category: 'IP-Addressing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -167,6 +170,7 @@ export const AdminTimeoutRequired: IRule = {
   id: 'FGT-SYS-004',
   selector: 'config system global',
   vendor: 'fortinet-fortigate',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -216,6 +220,7 @@ export const PasswordPolicyRequired: IRule = {
   id: 'FGT-SYS-005',
   selector: 'config system global',
   vendor: 'fortinet-fortigate',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -265,6 +270,7 @@ export const PreLoginBannerRequired: IRule = {
   id: 'FGT-SYS-006',
   selector: 'config system global',
   vendor: 'fortinet-fortigate',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -306,6 +312,7 @@ export const AdminTrustedHostRequired: IRule = {
   id: 'FGT-ADMIN-001',
   selector: 'config system admin',
   vendor: 'fortinet-fortigate',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -371,6 +378,7 @@ export const LimitSuperAdmins: IRule = {
   id: 'FGT-ADMIN-002',
   selector: 'config system admin',
   vendor: 'fortinet-fortigate',
+  category: 'Authentication',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -415,6 +423,7 @@ export const NoTelnetAccess: IRule = {
   id: 'FGT-IF-001',
   selector: 'config system interface',
   vendor: 'fortinet-fortigate',
+  category: 'Service-Hardening',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -461,6 +470,7 @@ export const NoHttpManagement: IRule = {
   id: 'FGT-IF-002',
   selector: 'config system interface',
   vendor: 'fortinet-fortigate',
+  category: 'Service-Hardening',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -508,6 +518,7 @@ export const InterfaceDescriptionRequired: IRule = {
   id: 'FGT-IF-003',
   selector: 'config system interface',
   vendor: 'fortinet-fortigate',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -563,6 +574,7 @@ export const PolicyLoggingRequired: IRule = {
   id: 'FGT-POL-001',
   selector: 'config firewall policy',
   vendor: 'fortinet-fortigate',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -622,6 +634,7 @@ export const PolicySecurityProfileRequired: IRule = {
   id: 'FGT-POL-002',
   selector: 'config firewall policy',
   vendor: 'fortinet-fortigate',
+  category: 'Security-Profiles',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -681,6 +694,7 @@ export const NoOverlyPermissivePolicies: IRule = {
   id: 'FGT-POL-003',
   selector: 'config firewall policy',
   vendor: 'fortinet-fortigate',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -747,6 +761,7 @@ export const PolicyCommentRequired: IRule = {
   id: 'FGT-POL-004',
   selector: 'config firewall policy',
   vendor: 'fortinet-fortigate',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -807,6 +822,7 @@ export const NoAnyServicePolicy: IRule = {
   id: 'FGT-POL-005',
   selector: 'config firewall policy',
   vendor: 'fortinet-fortigate',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -870,6 +886,7 @@ export const HARecommended: IRule = {
   id: 'FGT-HA-001',
   selector: 'config system ha',
   vendor: 'fortinet-fortigate',
+  category: 'High-Availability',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -907,6 +924,7 @@ export const HAEncryptionRequired: IRule = {
   id: 'FGT-HA-002',
   selector: 'config system ha',
   vendor: 'fortinet-fortigate',
+  category: 'High-Availability',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -960,6 +978,7 @@ export const VpnStrongEncryption: IRule = {
   id: 'FGT-VPN-001',
   selector: 'config vpn ipsec phase1-interface',
   vendor: 'fortinet-fortigate',
+  category: 'VPN',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -1023,6 +1042,7 @@ export const VpnDpdEnabled: IRule = {
   id: 'FGT-VPN-002',
   selector: 'config vpn ipsec phase1-interface',
   vendor: 'fortinet-fortigate',
+  category: 'VPN',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -1084,6 +1104,7 @@ export const SyslogRequired: IRule = {
   id: 'FGT-LOG-001',
   selector: 'config log syslogd setting',
   vendor: 'fortinet-fortigate',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -1137,6 +1158,7 @@ export const AntivirusProfileRequired: IRule = {
   id: 'FGT-PROF-001',
   selector: 'config antivirus profile',
   vendor: 'fortinet-fortigate',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -1174,6 +1196,7 @@ export const IpsSensorRequired: IRule = {
   id: 'FGT-PROF-002',
   selector: 'config ips sensor',
   vendor: 'fortinet-fortigate',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -1211,6 +1234,7 @@ export const WebFilterProfileRequired: IRule = {
   id: 'FGT-PROF-003',
   selector: 'config webfilter profile',
   vendor: 'fortinet-fortigate',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -1248,6 +1272,7 @@ export const ApplicationListRequired: IRule = {
   id: 'FGT-PROF-004',
   selector: 'config application list',
   vendor: 'fortinet-fortigate',
+  category: 'Security-Profiles',
   metadata: {
     level: 'warning',
     obu: 'Security',

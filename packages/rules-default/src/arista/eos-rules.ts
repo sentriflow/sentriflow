@@ -48,6 +48,7 @@ export const HostnameRequired: IRule = {
   id: 'ARI-SYS-001',
   selector: 'hostname',
   vendor: 'arista-eos',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -88,6 +89,7 @@ export const NtpRequired: IRule = {
   id: 'ARI-SYS-002',
   selector: 'ntp',
   vendor: 'arista-eos',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -124,6 +126,7 @@ export const LoggingRequired: IRule = {
   id: 'ARI-SYS-003',
   selector: 'logging',
   vendor: 'arista-eos',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -160,6 +163,7 @@ export const BannerRequired: IRule = {
   id: 'ARI-SYS-004',
   selector: 'banner',
   vendor: 'arista-eos',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -200,6 +204,7 @@ export const MlagConfigComplete: IRule = {
   id: 'ARI-MLAG-001',
   selector: 'mlag configuration',
   vendor: 'arista-eos',
+  category: 'High-Availability',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -252,6 +257,7 @@ export const MlagPortChannelDescription: IRule = {
   id: 'ARI-MLAG-002',
   selector: 'interface Port-Channel',
   vendor: 'arista-eos',
+  category: 'High-Availability',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -307,6 +313,7 @@ export const VxlanSourceInterface: IRule = {
   id: 'ARI-VXLAN-001',
   selector: 'interface Vxlan',
   vendor: 'arista-eos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -354,6 +361,7 @@ export const VxlanVniMappings: IRule = {
   id: 'ARI-VXLAN-002',
   selector: 'interface Vxlan',
   vendor: 'arista-eos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -406,6 +414,7 @@ export const ManagementApiHttps: IRule = {
   id: 'ARI-API-001',
   selector: 'management api',
   vendor: 'arista-eos',
+  category: 'Service-Hardening',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -471,6 +480,7 @@ export const ManagementApiEnabled: IRule = {
   id: 'ARI-API-002',
   selector: 'management api',
   vendor: 'arista-eos',
+  category: 'Service-Hardening',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -529,6 +539,7 @@ export const InterfaceDescription: IRule = {
   id: 'ARI-INT-001',
   selector: 'interface Ethernet',
   vendor: 'arista-eos',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -578,6 +589,7 @@ export const L3InterfaceIpAddress: IRule = {
   id: 'ARI-INT-002',
   selector: 'interface',
   vendor: 'arista-eos',
+  category: 'IP-Addressing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -646,6 +658,7 @@ export const BgpRouterId: IRule = {
   id: 'ARI-BGP-001',
   selector: 'router bgp',
   vendor: 'arista-eos',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -684,6 +697,7 @@ export const EvpnConfigured: IRule = {
   id: 'ARI-BGP-002',
   selector: 'router bgp',
   vendor: 'arista-eos',
+  category: 'Routing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -727,6 +741,7 @@ export const SpanningTreeMode: IRule = {
   id: 'ARI-STP-001',
   selector: 'spanning-tree',
   vendor: 'arista-eos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -768,6 +783,7 @@ export const AaaConfigured: IRule = {
   id: 'ARI-SEC-001',
   selector: 'aaa',
   vendor: 'arista-eos',
+  category: 'Authentication',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -804,6 +820,7 @@ export const ManagementSshEnabled: IRule = {
   id: 'ARI-SEC-002',
   selector: 'management ssh',
   vendor: 'arista-eos',
+  category: 'Session-Management',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -852,6 +869,7 @@ export const VrfDescription: IRule = {
   id: 'ARI-VRF-001',
   selector: 'vrf instance',
   vendor: 'arista-eos',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',

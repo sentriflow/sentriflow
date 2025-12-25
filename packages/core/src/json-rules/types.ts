@@ -80,6 +80,9 @@ export interface JsonRule {
     /** Optional vendor(s) this rule applies to */
     vendor?: RuleVendor | RuleVendor[];
 
+    /** Optional category for tree view grouping */
+    category?: string | string[];
+
     /** Rule metadata including severity, description, remediation */
     metadata: RuleMetadata;
 

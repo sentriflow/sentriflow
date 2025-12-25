@@ -38,6 +38,7 @@ export const VossSysNameRequired: IRule = {
   id: 'VOSS-SYS-001',
   selector: 'snmp-server name',
   vendor: 'extreme-voss',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -76,6 +77,7 @@ export const VossNtpRequired: IRule = {
   id: 'VOSS-SYS-002',
   selector: 'ntp server',
   vendor: 'extreme-voss',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -112,6 +114,7 @@ export const VossLoggingRequired: IRule = {
   id: 'VOSS-SYS-003',
   selector: 'logging',
   vendor: 'extreme-voss',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -152,6 +155,7 @@ export const VossSshEnabled: IRule = {
   id: 'VOSS-SEC-001',
   selector: 'ssh',
   vendor: 'extreme-voss',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -211,6 +215,7 @@ export const VossVlanIsidRequired: IRule = {
   id: 'VOSS-VLAN-001',
   selector: 'vlan create',
   vendor: 'extreme-voss',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -273,6 +278,7 @@ export const VossVlanIsidRange: IRule = {
   id: 'VOSS-VLAN-002',
   selector: 'vlan i-sid',
   vendor: 'extreme-voss',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -328,6 +334,7 @@ export const VossInterfaceDefaultVlan: IRule = {
   id: 'VOSS-INT-001',
   selector: 'interface GigabitEthernet',
   vendor: 'extreme-voss',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -388,6 +395,7 @@ export const VossInterfaceNoShutdown: IRule = {
   id: 'VOSS-INT-002',
   selector: 'interface GigabitEthernet',
   vendor: 'extreme-voss',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -439,6 +447,7 @@ export const VossMltLacp: IRule = {
   id: 'VOSS-MLT-001',
   selector: 'interface mlt',
   vendor: 'extreme-voss',
+  category: 'Link-Aggregation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -491,6 +500,7 @@ export const VossSpbmBvid: IRule = {
   id: 'VOSS-SPBM-001',
   selector: 'spbm',
   vendor: 'extreme-voss',
+  category: 'Routing',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -527,6 +537,7 @@ export const VossSpbmNickname: IRule = {
   id: 'VOSS-SPBM-002',
   selector: 'spbm',
   vendor: 'extreme-voss',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -580,6 +591,7 @@ export const VossIsisEnabled: IRule = {
   id: 'VOSS-ISIS-001',
   selector: 'router isis',
   vendor: 'extreme-voss',
+  category: 'Routing',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -634,6 +646,7 @@ export const VossIsisSpbm: IRule = {
   id: 'VOSS-ISIS-002',
   selector: 'router isis',
   vendor: 'extreme-voss',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -689,6 +702,7 @@ export const VossDvrDomainId: IRule = {
   id: 'VOSS-DVR-001',
   selector: 'dvr',
   vendor: 'extreme-voss',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',

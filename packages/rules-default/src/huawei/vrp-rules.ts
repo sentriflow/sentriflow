@@ -43,6 +43,7 @@ export const SysnameRequired: IRule = {
   id: 'HUAWEI-SYS-001',
   selector: 'sysname',
   vendor: 'huawei-vrp',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -81,6 +82,7 @@ export const NtpRequired: IRule = {
   id: 'HUAWEI-SYS-002',
   selector: 'ntp-service',
   vendor: 'huawei-vrp',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -121,6 +123,7 @@ export const SnmpCommunityNotDefault: IRule = {
   id: 'HUAWEI-SYS-003',
   selector: 'snmp-agent',
   vendor: 'huawei-vrp',
+  category: 'Protocol-Security',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -167,6 +170,7 @@ export const SnmpV3Recommended: IRule = {
   id: 'HUAWEI-SYS-004',
   selector: 'snmp-agent',
   vendor: 'huawei-vrp',
+  category: 'Protocol-Security',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -219,6 +223,7 @@ export const InterfaceDescriptionRequired: IRule = {
   id: 'HUAWEI-IF-001',
   selector: 'interface',
   vendor: 'huawei-vrp',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -281,6 +286,7 @@ export const AccessPortStpEdgeRequired: IRule = {
   id: 'HUAWEI-IF-002',
   selector: 'interface',
   vendor: 'huawei-vrp',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -331,6 +337,7 @@ export const TrunkVlanRestriction: IRule = {
   id: 'HUAWEI-IF-003',
   selector: 'interface',
   vendor: 'huawei-vrp',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -382,6 +389,7 @@ export const PortSecurityRequired: IRule = {
   id: 'HUAWEI-IF-004',
   selector: 'interface',
   vendor: 'huawei-vrp',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -436,6 +444,7 @@ export const VtyAaaRequired: IRule = {
   id: 'HUAWEI-VTY-001',
   selector: 'user-interface vty',
   vendor: 'huawei-vrp',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -482,6 +491,7 @@ export const VtySshRequired: IRule = {
   id: 'HUAWEI-VTY-002',
   selector: 'user-interface vty',
   vendor: 'huawei-vrp',
+  category: 'Session-Management',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -541,6 +551,7 @@ export const VtyIdleTimeoutRequired: IRule = {
   id: 'HUAWEI-VTY-003',
   selector: 'user-interface',
   vendor: 'huawei-vrp',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -589,6 +600,7 @@ export const VtyAclRequired: IRule = {
   id: 'HUAWEI-VTY-004',
   selector: 'user-interface vty',
   vendor: 'huawei-vrp',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -629,6 +641,7 @@ export const LocalUserEncryptedPassword: IRule = {
   id: 'HUAWEI-AAA-001',
   selector: 'local-user',
   vendor: 'huawei-vrp',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -676,6 +689,7 @@ export const HighPrivilegeUserWarning: IRule = {
   id: 'HUAWEI-AAA-002',
   selector: 'local-user',
   vendor: 'huawei-vrp',
+  category: 'Authentication',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -719,6 +733,7 @@ export const BgpRouterIdRequired: IRule = {
   id: 'HUAWEI-BGP-001',
   selector: 'bgp',
   vendor: 'huawei-vrp',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -757,6 +772,7 @@ export const BgpPeerDescriptionRequired: IRule = {
   id: 'HUAWEI-BGP-002',
   selector: 'bgp',
   vendor: 'huawei-vrp',
+  category: 'Routing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -810,6 +826,7 @@ export const OspfRouterIdRequired: IRule = {
   id: 'HUAWEI-OSPF-001',
   selector: 'ospf',
   vendor: 'huawei-vrp',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -849,6 +866,7 @@ export const OspfAuthenticationRecommended: IRule = {
   id: 'HUAWEI-OSPF-002',
   selector: 'area',
   vendor: 'huawei-vrp',
+  category: 'Routing',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -895,6 +913,7 @@ export const InfoCenterEnabled: IRule = {
   id: 'HUAWEI-LOG-001',
   selector: 'info-center enable',
   vendor: 'huawei-vrp',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -921,6 +940,7 @@ export const SyslogServerRequired: IRule = {
   id: 'HUAWEI-LOG-002',
   selector: 'info-center loghost',
   vendor: 'huawei-vrp',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -952,6 +972,7 @@ export const SshServerEnabled: IRule = {
   id: 'HUAWEI-SSH-001',
   selector: 'ssh server enable',
   vendor: 'huawei-vrp',
+  category: 'Service-Hardening',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -977,6 +998,7 @@ export const TelnetDisabled: IRule = {
   id: 'HUAWEI-SSH-002',
   selector: 'undo telnet server enable',
   vendor: 'huawei-vrp',
+  category: 'Service-Hardening',
   metadata: {
     level: 'info',
     obu: 'Security',

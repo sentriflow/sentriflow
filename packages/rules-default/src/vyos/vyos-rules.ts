@@ -34,6 +34,7 @@ export const VyosHostnameRequired: IRule = {
   id: 'VYOS-SYS-001',
   selector: 'system',
   vendor: 'vyos',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -71,6 +72,7 @@ export const VyosNtpRequired: IRule = {
   id: 'VYOS-SYS-002',
   selector: 'system',
   vendor: 'vyos',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -123,6 +125,7 @@ export const VyosSyslogRequired: IRule = {
   id: 'VYOS-SYS-003',
   selector: 'system',
   vendor: 'vyos',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -159,6 +162,7 @@ export const VyosUserAuthRequired: IRule = {
   id: 'VYOS-SYS-004',
   selector: 'system',
   vendor: 'vyos',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -242,6 +246,7 @@ export const VyosNoPlaintextPassword: IRule = {
   id: 'VYOS-SEC-001',
   selector: 'authentication',
   vendor: 'vyos',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -286,6 +291,7 @@ export const VyosNameServersRequired: IRule = {
   id: 'VYOS-SYS-005',
   selector: 'system',
   vendor: 'vyos',
+  category: 'IP-Addressing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -327,6 +333,7 @@ export const VyosSshRequired: IRule = {
   id: 'VYOS-SVC-001',
   selector: 'service',
   vendor: 'vyos',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -363,6 +370,7 @@ export const VyosSshKeyAuth: IRule = {
   id: 'VYOS-SVC-002',
   selector: 'service',
   vendor: 'vyos',
+  category: 'Session-Management',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -412,6 +420,7 @@ export const VyosSshNonDefaultPort: IRule = {
   id: 'VYOS-SVC-003',
   selector: 'service',
   vendor: 'vyos',
+  category: 'Session-Management',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -482,6 +491,7 @@ export const VyosInterfaceDescription: IRule = {
   id: 'VYOS-IF-001',
   selector: 'interfaces',
   vendor: 'vyos',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -534,6 +544,7 @@ export const VyosInterfaceAddress: IRule = {
   id: 'VYOS-IF-002',
   selector: 'interfaces',
   vendor: 'vyos',
+  category: 'IP-Addressing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -590,6 +601,7 @@ export const VyosFirewallDefaultAction: IRule = {
   id: 'VYOS-FW-001',
   selector: 'firewall',
   vendor: 'vyos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -649,6 +661,7 @@ export const VyosFirewallRuleAction: IRule = {
   id: 'VYOS-FW-002',
   selector: 'firewall',
   vendor: 'vyos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -712,6 +725,7 @@ export const VyosFirewallStateful: IRule = {
   id: 'VYOS-FW-003',
   selector: 'firewall',
   vendor: 'vyos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -794,6 +808,7 @@ export const VyosNatOutboundInterface: IRule = {
   id: 'VYOS-NAT-001',
   selector: 'nat',
   vendor: 'vyos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -864,6 +879,7 @@ export const VyosNatTranslation: IRule = {
   id: 'VYOS-NAT-002',
   selector: 'nat',
   vendor: 'vyos',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'error',
     obu: 'Network Engineering',
@@ -932,6 +948,7 @@ export const VyosIpsecStrongEncryption: IRule = {
   id: 'VYOS-VPN-001',
   selector: 'vpn',
   vendor: 'vyos',
+  category: 'VPN',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -1012,6 +1029,7 @@ export const VyosWireGuardAllowedIps: IRule = {
   id: 'VYOS-VPN-002',
   selector: 'interfaces',
   vendor: 'vyos',
+  category: 'VPN',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -1078,6 +1096,7 @@ export const VyosBgpRouterId: IRule = {
   id: 'VYOS-BGP-001',
   selector: 'protocols',
   vendor: 'vyos',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -1132,6 +1151,7 @@ export const VyosBgpNeighborDescription: IRule = {
   id: 'VYOS-BGP-002',
   selector: 'protocols',
   vendor: 'vyos',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -1202,6 +1222,7 @@ export const VyosOspfAreaInterfaces: IRule = {
   id: 'VYOS-OSPF-001',
   selector: 'protocols',
   vendor: 'vyos',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -1280,6 +1301,7 @@ export const VyosVrrpPreemptDelay: IRule = {
   id: 'VYOS-HA-001',
   selector: 'high-availability',
   vendor: 'vyos',
+  category: 'High-Availability',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',

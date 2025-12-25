@@ -27,6 +27,7 @@ export const AosSwitchVlanName: IRule = {
   id: 'AOSSW-L2-001',
   selector: 'vlan',
   vendor: 'aruba-aosswitch',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -77,6 +78,7 @@ export const AosSwitchVlanHasPorts: IRule = {
   id: 'AOSSW-L2-002',
   selector: 'vlan',
   vendor: 'aruba-aosswitch',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -133,6 +135,7 @@ export const AosSwitchManagerPassword: IRule = {
   id: 'AOSSW-SEC-001',
   selector: 'password',
   vendor: 'aruba-aosswitch',
+  category: 'Authentication',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -171,6 +174,7 @@ export const AosSwitchOperatorPassword: IRule = {
   id: 'AOSSW-SEC-002',
   selector: 'password',
   vendor: 'aruba-aosswitch',
+  category: 'Authentication',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -209,6 +213,7 @@ export const AosSwitchSshEnabled: IRule = {
   id: 'AOSSW-SEC-003',
   selector: 'ip ssh',
   vendor: 'aruba-aosswitch',
+  category: 'Session-Management',
   metadata: {
     level: 'error',
     obu: 'Security',
@@ -238,6 +243,7 @@ export const AosSwitchSpanningTree: IRule = {
   id: 'AOSSW-STP-001',
   selector: 'spanning-tree',
   vendor: 'aruba-aosswitch',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -281,6 +287,7 @@ export const AosSwitchTrunkLacp: IRule = {
   id: 'AOSSW-TRUNK-001',
   selector: 'trunk',
   vendor: 'aruba-aosswitch',
+  category: 'Link-Aggregation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -323,6 +330,7 @@ export const AosSwitchMgmtVlanIp: IRule = {
   id: 'AOSSW-MGMT-001',
   selector: 'vlan',
   vendor: 'aruba-aosswitch',
+  category: 'IP-Addressing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -365,6 +373,7 @@ export const AosSwitchConsoleTimeout: IRule = {
   id: 'AOSSW-MGMT-002',
   selector: 'console',
   vendor: 'aruba-aosswitch',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -422,6 +431,7 @@ export const AosSwitchTimesync: IRule = {
   id: 'AOSSW-TIME-001',
   selector: 'timesync',
   vendor: 'aruba-aosswitch',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',

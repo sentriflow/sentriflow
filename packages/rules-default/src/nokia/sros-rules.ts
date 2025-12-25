@@ -44,6 +44,7 @@ export const SystemNameRequired: IRule = {
   id: 'NOKIA-SYS-001',
   selector: 'system',
   vendor: 'nokia-sros',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -81,6 +82,7 @@ export const SnmpConfigured: IRule = {
   id: 'NOKIA-SYS-002',
   selector: 'snmp',
   vendor: 'nokia-sros',
+  category: 'Protocol-Security',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -117,6 +119,7 @@ export const NtpRequired: IRule = {
   id: 'NOKIA-SYS-003',
   selector: 'time',
   vendor: 'nokia-sros',
+  category: 'Time-Synchronization',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -163,6 +166,7 @@ export const PortDescriptionRequired: IRule = {
   id: 'NOKIA-PORT-001',
   selector: 'port',
   vendor: 'nokia-sros',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -225,6 +229,7 @@ export const PortAdminStateRequired: IRule = {
   id: 'NOKIA-PORT-002',
   selector: 'port',
   vendor: 'nokia-sros',
+  category: 'Documentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -284,6 +289,7 @@ export const InterfaceDescriptionRequired: IRule = {
   id: 'NOKIA-IF-001',
   selector: 'interface',
   vendor: 'nokia-sros',
+  category: 'Documentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -346,6 +352,7 @@ export const InterfaceAddressRequired: IRule = {
   id: 'NOKIA-IF-002',
   selector: 'interface',
   vendor: 'nokia-sros',
+  category: 'IP-Addressing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -400,6 +407,7 @@ export const BgpRouterIdRequired: IRule = {
   id: 'NOKIA-BGP-001',
   selector: 'bgp',
   vendor: 'nokia-sros',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -448,6 +456,7 @@ export const BgpAdminStateRequired: IRule = {
   id: 'NOKIA-BGP-002',
   selector: 'bgp',
   vendor: 'nokia-sros',
+  category: 'Routing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -484,6 +493,7 @@ export const BgpGroupDescriptionRequired: IRule = {
   id: 'NOKIA-BGP-003',
   selector: 'group',
   vendor: 'nokia-sros',
+  category: 'Routing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -533,6 +543,7 @@ export const BgpPeerAuthenticationRecommended: IRule = {
   id: 'NOKIA-BGP-004',
   selector: 'neighbor',
   vendor: 'nokia-sros',
+  category: 'Authentication',
   metadata: {
     level: 'info',
     obu: 'Security',
@@ -575,6 +586,7 @@ export const OspfAdminStateRequired: IRule = {
   id: 'NOKIA-OSPF-001',
   selector: 'ospf',
   vendor: 'nokia-sros',
+  category: 'Routing',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -611,6 +623,7 @@ export const OspfAreaInterfaceRequired: IRule = {
   id: 'NOKIA-OSPF-002',
   selector: 'area',
   vendor: 'nokia-sros',
+  category: 'Routing',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -658,6 +671,7 @@ export const ServiceCustomerRequired: IRule = {
   id: 'NOKIA-SVC-001',
   selector: 'vpls',
   vendor: 'nokia-sros',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -696,6 +710,7 @@ export const VprnCustomerRequired: IRule = {
   id: 'NOKIA-SVC-002',
   selector: 'vprn',
   vendor: 'nokia-sros',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -734,6 +749,7 @@ export const ServiceAdminStateRequired: IRule = {
   id: 'NOKIA-SVC-003',
   selector: 'vpls',
   vendor: 'nokia-sros',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -773,6 +789,7 @@ export const ServiceSapRequired: IRule = {
   id: 'NOKIA-SVC-004',
   selector: 'vpls',
   vendor: 'nokia-sros',
+  category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -827,6 +844,7 @@ export const SshEnabled: IRule = {
   id: 'NOKIA-SEC-001',
   selector: 'security',
   vendor: 'nokia-sros',
+  category: 'Session-Management',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -863,6 +881,7 @@ export const TelnetDisabled: IRule = {
   id: 'NOKIA-SEC-002',
   selector: 'security',
   vendor: 'nokia-sros',
+  category: 'Service-Hardening',
   metadata: {
     level: 'warning',
     obu: 'Security',
@@ -903,6 +922,7 @@ export const LagDescriptionRequired: IRule = {
   id: 'NOKIA-LAG-001',
   selector: 'lag',
   vendor: 'nokia-sros',
+  category: 'Link-Aggregation',
   metadata: {
     level: 'warning',
     obu: 'Network Engineering',
@@ -953,6 +973,7 @@ export const LagAdminStateRequired: IRule = {
   id: 'NOKIA-LAG-002',
   selector: 'lag',
   vendor: 'nokia-sros',
+  category: 'Link-Aggregation',
   metadata: {
     level: 'info',
     obu: 'Network Engineering',
@@ -995,6 +1016,7 @@ export const LogConfigured: IRule = {
   id: 'NOKIA-LOG-001',
   selector: 'log',
   vendor: 'nokia-sros',
+  category: 'Logging',
   metadata: {
     level: 'warning',
     obu: 'Security',
