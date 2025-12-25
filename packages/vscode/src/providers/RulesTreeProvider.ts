@@ -9,12 +9,14 @@ export type TreeGrouping = 'vendor' | 'category' | 'category-vendor' | 'vendor-c
 /**
  * Tree item types for the rules hierarchy
  */
-export type TreeItemType = 'pack' | 'vendor' | 'category' | 'rule';
+export type TreeItemType = 'pack' | 'vendor' | 'category' | 'rule' | 'tags-section' | 'tag';
 
 /**
  * Extended tree item with metadata for the rules tree
  */
 export class RuleTreeItem extends vscode.TreeItem {
+  public tagId?: string;  // For 'tag' type items - stores the tag name for children lookup
+
   constructor(
     public override readonly label: string,
     public override readonly collapsibleState: vscode.TreeItemCollapsibleState,
@@ -79,6 +81,16 @@ export class RuleTreeItem extends vscode.TreeItem {
         if (this.rule.metadata.remediation) {
           this.tooltip.appendMarkdown(`*Remediation:* ${this.rule.metadata.remediation}`);
         }
+        break;
+
+      case 'tags-section':
+        this.iconPath = new vscode.ThemeIcon('symbol-keyword', new vscode.ThemeColor('testing.iconQueued'));
+        this.tooltip = 'Browse rules by security tag';
+        break;
+
+      case 'tag':
+        this.iconPath = new vscode.ThemeIcon('tag', new vscode.ThemeColor('charts.orange'));
+        this.tooltip = `Security tag: ${this.tagId ?? this.label}`;
         break;
     }
   }
@@ -154,8 +166,15 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
 
   getChildren(element?: RuleTreeItem): RuleTreeItem[] {
     if (!element) {
-      // Root level: show packs
-      return this.getPackNodes();
+      // Root level: show packs + optional tags section
+      const items = this.getPackNodes();
+
+      // Only show tags section if enabled AND has tagged rules
+      if (this.getTagsSectionEnabled() && this.getAllTags().size > 0) {
+        items.push(this.getTagsSectionItem());
+      }
+
+      return items;
     }
 
     const grouping = this.getGroupingMode();
@@ -169,6 +188,12 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
       case 'category':
         // Pass both categoryId and vendorId (vendorId may be set in three-level mode)
         return this.getNodesUnderCategory(element.packName!, element.categoryId!, element.vendorId, grouping);
+      case 'tags-section':
+        // Return individual tag items
+        return this.getTagItems();
+      case 'tag':
+        // Return rules for this specific tag
+        return this.getRulesForTag(element.tagId!);
       default:
         return [];
     }
@@ -546,16 +571,116 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
   }
 
   /**
-   * Get categories for a rule
+   * Get categories for a rule (no longer falls back to security tags - they are separate)
    */
   private getRuleCategories(rule: IRule): string[] {
     if (rule.category) {
       return Array.isArray(rule.category) ? rule.category : [rule.category];
     }
-    // Fallback to security tags if no category
-    if (rule.metadata.security?.tags?.length) {
-      return rule.metadata.security.tags;
-    }
     return ['Uncategorized'];
+  }
+
+  // ============================================================================
+  // Tags Section Support
+  // ============================================================================
+
+  /**
+   * Check if the tags section is enabled in settings
+   */
+  private getTagsSectionEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration('sentriflow');
+    return config.get<boolean>('showTagsSection', true);
+  }
+
+  /**
+   * Get all security tags across all rules, mapped to the rules that have them
+   * Rules with multiple tags will appear under each tag they have
+   */
+  private getAllTags(): Map<string, IRule[]> {
+    const tagMap = new Map<string, IRule[]>();
+    const allRules = this._getAllRules();
+
+    for (const rule of allRules) {
+      const tags = rule.metadata.security?.tags ?? [];
+      for (const tag of tags) {
+        if (!tagMap.has(tag)) {
+          tagMap.set(tag, []);
+        }
+        tagMap.get(tag)!.push(rule);
+      }
+    }
+    return tagMap;
+  }
+
+  /**
+   * Create the "By Security Tag" section header item
+   */
+  private getTagsSectionItem(): RuleTreeItem {
+    const tagCount = this.getAllTags().size;
+    const item = new RuleTreeItem(
+      `By Security Tag (${tagCount} tags)`,
+      vscode.TreeItemCollapsibleState.Collapsed,
+      'tags-section'
+    );
+    return item;
+  }
+
+  /**
+   * Get individual tag items (children of tags-section)
+   */
+  private getTagItems(): RuleTreeItem[] {
+    const tagMap = this.getAllTags();
+    const disabledRules = this._getDisabledRulesSet();
+
+    return Array.from(tagMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))  // Sort alphabetically
+      .map(([tag, rules]) => {
+        // Count enabled rules for this tag
+        const enabledCount = rules.filter(r => !disabledRules.has(r.id)).length;
+        const item = new RuleTreeItem(
+          `${tag} (${rules.length} rules)`,
+          vscode.TreeItemCollapsibleState.Collapsed,
+          'tag',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          enabledCount > 0  // Mark as enabled if at least one rule is enabled
+        );
+        item.tagId = tag;
+        return item;
+      });
+  }
+
+  /**
+   * Get rule items for a specific tag
+   */
+  private getRulesForTag(tagId: string): RuleTreeItem[] {
+    const tagMap = this.getAllTags();
+    const rules = tagMap.get(tagId) ?? [];
+    const disabledRules = this._getDisabledRulesSet();
+
+    // Sort by level (errors first), then by ID
+    const sortedRules = [...rules].sort((a, b) => {
+      const levelOrder = { error: 0, warning: 1, info: 2 };
+      const aLevel = levelOrder[a.metadata.level as keyof typeof levelOrder] ?? 3;
+      const bLevel = levelOrder[b.metadata.level as keyof typeof levelOrder] ?? 3;
+      if (aLevel !== bLevel) return aLevel - bLevel;
+      return a.id.localeCompare(b.id);
+    });
+
+    return sortedRules.map(rule => {
+      const isEnabled = !disabledRules.has(rule.id);
+      return new RuleTreeItem(
+        rule.id,
+        vscode.TreeItemCollapsibleState.None,
+        'rule',
+        undefined,  // No pack context for tag-based view
+        undefined,
+        undefined,
+        rule,
+        isEnabled
+      );
+    });
   }
 }

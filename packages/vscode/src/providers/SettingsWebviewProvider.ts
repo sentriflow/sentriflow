@@ -83,6 +83,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       defaultVendor: config.get<string>('defaultVendor', 'auto'),
       showVendorInStatusBar: config.get<boolean>('showVendorInStatusBar', true),
       treeGrouping: config.get<string>('treeGrouping', 'vendor'),
+      showTagsSection: config.get<boolean>('showTagsSection', true),
       enableDefaultRules: config.get<boolean>('enableDefaultRules', true),
       blockedPacks: config.get<string[]>('blockedPacks', []),
       packVendorOverrides: config.get<Record<string, { disabledVendors?: string[] }>>(
@@ -395,6 +396,13 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       <option value="vendor-category">Vendor → Category → Rules</option>
     </select>
   </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      Show Tags Section
+      <div class="setting-description">Show "By Security Tag" section in tree view</div>
+    </div>
+    <div class="toggle" id="showTagsSection"></div>
+  </div>
 
   <h3>Rule Packs</h3>
   <div id="packsContainer"></div>
@@ -411,6 +419,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
     const defaultVendorSelect = document.getElementById('defaultVendor');
     const showVendorToggle = document.getElementById('showVendorInStatusBar');
     const treeGroupingSelect = document.getElementById('treeGrouping');
+    const showTagsSectionToggle = document.getElementById('showTagsSection');
     const packsContainer = document.getElementById('packsContainer');
     const disabledRulesContainer = document.getElementById('disabledRulesContainer');
     const disabledCountSpan = document.getElementById('disabledCount');
@@ -450,6 +459,15 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       });
     });
 
+    showTagsSectionToggle.addEventListener('click', () => {
+      const newValue = !showTagsSectionToggle.classList.contains('active');
+      vscode.postMessage({
+        command: 'updateSetting',
+        key: 'showTagsSection',
+        value: newValue,
+      });
+    });
+
     function updateUI(data) {
       // Populate vendors dropdown dynamically
       const currentValue = data.settings.defaultVendor;
@@ -468,6 +486,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
 
       showVendorToggle.classList.toggle('active', data.settings.showVendorInStatusBar);
       treeGroupingSelect.value = data.settings.treeGrouping || 'vendor';
+      showTagsSectionToggle.classList.toggle('active', data.settings.showTagsSection !== false);
 
       // Clear and rebuild packs using DOM APIs
       while (packsContainer.firstChild) {

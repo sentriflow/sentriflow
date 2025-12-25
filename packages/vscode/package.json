@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "publisher": "sentriflow",
   "engines": {
@@ -386,6 +386,11 @@
           ],
           "default": "vendor",
           "description": "How to group rules in the tree view. Category groups by compliance framework (NIST, PCI-DSS, etc.) if rules have category metadata."
+        },
+        "sentriflow.showTagsSection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show 'By Security Tag' section in the rules tree view. This section groups rules by their security tags (e.g., 'vlan-hopping', 'access-control'). Hidden automatically if no rules have security tags."
         }
       }
     },

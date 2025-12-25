@@ -22,18 +22,34 @@ SentriFlow adds a dedicated icon to the VS Code Activity Bar for quick access to
 
 ### Rules TreeView
 
-The hierarchical TreeView shows all rules organized by:
+The hierarchical TreeView shows all rules organized by Pack, Vendor/Category, and optionally by Security Tag:
 
 ```
 SENTRIFLOW RULES
-├── [Pack: sf-essentials] (78 rules)
-│   ├── [Vendor: cisco-ios] (12 rules)
-│   │   ├── ✓ NET-TRUNK-001 [warning]
-│   │   └── ○ NET-ACCESS-001 (disabled)
-│   └── [Vendor: juniper-junos] (10 rules)
-└── [Pack: acme-security] (external pack)
-    └── [Vendor: arista-eos] (8 rules)
+├── sf-default (261 rules)
+│   ├── cisco-ios (45 rules)
+│   │   ├── Network-Segmentation
+│   │   │   ├── ✓ NET-TRUNK-001 [warning]
+│   │   │   └── ○ NET-ACCESS-001 (disabled)
+│   │   └── Authentication
+│   └── juniper-junos (38 rules)
+├── acme-security (external pack)
+│   └── arista-eos (8 rules)
+│
+└── By Security Tag (4 tags)
+    ├── vlan-hopping (2 rules)
+    │   └── JSON-CISCO-004
+    ├── access-control (3 rules)
+    └── network-security (2 rules)
 ```
+
+**Tree Grouping Options**: Configure how rules are organized via Settings:
+- `Vendor > Rules` (default)
+- `Category > Rules`
+- `Category > Vendor > Rules`
+- `Vendor > Category > Rules`
+
+**Security Tags Section**: Rules with security tags (e.g., `vlan-hopping`, `access-control`) are also grouped in a dedicated "By Security Tag" section. Rules with multiple tags appear under each tag.
 
 **1-Click Toggle**: Click the toggle icon on any item to enable/disable:
 - **Pack level**: Disables all rules in the pack
@@ -81,6 +97,8 @@ The extension automatically activates for files with these extensions:
 |---------|-------------|---------|
 | `sentriflow.defaultVendor` | Vendor for parsing (`auto`, `cisco-ios`, `juniper-junos`, etc.) | `auto` |
 | `sentriflow.showVendorInStatusBar` | Show detected vendor in status bar | `true` |
+| `sentriflow.treeGrouping` | How to organize rules (`vendor`, `category`, `category-vendor`, `vendor-category`) | `vendor` |
+| `sentriflow.showTagsSection` | Show "By Security Tag" section in tree view | `true` |
 | `sentriflow.enableDefaultRules` | Enable built-in default rules | `true` |
 | `sentriflow.disabledRules` | List of rule IDs to disable globally | `[]` |
 | `sentriflow.blockedPacks` | List of rule pack names to block | `[]` |
@@ -148,6 +166,8 @@ To block external rule packs from loading:
 {
   "sentriflow.defaultVendor": "auto",
   "sentriflow.showVendorInStatusBar": true,
+  "sentriflow.treeGrouping": "vendor-category",
+  "sentriflow.showTagsSection": true,
   "sentriflow.enableDefaultRules": true,
   "sentriflow.disabledRules": ["NET-DOC-001", "NET-DOC-002"]
 }

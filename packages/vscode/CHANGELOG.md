@@ -5,10 +5,16 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2024-12-25
 
 ### Added
 - **Activity Bar with Rules TreeView** - Dedicated SentriFlow icon in the Activity Bar with a hierarchical view of all rules organized by Pack > Vendor > Rule
+- **Security Tags Section** - New collapsible "By Security Tag" section in the TreeView that groups rules by their security tags (e.g., `vlan-hopping`, `access-control`, `network-security`). Rules with multiple tags appear under each tag they belong to.
+- **Flexible Tree Grouping** - Configure how rules are organized in the tree view:
+  - `Vendor > Rules` (default)
+  - `Category > Rules`
+  - `Category > Vendor > Rules`
+  - `Vendor > Category > Rules`
 - **1-Click Rule Toggle** - Enable/disable rules, vendors, or entire packs directly from the TreeView with inline toggle icons
 - **Settings Webview Panel** - Visual configuration interface for all settings without editing JSON
 - **Direct Commands for Rule Management**:
@@ -26,11 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Toggle Enable/Disable
   - Copy Rule ID (for rules)
   - View Details
+- **New Settings**:
+  - `sentriflow.treeGrouping` - Choose how to organize rules in the tree view
+  - `sentriflow.showTagsSection` - Toggle the "By Security Tag" section visibility
 
 ### Changed
 - Rule management is now accessible in 1-2 clicks instead of 5+ clicks through nested menus
 - Settings can be configured visually without editing `settings.json`
 - TreeView automatically refreshes when settings change
+- Categories and security tags are now treated as separate concepts (tags no longer used as fallback for missing categories)
 
 ## [0.1.7] - 2024-12-24
 
