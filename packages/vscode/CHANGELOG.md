@@ -5,6 +5,23 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-12-25
+
+### Added
+- **Typed Tags** - Tags now have a `type` field for multi-dimensional categorization:
+  - `security` - Security vulnerabilities and hardening (e.g., vlan-hopping, access-control)
+  - `operational` - Operations and monitoring (e.g., logging, metrics)
+  - `compliance` - Compliance frameworks (e.g., nist-ac-3, pci-dss)
+  - `general` - General categorization (e.g., best-practice, deprecated)
+- **Tag Type Filter** - New `sentriflow.tagTypeFilter` setting to filter tags by type in the tree view
+- **Filter Tags Command** - New `SENTRIFLOW: Filter Tags by Type...` command for quick filtering via Command Palette
+- **Tag Tooltips** - Hovering over a tag in the tree view now shows its type and score (if set)
+- **Settings Panel Update** - Tag Type Filter dropdown added to the Settings webview panel
+
+### Changed
+- "By Security Tag" section renamed to "By Tag" to reflect support for all tag types
+- Tags are now displayed with their type in tooltips (e.g., `[security]`, `[operational]`)
+
 ## [0.2.0] - 2024-12-25
 
 ### Added

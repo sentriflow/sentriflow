@@ -132,9 +132,12 @@
         "description": "Trunk ports should disable DTP (Dynamic Trunking Protocol)",
         "remediation": "Add 'switchport nonegotiate' to disable DTP on trunk ports",
         "security": {
-          "cwe": ["CWE-319"],
-          "tags": ["vlan-hopping", "network-security"]
-        }
+          "cwe": ["CWE-319"]
+        },
+        "tags": [
+          { "type": "security", "label": "vlan-hopping" },
+          { "type": "security", "label": "network-security" }
+        ]
       },
       "check": {
         "type": "and",
@@ -175,9 +178,12 @@
         "description": "VTY lines should have access-class configured for SSH access control",
         "remediation": "Add 'access-class <acl> in' to restrict VTY access",
         "security": {
-          "cwe": ["CWE-284"],
-          "tags": ["access-control", "remote-access"]
-        }
+          "cwe": ["CWE-284"]
+        },
+        "tags": [
+          { "type": "security", "label": "access-control" },
+          { "type": "security", "label": "remote-access" }
+        ]
       },
       "check": {
         "type": "child_not_exists",

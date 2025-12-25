@@ -135,6 +135,41 @@
         },
         "security": {
           "$ref": "#/definitions/SecurityMetadata"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Tag" },
+          "description": "Typed tags for multi-dimensional rule categorization"
+        }
+      }
+    },
+    "TagType": {
+      "type": "string",
+      "enum": ["security", "operational", "compliance", "general"],
+      "description": "Tag classification type"
+    },
+    "Tag": {
+      "type": "object",
+      "required": ["type", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/TagType"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short identifier/label for the tag"
+        },
+        "text": {
+          "type": "string",
+          "description": "Optional extended description"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Optional severity/priority score (0-10 range)"
         }
       }
     },
@@ -156,11 +191,6 @@
         "cvssVector": {
           "type": "string",
           "description": "CVSS v3.1 vector string"
-        },
-        "tags": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Security-related tags"
         }
       }
     },

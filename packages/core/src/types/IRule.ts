@@ -180,8 +180,33 @@ export interface RulePack extends RulePackMetadata {
 }
 
 /**
+ * Tag type classification for rule categorization.
+ * Allows multi-dimensional tagging beyond security-only metadata.
+ */
+export type TagType = 'security' | 'operational' | 'compliance' | 'general';
+
+/**
+ * A typed classification object for categorizing rules.
+ * Replaces the simpler string-based security tags with structured metadata.
+ */
+export interface Tag {
+    /** Tag classification type */
+    type: TagType;
+
+    /** Short identifier/label for the tag (e.g., "vlan-hopping", "access-control") */
+    label: string;
+
+    /** Optional extended description */
+    text?: string;
+
+    /** Optional severity/priority score (0-10 range) */
+    score?: number;
+}
+
+/**
  * SEC-007: Security metadata for SARIF integration.
  * Provides CWE mappings and CVSS scores for security-related rules.
+ * Note: tags field has been moved to RuleMetadata.tags for generalization.
  */
 export interface SecurityMetadata {
     /**
@@ -201,12 +226,6 @@ export interface SecurityMetadata {
      * Example: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'
      */
     cvssVector?: string;
-
-    /**
-     * Security-related tags for categorization.
-     * Example: ['authentication', 'hardcoded-credentials', 'encryption']
-     */
-    tags?: string[];
 }
 
 /**
@@ -226,6 +245,8 @@ export interface RuleMetadata {
     remediation?: string;
     /** SEC-007: Optional security metadata for SARIF integration */
     security?: SecurityMetadata;
+    /** Typed tags for multi-dimensional rule categorization */
+    tags?: Tag[];
 }
 
 /**

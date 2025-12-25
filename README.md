@@ -123,7 +123,12 @@ See the **[Rule Authoring Guide](docs/RULE_AUTHORING_GUIDE.md)** for complete do
   "id": "MY-001",
   "selector": "interface",
   "vendor": "cisco-ios",
-  "metadata": { "level": "warning", "obu": "NetOps", "owner": "Team" },
+  "metadata": {
+    "level": "warning",
+    "obu": "NetOps",
+    "owner": "Team",
+    "tags": [{ "type": "operational", "label": "documentation" }]
+  },
   "check": {
     "type": "child_not_exists",
     "selector": "description"
@@ -142,7 +147,12 @@ export const myRule: IRule = {
   id: 'MY-001',
   selector: 'interface',
   vendor: 'cisco-ios',
-  metadata: { level: 'warning', obu: 'NetOps', owner: 'Team' },
+  metadata: {
+    level: 'warning',
+    obu: 'NetOps',
+    owner: 'Team',
+    tags: [{ type: 'operational', label: 'documentation' }],
+  },
   check: (node: ConfigNode): RuleResult => ({
     passed: hasChildCommand(node, 'description'),
     message: hasChildCommand(node, 'description')

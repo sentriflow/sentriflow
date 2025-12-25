@@ -20,9 +20,12 @@
         "description": "SSH should be configured for version 2 only",
         "remediation": "Configure 'set system services ssh protocol-version v2'",
         "security": {
-          "cwe": ["CWE-327"],
-          "tags": ["ssh", "encryption"]
-        }
+          "cwe": ["CWE-327"]
+        },
+        "tags": [
+          { "type": "security", "label": "ssh" },
+          { "type": "security", "label": "encryption" }
+        ]
       },
       "check": {
         "type": "and",
@@ -53,9 +56,12 @@
         "description": "Telnet service should be disabled",
         "remediation": "Remove 'set system services telnet' or add 'delete system services telnet'",
         "security": {
-          "cwe": ["CWE-319"],
-          "tags": ["telnet", "cleartext"]
-        }
+          "cwe": ["CWE-319"]
+        },
+        "tags": [
+          { "type": "security", "label": "telnet" },
+          { "type": "security", "label": "cleartext" }
+        ]
       },
       "check": {
         "type": "helper",

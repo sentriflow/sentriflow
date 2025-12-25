@@ -140,6 +140,12 @@
         "icon": "$(list-flat)"
       },
       {
+        "command": "sentriflow.filterTagType",
+        "title": "Filter Tags by Type...",
+        "category": "SentriFlow",
+        "icon": "$(filter)"
+      },
+      {
         "command": "sentriflow.focusRulesView",
         "title": "Show Rules Panel",
         "category": "SentriFlow",
@@ -412,7 +418,20 @@
         "sentriflow.showTagsSection": {
           "type": "boolean",
           "default": true,
-          "description": "Show 'By Security Tag' section in the rules tree view. This section groups rules by their security tags (e.g., 'vlan-hopping', 'access-control'). Hidden automatically if no rules have security tags."
+          "description": "Show 'By Tag' section in the rules tree view. This section groups rules by their typed tags (e.g., security: 'vlan-hopping', operational: 'performance'). Hidden automatically if no rules have tags."
+        },
+        "sentriflow.tagTypeFilter": {
+          "type": "string",
+          "enum": ["all", "security", "operational", "compliance", "general"],
+          "enumDescriptions": [
+            "Show all tags regardless of type",
+            "Show only security tags",
+            "Show only operational tags",
+            "Show only compliance tags",
+            "Show only general tags"
+          ],
+          "default": "all",
+          "description": "Filter tags by type in the 'By Tag' section. Choose 'all' to show all tags, or select a specific type."
         }
       }
     },

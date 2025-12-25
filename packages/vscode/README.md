@@ -22,7 +22,7 @@ SentriFlow adds a dedicated icon to the VS Code Activity Bar for quick access to
 
 ### Rules TreeView
 
-The hierarchical TreeView shows all rules organized by Pack, Vendor/Category, and optionally by Security Tag:
+The hierarchical TreeView shows all rules organized by Pack, Vendor/Category, and optionally by Tag:
 
 ```
 SENTRIFLOW RULES
@@ -36,11 +36,12 @@ SENTRIFLOW RULES
 ├── acme-security (external pack)
 │   └── arista-eos (8 rules)
 │
-└── By Security Tag (4 tags)
-    ├── vlan-hopping (2 rules)
+└── By Tag (4 tags)
+    ├── vlan-hopping (2 rules)        [security]
     │   └── JSON-CISCO-004
-    ├── access-control (3 rules)
-    └── network-security (2 rules)
+    ├── access-control (3 rules)      [security]
+    ├── logging (2 rules)             [operational]
+    └── cis-benchmark (1 rule)        [compliance]
 ```
 
 **Tree Grouping Options**: Configure how rules are organized via Settings:
@@ -49,7 +50,7 @@ SENTRIFLOW RULES
 - `Category > Vendor > Rules`
 - `Vendor > Category > Rules`
 
-**Security Tags Section**: Rules with security tags (e.g., `vlan-hopping`, `access-control`) are also grouped in a dedicated "By Security Tag" section. Rules with multiple tags appear under each tag.
+**Tags Section**: Rules with typed tags are grouped in a dedicated "By Tag" section. Tags have types (`security`, `operational`, `compliance`, `general`) and rules with multiple tags appear under each. You can filter tags by type using the `sentriflow.tagTypeFilter` setting or the Command Palette.
 
 **1-Click Toggle**: Click the toggle icon on any item to enable/disable:
 - **Pack level**: Disables all rules in the pack
@@ -98,7 +99,8 @@ The extension automatically activates for files with these extensions:
 | `sentriflow.defaultVendor` | Vendor for parsing (`auto`, `cisco-ios`, `juniper-junos`, etc.) | `auto` |
 | `sentriflow.showVendorInStatusBar` | Show detected vendor in status bar | `true` |
 | `sentriflow.treeGrouping` | How to organize rules (`vendor`, `category`, `category-vendor`, `vendor-category`) | `vendor` |
-| `sentriflow.showTagsSection` | Show "By Security Tag" section in tree view | `true` |
+| `sentriflow.showTagsSection` | Show "By Tag" section in tree view | `true` |
+| `sentriflow.tagTypeFilter` | Filter tags by type (`all`, `security`, `operational`, `compliance`, `general`) | `all` |
 | `sentriflow.enableDefaultRules` | Enable built-in default rules | `true` |
 | `sentriflow.disabledRules` | List of rule IDs to disable globally | `[]` |
 | `sentriflow.blockedPacks` | List of rule pack names to block | `[]` |
