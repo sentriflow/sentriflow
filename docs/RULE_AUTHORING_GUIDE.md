@@ -277,14 +277,34 @@ const ipAddresses = node.children.filter(c =>
     "remediation": "How to fix violations",
     "security": {
       "cwe": ["CWE-319"],
-      "cvssScore": 7.5,
-      "tags": ["encryption", "security"]
-    }
+      "cvssScore": 7.5
+    },
+    "tags": [
+      { "type": "security", "label": "encryption" },
+      { "type": "security", "label": "network-security", "score": 7.5 }
+    ]
   },
   "check": { /* check definition */ },
   "failureMessage": "Custom message with {nodeId} and {ruleId}"
 }
 ```
+
+### Tag Types
+
+Rules can have typed tags for multi-dimensional categorization:
+
+| Type | Use For | Examples |
+|------|---------|----------|
+| `security` | Security vulnerabilities, hardening | vlan-hopping, weak-crypto, access-control |
+| `operational` | Operations & monitoring | logging, metrics, alerting |
+| `compliance` | Compliance frameworks | nist-ac-3, pci-dss-1.2, cis-benchmark |
+| `general` | General categorization | best-practice, deprecated, critical |
+
+Tag objects support:
+- `type` (required): One of `security`, `operational`, `compliance`, `general`
+- `label` (required): Short identifier for the tag
+- `text` (optional): Extended description
+- `score` (optional): Severity/priority score (0-10)
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -550,9 +570,12 @@ Namespaces: `cisco.`, `juniper.`, `arista.`, `aruba.`, `fortinet.`, `paloalto.`,
     "description": "VTY lines must have access-class configured",
     "remediation": "Add 'access-class <acl> in'",
     "security": {
-      "cwe": ["CWE-284"],
-      "tags": ["access-control", "remote-access"]
-    }
+      "cwe": ["CWE-284"]
+    },
+    "tags": [
+      { "type": "security", "label": "access-control" },
+      { "type": "security", "label": "remote-access" }
+    ]
   },
   "check": {
     "type": "child_not_exists",
@@ -668,9 +691,9 @@ import {
 } from '@sentriflow/core/helpers/juniper';
 ```
 
-### Security Metadata
+### Security Metadata and Tags
 
-For security-focused rules, include CWE and CVSS:
+For security-focused rules, include CWE, CVSS, and typed tags:
 
 ```typescript
 metadata: {
@@ -683,10 +706,16 @@ metadata: {
     cwe: ['CWE-327'],           // Weak cryptography
     cvssScore: 7.5,
     cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
-    tags: ['ssh', 'encryption', 'protocol-version'],
   },
+  tags: [
+    { type: 'security', label: 'ssh', score: 7.5 },
+    { type: 'security', label: 'encryption' },
+    { type: 'security', label: 'protocol-version' },
+  ],
 },
 ```
+
+Tag types: `security`, `operational`, `compliance`, `general`
 
 ### Complete TypeScript Examples
 
@@ -796,8 +825,11 @@ export const RootAuthRequired: IRule = {
     remediation: 'Configure root-authentication with encrypted-password or ssh-rsa',
     security: {
       cwe: ['CWE-306'],
-      tags: ['authentication', 'root-access'],
     },
+    tags: [
+      { type: 'security', label: 'authentication' },
+      { type: 'security', label: 'root-access' },
+    ],
   },
   check: (node: ConfigNode): RuleResult => {
     // Find root-authentication stanza
@@ -1040,7 +1072,8 @@ for (const node of ast) {
 1. **Always include `description`** - What the rule checks
 2. **Always include `remediation`** - How to fix violations
 3. **Add `security` metadata** for security rules - CWE, CVSS scores
-4. **Use meaningful `failureMessage`** - Include `{nodeId}` for context
+4. **Add typed `tags`** - Use appropriate type (security, operational, compliance, general)
+5. **Use meaningful `failureMessage`** - Include `{nodeId}` for context
 
 ---
 

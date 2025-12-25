@@ -810,6 +810,10 @@ export function activate(context: vscode.ExtensionContext) {
         cmdShowDisabled
       ),
       vscode.commands.registerCommand(
+        'sentriflow.filterTagType',
+        cmdFilterTagType
+      ),
+      vscode.commands.registerCommand(
         'sentriflow.focusRulesView',
         () => vscode.commands.executeCommand('sentriflowRules.focus')
       )
@@ -2122,9 +2126,9 @@ async function showRuleActions(
         if (sec.cvssScore !== undefined) {
           outputChannel.appendLine(`CVSS Score:  ${sec.cvssScore}`);
         }
-        if (sec.tags?.length) {
-          outputChannel.appendLine(`Tags:        ${sec.tags.join(', ')}`);
-        }
+      }
+      if (rule.metadata.tags?.length) {
+        outputChannel.appendLine(`Tags:        ${rule.metadata.tags.map(t => t.label).join(', ')}`);
       }
       outputChannel.appendLine('');
       // Stay in rule actions
@@ -2455,9 +2459,9 @@ async function cmdViewRuleDetails(item: RuleTreeItem) {
         if (sec.cvssScore !== undefined) {
           outputChannel.appendLine(`CVSS Score:  ${sec.cvssScore}`);
         }
-        if (sec.tags?.length) {
-          outputChannel.appendLine(`Tags:        ${sec.tags.join(', ')}`);
-        }
+      }
+      if (rule.metadata.tags?.length) {
+        outputChannel.appendLine(`Tags:        ${rule.metadata.tags.map(t => t.label).join(', ')}`);
       }
       break;
     }
@@ -2773,6 +2777,45 @@ async function cmdShowDisabled() {
 
   outputChannel.appendLine(`\nTotal disabled items: ${totalDisabled}`);
   outputChannel.appendLine('');
+}
+
+/**
+ * Filter tags by type via quick pick
+ */
+async function cmdFilterTagType() {
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const current = config.get<string>('tagTypeFilter', 'all');
+
+  interface TypePickItem extends vscode.QuickPickItem {
+    value: string;
+  }
+
+  const items: TypePickItem[] = [
+    { label: 'All Types', description: 'Show all tags regardless of type', value: 'all' },
+    { label: 'Security', description: 'Show only security-related tags', value: 'security' },
+    { label: 'Operational', description: 'Show only operational tags', value: 'operational' },
+    { label: 'Compliance', description: 'Show only compliance-related tags', value: 'compliance' },
+    { label: 'General', description: 'Show only general tags', value: 'general' },
+  ];
+
+  // Mark current selection
+  for (const item of items) {
+    if (item.value === current) {
+      item.label = `$(check) ${item.label}`;
+    }
+  }
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select tag type to filter',
+    title: 'Filter Tags by Type',
+  });
+
+  if (selected) {
+    await config.update('tagTypeFilter', selected.value, vscode.ConfigurationTarget.Workspace);
+    vscode.window.showInformationMessage(
+      `SENTRIFLOW: Tag filter set to "${selected.value}"`
+    );
+  }
 }
 
 // ============================================================================

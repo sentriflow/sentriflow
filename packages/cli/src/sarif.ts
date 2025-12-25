@@ -2,7 +2,7 @@
 
 declare const __VERSION__: string;
 
-import type { RuleResult, IRule, SecurityMetadata, IPSummary } from '@sentriflow/core';
+import type { RuleResult, IRule, IPSummary, Tag } from '@sentriflow/core';
 import { relative } from 'path';
 
 /**
@@ -117,21 +117,20 @@ export function generateSarif(
         }));
       }
 
-      // SEC-007: Add CVSS and security tags if present
-      if (
-        secMeta?.cvssScore !== undefined ||
-        secMeta?.cvssVector ||
-        secMeta?.tags
-      ) {
+      // SEC-007: Add CVSS and tags if present
+      const hasCvss = secMeta?.cvssScore !== undefined || secMeta?.cvssVector;
+      const hasTags = rule.metadata.tags && rule.metadata.tags.length > 0;
+
+      if (hasCvss || hasTags) {
         base.properties = {};
-        if (secMeta.cvssScore !== undefined) {
+        if (secMeta?.cvssScore !== undefined) {
           base.properties['security-severity'] = String(secMeta.cvssScore);
         }
-        if (secMeta.cvssVector) {
+        if (secMeta?.cvssVector) {
           base.properties['cvss-vector'] = secMeta.cvssVector;
         }
-        if (secMeta.tags && secMeta.tags.length > 0) {
-          base.properties.tags = secMeta.tags;
+        if (hasTags) {
+          base.properties.tags = rule.metadata.tags!.map((t) => t.label);
         }
       }
 
@@ -317,21 +316,20 @@ export function generateMultiFileSarif(
         }));
       }
 
-      // SEC-007: Add CVSS and security tags if present
-      if (
-        secMeta?.cvssScore !== undefined ||
-        secMeta?.cvssVector ||
-        secMeta?.tags
-      ) {
+      // SEC-007: Add CVSS and tags if present
+      const hasCvss = secMeta?.cvssScore !== undefined || secMeta?.cvssVector;
+      const hasTags = rule.metadata.tags && rule.metadata.tags.length > 0;
+
+      if (hasCvss || hasTags) {
         base.properties = {};
-        if (secMeta.cvssScore !== undefined) {
+        if (secMeta?.cvssScore !== undefined) {
           base.properties['security-severity'] = String(secMeta.cvssScore);
         }
-        if (secMeta.cvssVector) {
+        if (secMeta?.cvssVector) {
           base.properties['cvss-vector'] = secMeta.cvssVector;
         }
-        if (secMeta.tags && secMeta.tags.length > 0) {
-          base.properties.tags = secMeta.tags;
+        if (hasTags) {
+          base.properties.tags = rule.metadata.tags!.map((t) => t.label);
         }
       }
 

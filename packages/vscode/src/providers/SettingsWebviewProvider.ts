@@ -84,6 +84,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       showVendorInStatusBar: config.get<boolean>('showVendorInStatusBar', true),
       treeGrouping: config.get<string>('treeGrouping', 'vendor'),
       showTagsSection: config.get<boolean>('showTagsSection', true),
+      tagTypeFilter: config.get<string>('tagTypeFilter', 'all'),
       enableDefaultRules: config.get<boolean>('enableDefaultRules', true),
       blockedPacks: config.get<string[]>('blockedPacks', []),
       packVendorOverrides: config.get<Record<string, { disabledVendors?: string[] }>>(
@@ -399,9 +400,22 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
   <div class="setting-row">
     <div class="setting-label">
       Show Tags Section
-      <div class="setting-description">Show "By Security Tag" section in tree view</div>
+      <div class="setting-description">Show "By Tag" section in tree view</div>
     </div>
     <div class="toggle" id="showTagsSection"></div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      Tag Type Filter
+      <div class="setting-description">Filter tags by type in tree view</div>
+    </div>
+    <select id="tagTypeFilter">
+      <option value="all">All Types</option>
+      <option value="security">Security</option>
+      <option value="operational">Operational</option>
+      <option value="compliance">Compliance</option>
+      <option value="general">General</option>
+    </select>
   </div>
 
   <h3>Rule Packs</h3>
@@ -420,6 +434,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
     const showVendorToggle = document.getElementById('showVendorInStatusBar');
     const treeGroupingSelect = document.getElementById('treeGrouping');
     const showTagsSectionToggle = document.getElementById('showTagsSection');
+    const tagTypeFilterSelect = document.getElementById('tagTypeFilter');
     const packsContainer = document.getElementById('packsContainer');
     const disabledRulesContainer = document.getElementById('disabledRulesContainer');
     const disabledCountSpan = document.getElementById('disabledCount');
@@ -468,6 +483,14 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       });
     });
 
+    tagTypeFilterSelect.addEventListener('change', () => {
+      vscode.postMessage({
+        command: 'updateSetting',
+        key: 'tagTypeFilter',
+        value: tagTypeFilterSelect.value,
+      });
+    });
+
     function updateUI(data) {
       // Populate vendors dropdown dynamically
       const currentValue = data.settings.defaultVendor;
@@ -487,6 +510,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       showVendorToggle.classList.toggle('active', data.settings.showVendorInStatusBar);
       treeGroupingSelect.value = data.settings.treeGrouping || 'vendor';
       showTagsSectionToggle.classList.toggle('active', data.settings.showTagsSection !== false);
+      tagTypeFilterSelect.value = data.settings.tagTypeFilter || 'all';
 
       // Clear and rebuild packs using DOM APIs
       while (packsContainer.firstChild) {

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { IRule, RulePack, RuleVendor } from '@sentriflow/core';
+import type { IRule, RulePack, RuleVendor, Tag, TagType } from '@sentriflow/core';
 
 /**
  * Tree grouping modes for the rules hierarchy
@@ -12,10 +12,20 @@ export type TreeGrouping = 'vendor' | 'category' | 'category-vendor' | 'vendor-c
 export type TreeItemType = 'pack' | 'vendor' | 'category' | 'rule' | 'tags-section' | 'tag';
 
 /**
+ * Metadata about a tag for tooltip display
+ */
+export interface TagMeta {
+  type: TagType;
+  label: string;
+  score?: number;
+}
+
+/**
  * Extended tree item with metadata for the rules tree
  */
 export class RuleTreeItem extends vscode.TreeItem {
   public tagId?: string;  // For 'tag' type items - stores the tag name for children lookup
+  public tagMeta?: TagMeta;  // For 'tag' type items - stores type and score for tooltip
 
   constructor(
     public override readonly label: string,
@@ -85,12 +95,21 @@ export class RuleTreeItem extends vscode.TreeItem {
 
       case 'tags-section':
         this.iconPath = new vscode.ThemeIcon('symbol-keyword', new vscode.ThemeColor('testing.iconQueued'));
-        this.tooltip = 'Browse rules by security tag';
+        this.tooltip = 'Browse rules by tag';
         break;
 
       case 'tag':
         this.iconPath = new vscode.ThemeIcon('tag', new vscode.ThemeColor('charts.orange'));
-        this.tooltip = `Security tag: ${this.tagId ?? this.label}`;
+        if (this.tagMeta) {
+          const tooltip = new vscode.MarkdownString();
+          tooltip.appendMarkdown(`**${this.tagMeta.label}** [${this.tagMeta.type}]\n\n`);
+          if (this.tagMeta.score !== undefined) {
+            tooltip.appendMarkdown(`Score: ${this.tagMeta.score}/10`);
+          }
+          this.tooltip = tooltip;
+        } else {
+          this.tooltip = `Tag: ${this.tagId ?? this.label}`;
+        }
         break;
     }
   }
@@ -593,32 +612,44 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
   }
 
   /**
-   * Get all security tags across all rules, mapped to the rules that have them
-   * Rules with multiple tags will appear under each tag they have
+   * Get the current tag type filter setting
    */
-  private getAllTags(): Map<string, IRule[]> {
-    const tagMap = new Map<string, IRule[]>();
+  private getTagTypeFilter(): TagType | 'all' {
+    const config = vscode.workspace.getConfiguration('sentriflow');
+    return config.get<TagType | 'all'>('tagTypeFilter', 'all');
+  }
+
+  /**
+   * Get all tags across all rules, mapped to the rules that have them
+   * Rules with multiple tags will appear under each tag they have
+   * Returns both the rules and the first Tag object found for metadata display
+   */
+  private getAllTags(): Map<string, { rules: IRule[]; tagMeta: TagMeta }> {
+    const tagMap = new Map<string, { rules: IRule[]; tagMeta: TagMeta }>();
     const allRules = this._getAllRules();
 
     for (const rule of allRules) {
-      const tags = rule.metadata.security?.tags ?? [];
+      const tags = rule.metadata.tags ?? [];
       for (const tag of tags) {
-        if (!tagMap.has(tag)) {
-          tagMap.set(tag, []);
+        if (!tagMap.has(tag.label)) {
+          tagMap.set(tag.label, {
+            rules: [],
+            tagMeta: { type: tag.type, label: tag.label, score: tag.score }
+          });
         }
-        tagMap.get(tag)!.push(rule);
+        tagMap.get(tag.label)!.rules.push(rule);
       }
     }
     return tagMap;
   }
 
   /**
-   * Create the "By Security Tag" section header item
+   * Create the "By Tag" section header item
    */
   private getTagsSectionItem(): RuleTreeItem {
     const tagCount = this.getAllTags().size;
     const item = new RuleTreeItem(
-      `By Security Tag (${tagCount} tags)`,
+      `By Tag (${tagCount} tags)`,
       vscode.TreeItemCollapsibleState.Collapsed,
       'tags-section'
     );
@@ -631,14 +662,16 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
   private getTagItems(): RuleTreeItem[] {
     const tagMap = this.getAllTags();
     const disabledRules = this._getDisabledRulesSet();
+    const typeFilter = this.getTagTypeFilter();
 
     return Array.from(tagMap.entries())
+      .filter(([, { tagMeta }]) => typeFilter === 'all' || tagMeta.type === typeFilter)
       .sort((a, b) => a[0].localeCompare(b[0]))  // Sort alphabetically
-      .map(([tag, rules]) => {
+      .map(([tagLabel, { rules, tagMeta }]) => {
         // Count enabled rules for this tag
         const enabledCount = rules.filter(r => !disabledRules.has(r.id)).length;
         const item = new RuleTreeItem(
-          `${tag} (${rules.length} rules)`,
+          `${tagLabel} (${rules.length} rules)`,
           vscode.TreeItemCollapsibleState.Collapsed,
           'tag',
           undefined,
@@ -647,7 +680,8 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
           undefined,
           enabledCount > 0  // Mark as enabled if at least one rule is enabled
         );
-        item.tagId = tag;
+        item.tagId = tagLabel;
+        item.tagMeta = tagMeta;
         return item;
       });
   }
@@ -657,7 +691,8 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
    */
   private getRulesForTag(tagId: string): RuleTreeItem[] {
     const tagMap = this.getAllTags();
-    const rules = tagMap.get(tagId) ?? [];
+    const entry = tagMap.get(tagId);
+    const rules = entry?.rules ?? [];
     const disabledRules = this._getDisabledRulesSet();
 
     // Sort by level (errors first), then by ID
