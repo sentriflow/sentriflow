@@ -12,7 +12,7 @@ import {
   extractIPSummary,
 } from '@sentriflow/core';
 import type { VendorSchema } from '@sentriflow/core';
-import type { IRule, RuleResult } from '@sentriflow/core';
+import type { IRule, RuleResult, Tag } from '@sentriflow/core';
 import { readFile } from 'fs/promises';
 import { statSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
@@ -38,6 +38,38 @@ import {
   validateStdinArgument,
   isStdinRequested,
 } from './src/loaders/stdin';
+
+/**
+ * Enriched rule result with category and tags from the rule definition.
+ * Used for JSON output to include rule metadata alongside results.
+ */
+interface EnrichedResult extends RuleResult {
+  /** Rule category for grouping (e.g., 'authentication', 'routing') */
+  category?: string | string[];
+  /** Typed tags for multi-dimensional rule categorization */
+  tags: Tag[];
+}
+
+/**
+ * Enriches rule results with category and tags from the corresponding rule definitions.
+ * @param results - Array of rule results from the engine
+ * @param rules - Array of rule definitions to lookup metadata
+ * @returns Array of enriched results with category and tags
+ */
+function enrichResultsWithRuleMetadata(
+  results: RuleResult[],
+  rules: IRule[]
+): EnrichedResult[] {
+  const ruleMap = new Map(rules.map((r) => [r.id, r]));
+  return results.map((result) => {
+    const rule = ruleMap.get(result.ruleId);
+    return {
+      ...result,
+      category: rule?.category,
+      tags: rule?.metadata.tags ?? [],
+    };
+  });
+}
 
 const program = new Command();
 
@@ -73,6 +105,16 @@ program
     val.split(',')
   )
   .option('--list-rules', 'List all active rules and exit')
+  .option('--list-categories', 'List all rule categories with counts and exit')
+  .option(
+    '--category <category>',
+    'Filter rules by category (use with --list-rules)'
+  )
+  .option(
+    '--list-format <format>',
+    'Output format for --list-rules: table, json, csv (default: table)',
+    'table'
+  )
   .option('--relative-paths', 'Use relative paths in SARIF output')
   .option(
     '--allow-external',
@@ -187,18 +229,98 @@ program
         allowedBaseDirs, // SEC-011: Pass allowed base dirs for rule file validation
       });
 
+      // List categories mode
+      if (options.listCategories) {
+        const counts = new Map<string, number>();
+
+        for (const rule of rules) {
+          const cats = Array.isArray(rule.category)
+            ? rule.category
+            : [rule.category ?? 'uncategorized'];
+          for (const cat of cats) {
+            counts.set(cat, (counts.get(cat) ?? 0) + 1);
+          }
+        }
+
+        // Sort by count descending
+        const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+
+        console.log('CATEGORY              COUNT');
+        console.log('─'.repeat(35));
+        for (const [cat, count] of sorted) {
+          console.log(`${cat.padEnd(22)}${count}`);
+        }
+        console.log('─'.repeat(35));
+        console.log(`TOTAL                 ${rules.length}`);
+        return;
+      }
+
       // List rules mode
       if (options.listRules) {
-        console.log('Active rules:\n');
-        for (const rule of rules) {
-          console.log(
-            `  ${rule.id} [${rule.metadata.level}] - ${rule.metadata.obu}`
-          );
+        // Apply category filter if specified
+        let filteredRules = rules;
+        if (options.category) {
+          filteredRules = rules.filter((r) => {
+            const cats = Array.isArray(r.category)
+              ? r.category
+              : [r.category];
+            return cats.includes(options.category);
+          });
         }
-        console.log(`\nTotal: ${rules.length} rules`);
+
+        // Output based on format
+        if (options.listFormat === 'json') {
+          const output = filteredRules.map((r) => ({
+            id: r.id,
+            category: r.category,
+            vendor: r.vendor,
+            level: r.metadata.level,
+            obu: r.metadata.obu,
+            description: r.metadata.description,
+            tags: r.metadata.tags,
+          }));
+          console.log(JSON.stringify(output, null, 2));
+        } else if (options.listFormat === 'csv') {
+          console.log('id,category,vendor,level,obu,description');
+          for (const rule of filteredRules) {
+            const cat = Array.isArray(rule.category)
+              ? rule.category.join(';')
+              : (rule.category ?? '');
+            const vendor = Array.isArray(rule.vendor)
+              ? rule.vendor.join(';')
+              : (rule.vendor ?? 'common');
+            const desc = (rule.metadata.description ?? '').replace(/"/g, '""');
+            console.log(
+              `"${rule.id}","${cat}","${vendor}","${rule.metadata.level}","${rule.metadata.obu}","${desc}"`
+            );
+          }
+        } else {
+          // Table format (default)
+          console.log(
+            'ID                CATEGORY              VENDOR          LEVEL    OBU'
+          );
+          console.log('─'.repeat(85));
+          for (const rule of filteredRules) {
+            const cat = Array.isArray(rule.category)
+              ? rule.category[0] ?? 'general'
+              : (rule.category ?? 'general');
+            const vendor = Array.isArray(rule.vendor)
+              ? rule.vendor[0] ?? 'common'
+              : (rule.vendor ?? 'common');
+            console.log(
+              `${rule.id.padEnd(18)}${cat.padEnd(22)}${vendor.padEnd(16)}${rule.metadata.level.padEnd(9)}${rule.metadata.obu}`
+            );
+          }
+          console.log('─'.repeat(85));
+          console.log(`Total: ${filteredRules.length} rules`);
+
+          if (options.category) {
+            console.log(`Filtered by category: ${options.category}`);
+          }
+        }
 
         const configFile = findConfigFile(configSearchDir);
-        if (configFile) {
+        if (configFile && options.listFormat === 'table') {
           console.log(`\nConfig file: ${configFile}`);
         }
         return;
@@ -418,8 +540,8 @@ program
             totalFailures += failures;
             totalPassed += passed;
 
-            // Extract IP summary for this file
-            const fileIpSummary = extractIPSummary(content);
+            // Extract IP summary for this file (include subnet network addresses)
+            const fileIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
 
             allFileResults.push({
               filePath,
@@ -461,7 +583,7 @@ program
             files: allFileResults.map((fr) => ({
               file: fr.filePath,
               vendor: fr.vendor,
-              results: fr.results,
+              results: enrichResultsWithRuleMetadata(fr.results, rules),
               ipSummary: fr.ipSummary,
             })),
           };
@@ -558,8 +680,8 @@ program
           results = results.filter((r) => !r.passed);
         }
 
-        // Extract IP summary from stdin content
-        const stdinIpSummary = extractIPSummary(content);
+        // Extract IP summary from stdin content (include subnet network addresses)
+        const stdinIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
 
         // FR-021: Use <stdin> as filename in output
         if (options.format === 'sarif') {
@@ -572,7 +694,7 @@ program
           const output = {
             file: '<stdin>',
             vendor: { id: vendor.id, name: vendor.name },
-            results,
+            results: enrichResultsWithRuleMetadata(results, stdinRules),
             ipSummary: stdinIpSummary,
           };
           console.log(JSON.stringify(output, null, 2));
@@ -652,8 +774,8 @@ program
             totalFailures += failures;
             totalPassed += passed;
 
-            // Extract IP summary for this file
-            const fileIpSummary = extractIPSummary(content);
+            // Extract IP summary for this file (include subnet network addresses)
+            const fileIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
 
             allFileResults.push({
               filePath,
@@ -689,7 +811,7 @@ program
             files: allFileResults.map((fr) => ({
               file: fr.filePath,
               vendor: fr.vendor,
-              results: fr.results,
+              results: enrichResultsWithRuleMetadata(fr.results, rules),
               ipSummary: fr.ipSummary,
             })),
           };
@@ -796,8 +918,8 @@ program
         results = results.filter((r) => !r.passed);
       }
 
-      // Extract IP summary from content
-      const ipSummary = extractIPSummary(content);
+      // Extract IP summary from content (include subnet network addresses)
+      const ipSummary = extractIPSummary(content, { includeSubnetNetworks: true });
 
       // Output results based on format
       if (options.format === 'sarif') {
@@ -815,7 +937,7 @@ program
             id: vendor.id,
             name: vendor.name,
           },
-          results,
+          results: enrichResultsWithRuleMetadata(results, singleFileRules),
           ipSummary,
         };
         console.log(JSON.stringify(output, null, 2));

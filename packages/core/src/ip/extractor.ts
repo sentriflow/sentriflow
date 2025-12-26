@@ -640,6 +640,18 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
     }
   }
 
+  // If includeSubnetNetworks is true, add subnet network addresses to the address sets
+  if (options.includeSubnetNetworks) {
+    for (const subnet of ipv4SubnetSet) {
+      const { network } = parseSubnet(subnet);
+      ipv4Set.add(network);
+    }
+    for (const subnet of ipv6SubnetSet) {
+      const { network } = parseSubnet(subnet);
+      ipv6Set.add(network);
+    }
+  }
+
   // Convert sets to sorted arrays
   const ipv4Addresses = sortIPv4Addresses([...ipv4Set]);
   const ipv6Addresses = sortIPv6Addresses([...ipv6Set]);

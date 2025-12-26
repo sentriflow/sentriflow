@@ -37,6 +37,15 @@ sentriflow --list-vendors
 
 # List active rules
 sentriflow --list-rules
+
+# List rules by category
+sentriflow --list-rules --category authentication
+
+# List all categories
+sentriflow --list-categories
+
+# Read from stdin
+cat router.conf | sentriflow -
 ```
 
 ## Usage
@@ -47,7 +56,7 @@ Usage: sentriflow [options] [file]
 SentriFlow Network Configuration Compliance Checker
 
 Arguments:
-  file                          Path to the configuration file
+  file                          Path to the configuration file (use - for stdin)
 
 Options:
   -V, --version                 output the version number
@@ -80,9 +89,19 @@ Supported vendors: `cisco-ios`, `juniper-junos`, `palo-alto`, `fortinet`, `arist
 | `--no-config` | Ignore config file |
 | `-d, --disable <ids>` | Comma-separated rule IDs to disable |
 | `--list-rules` | List all active rules and exit |
+| `--list-categories` | List all rule categories with counts |
+| `--category <name>` | Filter `--list-rules` by category |
+| `--list-format <fmt>` | Format for `--list-rules`: `table` (default), `json`, `csv` |
 | `-p, --rule-pack <path>` | Rule pack file to load |
 | `--json-rules <path...>` | Path(s) to JSON rules file(s) |
 | `-r, --rules <path>` | Additional rules file (legacy) |
+
+### IP Extraction
+
+| Option | Description |
+|--------|-------------|
+| `--extract-ips` | Extract and display all IP addresses/subnets from configuration |
+| `--copy-ips` | Copy extracted IPs to clipboard (requires xclip/pbcopy) |
 
 ### Encrypted Rule Packs
 
@@ -125,7 +144,11 @@ Supported vendors: `cisco-ios`, `juniper-junos`, `palo-alto`, `fortinet`, `arist
       "passed": false,
       "message": "Telnet is enabled - use SSH instead",
       "line": 12,
-      "column": 1
+      "column": 1,
+      "category": "authentication",
+      "tags": [
+        { "type": "security", "label": "plaintext-protocol" }
+      ]
     }
   ]
 }
@@ -157,6 +180,38 @@ Produces SARIF 2.1.0 compliant output for integration with GitHub Code Scanning,
 
 ```bash
 sentriflow router.conf -f sarif > results.sarif
+```
+
+SARIF output includes rule categories and tags in the `properties` block:
+
+```json
+{
+  "rules": [{
+    "id": "SEC-001",
+    "properties": {
+      "category": "authentication",
+      "tags": ["security:plaintext-protocol"]
+    }
+  }]
+}
+```
+
+## Rule Categories
+
+List all available categories:
+
+```bash
+sentriflow --list-categories
+```
+
+Filter rules by category:
+
+```bash
+# List only authentication rules
+sentriflow --list-rules --category authentication
+
+# Output as JSON
+sentriflow --list-rules --category encryption --list-format json
 ```
 
 ## CI/CD Integration

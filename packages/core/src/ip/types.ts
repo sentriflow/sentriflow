@@ -97,4 +97,11 @@ export interface ExtractOptions {
    * @default false
    */
   skipSubnets?: boolean;
+
+  /**
+   * Include subnet network addresses in the addresses lists.
+   * When true, a subnet like 10.0.0.0/24 will add 10.0.0.0 to ipv4Addresses.
+   * @default false
+   */
+  includeSubnetNetworks?: boolean;
 }

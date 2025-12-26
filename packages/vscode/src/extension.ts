@@ -27,7 +27,8 @@ import type {
 import { allRules, getRulesByVendor } from '@sentriflow/rules-default';
 import { RulesTreeProvider, RuleTreeItem } from './providers/RulesTreeProvider';
 import { SettingsWebviewProvider } from './providers/SettingsWebviewProvider';
-import { registerIPCommands, deactivateIPCommands } from './commands/ipCommands';
+import { SentriFlowHoverProvider } from './providers/HoverProvider';
+import { IPAddressesTreeProvider, IPTreeItem } from './providers/IPAddressesTreeProvider';
 
 // ============================================================================
 // Rule Pack Management
@@ -437,7 +438,12 @@ function getAllRules(vendorId?: string): IRule[] {
     }
   }
 
-  return Array.from(ruleMap.values()).map((entry) => entry.rule);
+  const rules = Array.from(ruleMap.values()).map((entry) => entry.rule);
+
+  // Update module-level rule map for O(1) lookup in diagnostics
+  currentRuleMap = new Map(rules.map((r) => [r.id, r]));
+
+  return rules;
 }
 
 /** Re-scan active editor after rule changes */
@@ -663,8 +669,44 @@ let rulesVersion = 0;
 let lastIndexedVersion = -1;
 let lastIndexedVendorId: string | null = null;
 
+// Module-level rule map for O(1) lookup by rule ID (used for diagnostics with category)
+let currentRuleMap = new Map<string, IRule>();
+
+/**
+ * Get a rule by its ID from the current rule map.
+ * Used to enrich diagnostics with category information.
+ */
+function getRuleById(ruleId: string): IRule | undefined {
+  return currentRuleMap.get(ruleId);
+}
+
+/**
+ * Format category for display in diagnostic messages.
+ */
+function formatCategory(rule: IRule | undefined): string {
+  if (!rule?.category) return 'general';
+  return Array.isArray(rule.category) ? rule.category.join(', ') : rule.category;
+}
+
 // Track current vendor for status bar display
 let currentVendor: VendorSchema | null = null;
+
+// Category filter for diagnostics (undefined = show all)
+let categoryFilter: string | undefined = undefined;
+
+/**
+ * Get unique categories from current rules.
+ */
+function getUniqueCategories(): string[] {
+  const categories = new Set<string>();
+  for (const rule of currentRuleMap.values()) {
+    if (rule.category) {
+      const cats = Array.isArray(rule.category) ? rule.category : [rule.category];
+      cats.forEach((c) => categories.add(c));
+    }
+  }
+  return [...categories].sort();
+}
 
 // ============================================================================
 // Extension State
@@ -676,6 +718,7 @@ let vendorStatusBarItem: vscode.StatusBarItem;
 let diagnosticCollection: vscode.DiagnosticCollection;
 let rulesTreeProvider: RulesTreeProvider;
 let settingsWebviewProvider: SettingsWebviewProvider;
+let ipAddressesTreeProvider: IPAddressesTreeProvider;
 
 // Debounce timers per document URI
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -756,6 +799,28 @@ export function activate(context: vscode.ExtensionContext) {
       )
     );
 
+    // Create and register IP Addresses TreeView
+    ipAddressesTreeProvider = new IPAddressesTreeProvider();
+    const ipAddressesTreeView = vscode.window.createTreeView('sentriflowIPAddresses', {
+      treeDataProvider: ipAddressesTreeProvider,
+      showCollapseAll: true,
+    });
+    context.subscriptions.push(ipAddressesTreeView);
+
+    // Initialize IP view with current document
+    if (vscode.window.activeTextEditor) {
+      ipAddressesTreeProvider.updateFromDocument(vscode.window.activeTextEditor.document);
+    }
+
+    // Register hover provider for diagnostic tooltips with category and tags
+    const hoverProvider = new SentriFlowHoverProvider(
+      diagnosticCollection,
+      getRuleById
+    );
+    context.subscriptions.push(
+      vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider)
+    );
+
     // Register commands
     context.subscriptions.push(
       vscode.commands.registerCommand('sentriflow.scan', cmdScanFile),
@@ -814,13 +879,52 @@ export function activate(context: vscode.ExtensionContext) {
         cmdFilterTagType
       ),
       vscode.commands.registerCommand(
+        'sentriflow.filterByCategory',
+        cmdFilterByCategory
+      ),
+      vscode.commands.registerCommand(
         'sentriflow.focusRulesView',
         () => vscode.commands.executeCommand('sentriflowRules.focus')
       )
     );
 
-    // Register IP extraction commands
-    context.subscriptions.push(...registerIPCommands(context));
+    // Register IP TreeView commands
+    context.subscriptions.push(
+      vscode.commands.registerCommand('sentriflow.refreshIPTree', () => {
+        if (vscode.window.activeTextEditor) {
+          ipAddressesTreeProvider.updateFromDocument(vscode.window.activeTextEditor.document);
+        }
+      }),
+      vscode.commands.registerCommand('sentriflow.copyAllIPs', async () => {
+        const allIPs = ipAddressesTreeProvider.getAllIPsForClipboard();
+        if (allIPs) {
+          await vscode.env.clipboard.writeText(allIPs);
+          const counts = ipAddressesTreeProvider.getCounts();
+          vscode.window.showInformationMessage(
+            `Copied ${counts.total} IP addresses/subnets to clipboard.`
+          );
+        } else {
+          vscode.window.showInformationMessage('No IP addresses to copy.');
+        }
+      }),
+      vscode.commands.registerCommand('sentriflow.copyIPValue', async (ipValue: string) => {
+        if (ipValue) {
+          await vscode.env.clipboard.writeText(ipValue);
+          vscode.window.showInformationMessage(`Copied: ${ipValue}`);
+        }
+      }),
+      vscode.commands.registerCommand('sentriflow.copyIPCategory', async (item: IPTreeItem) => {
+        if (item?.categoryId) {
+          const categoryIPs = ipAddressesTreeProvider.getCategoryIPsForClipboard(item.categoryId);
+          if (categoryIPs) {
+            await vscode.env.clipboard.writeText(categoryIPs);
+            const count = ipAddressesTreeProvider.getCategoryCount(item.categoryId);
+            const categoryLabel = item.categoryId.replace(/-/g, ' ').replace(/ipv(\d)/g, 'IPv$1');
+            vscode.window.showInformationMessage(`Copied ${count} ${categoryLabel} to clipboard.`);
+          }
+        }
+      })
+    );
 
     // Register event handlers with debouncing
     context.subscriptions.push(
@@ -1298,10 +1402,24 @@ function cmdScanSelection() {
         if (absoluteLine < editor.document.lineCount) {
           const line = editor.document.lineAt(absoluteLine);
           const severity = mapSeverity(result.level);
+          const rule = getRuleById(result.ruleId);
+          const category = formatCategory(rule);
+
+          // Apply category filter if set
+          if (categoryFilter) {
+            const ruleCats = rule?.category
+              ? Array.isArray(rule.category)
+                ? rule.category
+                : [rule.category]
+              : [];
+            if (!ruleCats.includes(categoryFilter)) {
+              continue; // Skip diagnostics not matching the filter
+            }
+          }
 
           const diagnostic = new vscode.Diagnostic(
             line.range,
-            result.message,
+            `[${result.ruleId}] (${category}) ${result.message}`,
             severity
           );
           diagnostic.source = 'SentriFlow';
@@ -2818,6 +2936,49 @@ async function cmdFilterTagType() {
   }
 }
 
+/**
+ * Filter diagnostics by category via quick pick
+ */
+async function cmdFilterByCategory() {
+  const categories = getUniqueCategories();
+
+  interface CategoryPickItem extends vscode.QuickPickItem {
+    value: string | undefined;
+  }
+
+  const items: CategoryPickItem[] = [
+    {
+      label: categoryFilter === undefined ? '$(check) All Categories' : 'All Categories',
+      description: 'Show diagnostics from all categories',
+      value: undefined,
+    },
+    ...categories.map((cat) => ({
+      label: categoryFilter === cat ? `$(check) ${cat}` : cat,
+      description: `Filter to "${cat}" category only`,
+      value: cat,
+    })),
+  ];
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select category to filter diagnostics',
+    title: 'Filter Diagnostics by Category',
+  });
+
+  if (selected !== undefined) {
+    categoryFilter = selected.value;
+
+    // Re-scan active editor to apply filter
+    if (vscode.window.activeTextEditor) {
+      scheduleScan(vscode.window.activeTextEditor.document, 0);
+    }
+
+    const filterMsg = categoryFilter ? `"${categoryFilter}"` : 'all categories';
+    vscode.window.showInformationMessage(
+      `SENTRIFLOW: Showing diagnostics from ${filterMsg}`
+    );
+  }
+}
+
 // ============================================================================
 // Event Handlers
 // ============================================================================
@@ -2849,6 +3010,9 @@ function onDocumentClose(document: vscode.TextDocument) {
 }
 
 function onActiveEditorChange(editor: vscode.TextEditor | undefined) {
+  // Update IP Addresses TreeView
+  ipAddressesTreeProvider?.updateFromDocument(editor?.document);
+
   if (editor) {
     // Update current vendor from cached document
     const uri = editor.document.uri.toString();
@@ -3077,10 +3241,24 @@ function runScan(document: vscode.TextDocument, force: boolean) {
         if (startLine >= 0 && startLine < document.lineCount) {
           const line = document.lineAt(startLine);
           const severity = mapSeverity(result.level);
+          const rule = getRuleById(result.ruleId);
+          const category = formatCategory(rule);
+
+          // Apply category filter if set
+          if (categoryFilter) {
+            const ruleCats = rule?.category
+              ? Array.isArray(rule.category)
+                ? rule.category
+                : [rule.category]
+              : [];
+            if (!ruleCats.includes(categoryFilter)) {
+              continue; // Skip diagnostics not matching the filter
+            }
+          }
 
           const diagnostic = new vscode.Diagnostic(
             line.range,
-            result.message,
+            `[${result.ruleId}] (${category}) ${result.message}`,
             severity
           );
           diagnostic.source = 'SentriFlow';
@@ -3247,9 +3425,6 @@ function log(message: string) {
 // Deactivation
 // ============================================================================
 export function deactivate() {
-  // Cleanup IP command resources
-  deactivateIPCommands();
-
   // Clear all pending timers
   for (const timer of debounceTimers.values()) {
     clearTimeout(timer);
