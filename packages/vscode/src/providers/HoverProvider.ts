@@ -31,10 +31,12 @@ export class SentriFlowHoverProvider implements vscode.HoverProvider {
     markdown.supportHtml = true;
 
     // Track the union range of all diagnostics
-    let unionRange = diagnosticsAtPosition[0].range;
+    // Safe access since we checked length > 0 above
+    const firstDiagnostic = diagnosticsAtPosition[0]!;
+    let unionRange = firstDiagnostic.range;
 
     for (let i = 0; i < diagnosticsAtPosition.length; i++) {
-      const diagnostic = diagnosticsAtPosition[i];
+      const diagnostic = diagnosticsAtPosition[i]!;
       const ruleId = diagnostic.code as string;
 
       // Update union range

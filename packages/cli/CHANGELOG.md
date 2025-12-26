@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON output includes `category` and `tags` fields on each result object
 - IP extraction now includes subnet network addresses in the addresses lists (e.g., `10.0.0.0` from `10.0.0.0/24` appears in `ipv4Addresses`)
 
+### Security
+- **Input Validation Error Handling** - CLI now properly handles `InputValidationError` from core library with user-friendly messages
+- **Size Limit Enforcement** - Large file processing is rejected with clear error message when exceeding 50MB limit
+
 ## [0.1.7] - 2025-12-24
 
 ### Added

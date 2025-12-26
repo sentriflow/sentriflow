@@ -220,8 +220,12 @@ export class IPAddressesTreeProvider implements vscode.TreeDataProvider<IPTreeIt
   }
 
   private getCategoryNodes(): IPTreeItem[] {
+    // T022/T023: Add null check guard and remove non-null assertion
+    if (!this.currentSummary) {
+      return [];
+    }
     const items: IPTreeItem[] = [];
-    const summary = this.currentSummary!;
+    const summary = this.currentSummary;
 
     if (summary.ipv4Addresses.length > 0) {
       items.push(new IPTreeItem(
@@ -267,8 +271,11 @@ export class IPAddressesTreeProvider implements vscode.TreeDataProvider<IPTreeIt
   }
 
   private getIPNodes(categoryId: IPCategory | undefined): IPTreeItem[] {
-    if (!categoryId) return [];
-    const summary = this.currentSummary!;
+    // T024/T025/T026: Add null checks and remove non-null assertion
+    if (!categoryId || !this.currentSummary) {
+      return [];
+    }
+    const summary = this.currentSummary;
 
     switch (categoryId) {
       case 'ipv4-addresses':

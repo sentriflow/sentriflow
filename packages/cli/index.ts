@@ -10,6 +10,7 @@ import {
   getVendor,
   getAvailableVendors,
   extractIPSummary,
+  InputValidationError,
 } from '@sentriflow/core';
 import type { VendorSchema } from '@sentriflow/core';
 import type { IRule, RuleResult, Tag } from '@sentriflow/core';
@@ -681,7 +682,16 @@ program
         }
 
         // Extract IP summary from stdin content (include subnet network addresses)
-        const stdinIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+        let stdinIpSummary;
+        try {
+          stdinIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+        } catch (error) {
+          if (error instanceof InputValidationError) {
+            console.error(`Input validation error: ${error.message}`);
+            process.exit(2);
+          }
+          throw error;
+        }
 
         // FR-021: Use <stdin> as filename in output
         if (options.format === 'sarif') {
@@ -952,6 +962,9 @@ program
       // Structured error handling (L-1 fix)
       if (error instanceof SentriflowError) {
         console.error(`Error: ${error.toUserMessage()}`);
+      } else if (error instanceof InputValidationError) {
+        // T013/T014: Handle size limit and format validation errors
+        console.error(`Input validation error: ${error.message}`);
       } else {
         console.error('Error: An unexpected error occurred');
       }

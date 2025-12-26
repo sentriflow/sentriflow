@@ -1,5 +1,42 @@
 // packages/core/src/ip/types.ts
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * Default maximum content size for IP extraction (50MB).
+ * Prevents DoS attacks via memory exhaustion from processing very large files.
+ */
+export const DEFAULT_MAX_CONTENT_SIZE = 50 * 1024 * 1024; // 50MB
+
+// ============================================================================
+// Error Types
+// ============================================================================
+
+/**
+ * Error codes for input validation failures.
+ */
+export type InputValidationErrorCode = 'SIZE_LIMIT_EXCEEDED' | 'INVALID_FORMAT';
+
+/**
+ * Error thrown when input validation fails.
+ * Used for size limits and malformed input detection.
+ */
+export class InputValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly code: InputValidationErrorCode
+  ) {
+    super(message);
+    this.name = 'InputValidationError';
+  }
+}
+
+// ============================================================================
+// Core Types
+// ============================================================================
+
 /**
  * Discriminator for IPv4 vs IPv6 addresses.
  */
@@ -104,4 +141,11 @@ export interface ExtractOptions {
    * @default false
    */
   includeSubnetNetworks?: boolean;
+
+  /**
+   * Maximum content size in bytes.
+   * Content exceeding this limit will throw InputValidationError.
+   * @default DEFAULT_MAX_CONTENT_SIZE (50MB)
+   */
+  maxContentSize?: number;
 }

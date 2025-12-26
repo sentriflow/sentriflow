@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Tag interface expanded from simple string to structured object with `type`, `label`, `text`, `score`
 
+### Security
+- **Input Size Limits** - IP extraction now enforces 50MB input size limit (configurable via `maxContentSize`) to prevent DoS attacks
+- **InputValidationError** - New typed error class with error codes (`SIZE_LIMIT_EXCEEDED`, `INVALID_FORMAT`) for proper error handling
+- **Zone ID Handling** - Centralized IPv6 zone ID stripping via `stripZoneId()` utility
+- **Regex Factory Functions** - Replaced global regex constants with factory functions to prevent `lastIndex` state issues
+- **Defensive Validation** - Added bounds checking in `ipv4ToNumber()` and format validation in `parseSubnet()`
+- **CIDR Boundary Fix** - IPv6 CIDR regex now correctly rejects invalid prefixes (e.g., `/129`) using negative lookahead
+
 ## [0.1.7] - 2025-12-25
 
 ### Added

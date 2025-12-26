@@ -21,4 +21,7 @@ export type {
   IPSummary,
   IPCounts,
   ExtractOptions,
+  InputValidationErrorCode,
 } from './types';
+
+export { InputValidationError, DEFAULT_MAX_CONTENT_SIZE } from './types';
