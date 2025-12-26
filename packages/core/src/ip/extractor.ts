@@ -1,6 +1,78 @@
 // packages/core/src/ip/extractor.ts
 
 import type { IPAddressType, IPSummary, IPCounts, ExtractOptions } from './types';
+import { InputValidationError, DEFAULT_MAX_CONTENT_SIZE } from './types';
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Strip zone ID from IPv6 address.
+ * e.g., "fe80::1%eth0" -> "fe80::1"
+ *
+ * @param ip - IPv6 address string (with or without zone ID)
+ * @returns IPv6 address without zone ID
+ */
+function stripZoneId(ip: string): string {
+  const zoneIndex = ip.indexOf('%');
+  return zoneIndex !== -1 ? ip.substring(0, zoneIndex) : ip;
+}
+
+// ============================================================================
+// Regex Factory Functions
+// ============================================================================
+
+/**
+ * Create IPv4 pattern regex.
+ * Using factory function prevents lastIndex state issues with global flag.
+ */
+function createIPv4Pattern(): RegExp {
+  return /\b(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\b/g;
+}
+
+/**
+ * Create IPv4 CIDR pattern regex.
+ */
+function createIPv4CidrPattern(): RegExp {
+  return /\b(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\/(?:3[0-2]|[12]?[0-9])\b/g;
+}
+
+/**
+ * Create IPv4 + subnet mask pattern regex.
+ */
+function createIPv4WithMaskPattern(): RegExp {
+  return /\b((?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\s+(255\.(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){2}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\b/g;
+}
+
+/**
+ * Create IPv4 + "mask" keyword + subnet mask pattern regex.
+ */
+function createIPv4WithMaskKeywordPattern(): RegExp {
+  return /\b((?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\s+mask\s+(255\.(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){2}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\b/gi;
+}
+
+/**
+ * Create IPv4 + wildcard mask pattern regex.
+ */
+function createIPv4WithWildcardPattern(): RegExp {
+  return /\b((?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\s+(0\.(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){2}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\b/g;
+}
+
+/**
+ * Create IPv6 pattern regex.
+ */
+function createIPv6Pattern(): RegExp {
+  return /(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|:(?::[0-9a-fA-F]{1,4}){1,7}|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}|(?:[0-9a-fA-F]{1,4}:){1,7}:|::/g;
+}
+
+/**
+ * Create IPv6 CIDR pattern regex.
+ * Uses negative lookahead (?!\d) to prevent matching partial prefixes like /12 from /129
+ */
+function createIPv6CidrPattern(): RegExp {
+  return /(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|:(?::[0-9a-fA-F]{1,4}){1,7}|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}|(?:[0-9a-fA-F]{1,4}:){1,7}:|::)\/(?:12[0-8]|1[01][0-9]|[1-9]?[0-9])(?!\d)/g;
+}
 
 // ============================================================================
 // Validation Functions
@@ -42,11 +114,7 @@ export function isValidIPv6(ip: string): boolean {
   if (!ip || typeof ip !== 'string') return false;
 
   // Strip zone ID if present (e.g., fe80::1%eth0)
-  let addr = ip;
-  const zoneIndex = ip.indexOf('%');
-  if (zoneIndex !== -1) {
-    addr = ip.substring(0, zoneIndex);
-  }
+  const addr = stripZoneId(ip);
 
   // Must have at least one colon
   if (!addr.includes(':')) return false;
@@ -144,14 +212,8 @@ export function normalizeIPv4(ip: string): string {
  * @returns Normalized IPv6 string (lowercase, no zone ID, fully expanded)
  */
 export function normalizeIPv6(ip: string): string {
-  // Strip zone ID
-  let addr = ip;
-  const zoneIndex = ip.indexOf('%');
-  if (zoneIndex !== -1) {
-    addr = ip.substring(0, zoneIndex);
-  }
-
-  addr = addr.toLowerCase();
+  // Strip zone ID and convert to lowercase
+  const addr = stripZoneId(ip).toLowerCase();
 
   // Handle :: expansion
   if (addr.includes('::')) {
@@ -200,10 +262,30 @@ export function normalizeIPv6(ip: string): string {
 // ============================================================================
 
 /**
+ * Validate and clamp octet value to valid range.
+ * T019/T020/T021: Defensive bounds checking for IPv4 octets.
+ *
+ * @param n - Raw number value
+ * @returns Valid octet value (0-255), clamped if out of range
+ */
+function clampOctet(n: number): number {
+  // T021: Check if value is an integer
+  if (!Number.isInteger(n)) {
+    return 0;
+  }
+  // T019/T020: Clamp to valid octet range
+  if (n < 0 || n > 255) {
+    return 0;
+  }
+  return n;
+}
+
+/**
  * Convert IPv4 to 32-bit number for comparison.
+ * Uses defensive octet validation to handle malformed input.
  */
 function ipv4ToNumber(ip: string): number {
-  const octets = ip.split('.').map(Number);
+  const octets = ip.split('.').map((n) => clampOctet(Number(n)));
   const o0 = octets[0] ?? 0;
   const o1 = octets[1] ?? 0;
   const o2 = octets[2] ?? 0;
@@ -227,12 +309,7 @@ export function compareIPv4(a: string, b: string): number {
  */
 function expandIPv6(ip: string): string[] {
   // Strip zone ID
-  let addr = ip;
-  const zoneIndex = ip.indexOf('%');
-  if (zoneIndex !== -1) {
-    addr = ip.substring(0, zoneIndex);
-  }
-
+  const addr = stripZoneId(ip);
   const parts = addr.split(':');
   const result: string[] = [];
 
@@ -315,12 +392,37 @@ export function sortIPv6Addresses(ips: string[]): string[] {
 
 /**
  * Parse subnet into network and prefix.
+ * T016/T017/T018: Validates format before parsing.
+ *
+ * @param subnet - CIDR notation string (e.g., "10.0.0.0/24")
+ * @returns Parsed network address and prefix length
+ * @throws InputValidationError if format is invalid
  */
 function parseSubnet(subnet: string): { network: string; prefix: number } {
   const slashIndex = subnet.lastIndexOf('/');
+
+  // T016: Validate slash presence
+  if (slashIndex === -1) {
+    throw new InputValidationError(
+      `Invalid subnet format (missing /): ${subnet}`,
+      'INVALID_FORMAT'
+    );
+  }
+
+  const prefixStr = subnet.substring(slashIndex + 1);
+  const prefix = parseInt(prefixStr, 10);
+
+  // T017: Validate prefix is a valid number
+  if (isNaN(prefix)) {
+    throw new InputValidationError(
+      `Invalid subnet prefix: ${prefixStr}`,
+      'INVALID_FORMAT'
+    );
+  }
+
   return {
     network: subnet.substring(0, slashIndex),
-    prefix: parseInt(subnet.substring(slashIndex + 1), 10),
+    prefix,
   };
 }
 
@@ -449,39 +551,6 @@ function wildcardToCidr(wildcard: string): number {
   return prefix;
 }
 
-// IPv4 pattern: 4 octets, each 0-255, no leading zeros
-const IPV4_PATTERN =
-  /\b(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\b/g;
-
-// IPv4 CIDR pattern
-const IPV4_CIDR_PATTERN =
-  /\b(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\/(?:3[0-2]|[12]?[0-9])\b/g;
-
-// IPv4 + subnet mask pattern (e.g., "ip address 192.168.1.1 255.255.255.0")
-// Captures IP address followed by space and subnet mask
-const IPV4_WITH_MASK_PATTERN =
-  /\b((?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\s+(255\.(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){2}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\b/g;
-
-// IPv4 + "mask" keyword + subnet mask pattern (e.g., "network 192.168.1.0 mask 255.255.255.0" in BGP)
-// Captures IP address followed by "mask" keyword and subnet mask
-const IPV4_WITH_MASK_KEYWORD_PATTERN =
-  /\b((?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\s+mask\s+(255\.(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){2}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\b/gi;
-
-// IPv4 + wildcard mask pattern (e.g., "access-list 10 permit 192.168.1.0 0.0.0.255")
-// Captures network address followed by space and wildcard mask
-const IPV4_WITH_WILDCARD_PATTERN =
-  /\b((?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\s+(0\.(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){2}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))\b/g;
-
-// IPv6 pattern - matches most common formats
-// Order matters: longer patterns first to prevent partial matching
-const IPV6_PATTERN =
-  /(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|:(?::[0-9a-fA-F]{1,4}){1,7}|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}|(?:[0-9a-fA-F]{1,4}:){1,7}:|::/g;
-
-// IPv6 CIDR pattern - matches IPv6/prefix notation
-// Order matters: longer patterns first
-const IPV6_CIDR_PATTERN =
-  /(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|:(?::[0-9a-fA-F]{1,4}){1,7}|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}|(?:[0-9a-fA-F]{1,4}:){1,7}:|::)\/(?:12[0-8]|1[01][0-9]|[1-9]?[0-9])/g;
-
 /**
  * Create an empty IP summary.
  */
@@ -513,6 +582,15 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
     return createEmptyIPSummary();
   }
 
+  // T011/T012: Validate content size to prevent DoS via memory exhaustion
+  const maxSize = options.maxContentSize ?? DEFAULT_MAX_CONTENT_SIZE;
+  if (content.length > maxSize) {
+    throw new InputValidationError(
+      `Content exceeds maximum size of ${maxSize} bytes`,
+      'SIZE_LIMIT_EXCEEDED'
+    );
+  }
+
   const ipv4Set = new Set<string>();
   const ipv6Set = new Set<string>();
   const ipv4SubnetSet = new Set<string>();
@@ -527,7 +605,7 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
   // Extract IPv4 subnets first (so we can exclude their network addresses from standalone IPs)
   if (!options.skipSubnets) {
     // Extract CIDR notation subnets (e.g., 10.0.0.0/24)
-    const ipv4CidrMatches = content.matchAll(IPV4_CIDR_PATTERN);
+    const ipv4CidrMatches = content.matchAll(createIPv4CidrPattern());
     for (const match of ipv4CidrMatches) {
       const subnet = match[0];
       if (isValidSubnet(subnet)) {
@@ -540,7 +618,7 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
 
     // Extract IP + mask pairs (e.g., "192.168.1.1 255.255.255.0")
     // These are interface addresses with their subnet info
-    const ipMaskMatches = content.matchAll(IPV4_WITH_MASK_PATTERN);
+    const ipMaskMatches = content.matchAll(createIPv4WithMaskPattern());
     for (const match of ipMaskMatches) {
       const ip = match[1];
       const mask = match[2];
@@ -556,7 +634,7 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
     }
 
     // Extract IP + "mask" + mask pairs (e.g., "network 10.0.0.0 mask 255.0.0.0" in BGP)
-    const ipMaskKeywordMatches = content.matchAll(IPV4_WITH_MASK_KEYWORD_PATTERN);
+    const ipMaskKeywordMatches = content.matchAll(createIPv4WithMaskKeywordPattern());
     for (const match of ipMaskKeywordMatches) {
       const ip = match[1];
       const mask = match[2];
@@ -573,7 +651,7 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
 
     // Extract IP + wildcard pairs (e.g., "192.168.1.0 0.0.0.255" in ACLs)
     // These define network ranges in access lists
-    const ipWildcardMatches = content.matchAll(IPV4_WITH_WILDCARD_PATTERN);
+    const ipWildcardMatches = content.matchAll(createIPv4WithWildcardPattern());
     for (const match of ipWildcardMatches) {
       const ip = match[1];
       const wildcard = match[2];
@@ -590,7 +668,7 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
   }
 
   // Extract IPv4 addresses (excluding those that are subnet network addresses)
-  const ipv4Matches = content.matchAll(IPV4_PATTERN);
+  const ipv4Matches = content.matchAll(createIPv4Pattern());
   for (const match of ipv4Matches) {
     const ip = match[0];
     if (isValidIPv4(ip)) {
@@ -615,7 +693,7 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
   if (!options.skipIPv6) {
     // Extract IPv6 subnets first
     if (!options.skipSubnets) {
-      const ipv6CidrMatches = content.matchAll(IPV6_CIDR_PATTERN);
+      const ipv6CidrMatches = content.matchAll(createIPv6CidrPattern());
       for (const match of ipv6CidrMatches) {
         const subnet = match[0];
         if (isValidSubnet(subnet)) {
@@ -628,7 +706,7 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
     }
 
     // Extract IPv6 addresses
-    const ipv6Matches = content.matchAll(IPV6_PATTERN);
+    const ipv6Matches = content.matchAll(createIPv6Pattern());
     for (const match of ipv6Matches) {
       const ip = match[0];
       if (isValidIPv6(ip)) {
@@ -637,6 +715,18 @@ export function extractIPSummary(content: string, options: ExtractOptions = {}):
           ipv6Set.add(normalized);
         }
       }
+    }
+  }
+
+  // If includeSubnetNetworks is true, add subnet network addresses to the address sets
+  if (options.includeSubnetNetworks) {
+    for (const subnet of ipv4SubnetSet) {
+      const { network } = parseSubnet(subnet);
+      ipv4Set.add(network);
+    }
+    for (const subnet of ipv6SubnetSet) {
+      const { network } = parseSubnet(subnet);
+      ipv6Set.add(network);
     }
   }
 

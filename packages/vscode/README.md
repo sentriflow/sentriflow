@@ -14,6 +14,8 @@ SentriFlow checks your network configurations (Cisco, Juniper, Arista, etc.) aga
 - **Customizable rules**: Use default best-practice rules or define company-specific policies
 - **Rule management**: Enable/disable individual rules, vendors, or entire packs with 1-click
 - **Visual configuration**: Activity Bar with TreeView and Settings panel for easy management
+- **Rich hover tooltips**: Hover over diagnostics for detailed rule info, tags, and remediation
+- **Category filtering**: Filter diagnostics by rule category
 - **SARIF export**: Export results for CI/CD integration
 
 ## Activity Bar & Rules Panel
@@ -61,9 +63,33 @@ SENTRIFLOW RULES
 - Right-click any item for toggle, copy, and view details options
 - Copy Rule ID for use in settings or documentation
 
+### IP Addresses Panel
+
+The IP Addresses panel (between Rules and Settings) automatically extracts and displays all IP addresses and subnets from the current file:
+
+```
+IP ADDRESSES
+├── IPv4 Addresses (5)
+│   ├── 10.0.0.1
+│   ├── 192.168.1.1
+│   └── ...
+├── IPv4 Subnets (3)
+│   ├── 10.0.0.0/24
+│   └── 192.168.0.0/16
+└── IPv6 Addresses (2)
+    └── 2001:db8::1
+```
+
+- **Click to Copy**: Click any IP address or subnet to copy it to clipboard
+- **Copy All**: Use the clipboard button in the panel title to copy all IPs
+- **Copy Category**: Each category (IPv4 Addresses, IPv4 Subnets, etc.) has its own copy button
+- **Auto-Refresh**: Panel updates automatically when you switch files
+- **Categorized**: IPs organized by type (IPv4/IPv6) and whether they're standalone addresses or subnets
+- **Subnet Networks**: Network addresses from subnets (e.g., `10.0.0.0` from `10.0.0.0/24`) are included in the Addresses lists
+
 ### Settings Panel
 
-The Settings panel (below Rules in the sidebar) provides a visual interface for all configuration options:
+The Settings panel provides a visual interface for all configuration options:
 
 - Toggle switches for packs and vendors
 - Disabled rules list with easy removal
@@ -195,6 +221,8 @@ To block external rule packs from loading:
 | `SENTRIFLOW: Show All Disabled Items` | View summary of disabled packs/vendors/rules |
 | `SENTRIFLOW: Show Rules Panel` | Focus the Rules TreeView |
 | `SENTRIFLOW: Show Rule Packs` | Legacy menu for rule pack management |
+| `SENTRIFLOW: Filter Diagnostics by Category` | Filter displayed diagnostics by rule category |
+| `SENTRIFLOW: Filter Tags by Type...` | Filter the "By Tag" section by tag type |
 
 ### Configuration
 
@@ -203,6 +231,21 @@ To block external rule packs from loading:
 | `SENTRIFLOW: Select Vendor` | Choose vendor for parsing |
 | `SENTRIFLOW: Set as Network Config` | Set file language to network-config |
 | `SENTRIFLOW: Toggle Debug Logging` | Enable/disable debug output |
+
+## Hover Tooltips
+
+Hover over any diagnostic (squiggly underline) to see detailed information:
+
+- **Rule ID and Category**: Quick identification and grouping
+- **Tags**: All typed tags with their type (`security`, `operational`, `compliance`, `general`) and optional scores
+- **Description**: Full explanation of the compliance issue
+- **Remediation**: Specific guidance on how to fix the issue
+- **Owner Info**: OBU and owner details for internal rules
+
+The diagnostic messages also include the rule ID and category in brackets for quick reference:
+```
+[NET-SEC-001] (authentication) Plaintext password detected in configuration
+```
 
 ## Status Bar
 

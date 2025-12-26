@@ -5,6 +5,32 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-12-26
+
+### Added
+- **IP Addresses TreeView** - New dedicated "IP Addresses" panel in the Activity Bar that automatically extracts and displays all IP addresses and subnets from the current file:
+  - Organized by type: IPv4 Addresses, IPv6 Addresses, IPv4 Subnets, IPv6 Subnets
+  - Network addresses from subnets are included in the Addresses lists (e.g., `10.0.0.0` from `10.0.0.0/24` appears in IPv4 Addresses)
+  - Click any IP to copy it to clipboard
+  - "Copy All" button in the view title to copy all IPs at once
+  - "Copy All" button on each category to copy only that category (e.g., just IPv4 Subnets)
+  - Automatically updates when switching between files
+- **Hover Provider** - Hovering over diagnostics now shows rich tooltips with:
+  - Rule ID and category with severity icons
+  - All typed tags with their types and scores
+  - Full description and remediation guidance
+  - OBU and owner information
+- **Multi-Diagnostic Hover** - When multiple diagnostics are stacked on the same line, hovering now shows details for ALL violations, not just the first one
+- **Category Filter Command** - New `SENTRIFLOW: Filter Diagnostics by Category` command to filter diagnostics by rule category
+- **Enhanced Diagnostic Messages** - Diagnostic messages now include rule ID and category: `[RULE-ID] (category) message`
+
+### Changed
+- Diagnostic format updated to include category information for better filtering
+- IP address commands moved from context menu to dedicated Activity Bar panel for better UX
+
+### Removed
+- `Copy IP Addresses` and `Show IP Addresses` context menu items (replaced by IP Addresses TreeView)
+
 ## [0.2.1] - 2025-12-25
 
 ### Added
@@ -22,11 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "By Security Tag" section renamed to "By Tag" to reflect support for all tag types
 - Tags are now displayed with their type in tooltips (e.g., `[security]`, `[operational]`)
 
-## [0.2.0] - 2024-12-25
+## [0.2.0] - 2025-12-25
 
 ### Added
 - **Activity Bar with Rules TreeView** - Dedicated SentriFlow icon in the Activity Bar with a hierarchical view of all rules organized by Pack > Vendor > Rule
-- **Security Tags Section** - New collapsible "By Security Tag" section in the TreeView that groups rules by their security tags (e.g., `vlan-hopping`, `access-control`, `network-security`). Rules with multiple tags appear under each tag they belong to.
+- **Security Tags Section** - New collapsible "By Tag" section in the TreeView that groups rules by their typed tags (e.g., `vlan-hopping`, `access-control`, `network-security`). Rules with multiple tags appear under each tag they belong to.
 - **Flexible Tree Grouping** - Configure how rules are organized in the tree view:
   - `Vendor > Rules` (default)
   - `Category > Rules`
@@ -51,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - View Details
 - **New Settings**:
   - `sentriflow.treeGrouping` - Choose how to organize rules in the tree view
-  - `sentriflow.showTagsSection` - Toggle the "By Security Tag" section visibility
+  - `sentriflow.showTagsSection` - Toggle the "By Tag" section visibility
 
 ### Changed
 - Rule management is now accessible in 1-2 clicks instead of 5+ clicks through nested menus
@@ -59,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TreeView automatically refreshes when settings change
 - Categories and security tags are now treated as separate concepts (tags no longer used as fallback for missing categories)
 
-## [0.1.7] - 2024-12-24
+## [0.1.7] - 2025-12-24
 
 ### Fixed
 - Support comma-separated rule IDs in `disabledRules` setting
@@ -67,20 +93,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Version bump for all workspace packages
 
-## [0.1.6] - 2024-11-XX
+## [0.1.6] - 2025-12-22
 
 ### Changed
 - Documentation clarification: SentriFlow is a compliance validator, not a syntax linter
 
-## [0.1.5] - 2024-10-XX
-
-### Changed
-- Minor changes and version bump
-
-## [0.1.4] - 2024-10-XX
+## [0.1.5] - 2025-12-21
 
 ### Added
-- Initial public release
+- CI workflows for VS Code Marketplace publishing
+
+### Fixed
+- Skip scanning virtual documents from git extensions
+
+## [0.1.4] - 2025-12-20
+
+### Added
+- Setting to disable individual rules
+- Comma-separated values support in `disabledRules` setting
+
+### Changed
+- Updated README with actual settings and features
+
+## [0.1.3] - 2025-12-20
+
+### Changed
+- Build system switched to Bun
+- Fixed CLI usage examples in documentation
+
+## [0.1.1] - 2025-12-19
+
+### Fixed
+- Normalized package.json fields per npm standards
+
+## [0.1.0] - 2025-12-19
+
+### Added
+- Initial release
 - Real-time compliance validation for network configurations
 - Support for 12+ network vendors (Cisco IOS/NX-OS, Juniper, Arista, Aruba, Fortinet, Palo Alto, and more)
 - 100+ built-in compliance rules
@@ -89,8 +138,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SARIF export support
 - Status bar indicators for scan results, vendor, and active rules
 - QuickPick menus for vendor selection and pack management
-
-## [0.1.0] - 2024-XX-XX
-
-### Added
-- Initial development release

@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "license": "Apache-2.0",
   "publisher": "sentriflow",
   "engines": {
@@ -44,6 +44,11 @@
         {
           "id": "sentriflowRules",
           "name": "Rules",
+          "type": "tree"
+        },
+        {
+          "id": "sentriflowIPAddresses",
+          "name": "IP Addresses",
           "type": "tree"
         },
         {
@@ -182,16 +187,34 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "sentriflow.copyIPAddresses",
-        "title": "Copy IP Addresses",
+        "command": "sentriflow.refreshIPTree",
+        "title": "Refresh IP Addresses",
+        "category": "SentriFlow",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "sentriflow.copyAllIPs",
+        "title": "Copy All IP Addresses",
         "category": "SentriFlow",
         "icon": "$(clippy)"
       },
       {
-        "command": "sentriflow.showIPAddresses",
-        "title": "Show IP Addresses",
+        "command": "sentriflow.copyIPValue",
+        "title": "Copy",
         "category": "SentriFlow",
-        "icon": "$(symbol-misc)"
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "sentriflow.copyIPCategory",
+        "title": "Copy All in Category",
+        "category": "SentriFlow",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "sentriflow.filterByCategory",
+        "title": "Filter Diagnostics by Category",
+        "category": "SentriFlow",
+        "icon": "$(filter)"
       }
     ],
     "menus": {
@@ -205,16 +228,6 @@
           "command": "sentriflow.scanSelection",
           "group": "1_sentriflow@2",
           "when": "editorHasSelection"
-        },
-        {
-          "command": "sentriflow.copyIPAddresses",
-          "group": "1_sentriflow@3",
-          "when": "editorTextFocus"
-        },
-        {
-          "command": "sentriflow.showIPAddresses",
-          "group": "1_sentriflow@4",
-          "when": "editorTextFocus"
         }
       ],
       "explorer/context": [
@@ -248,6 +261,22 @@
         {
           "command": "sentriflow.refreshRulesTree",
           "when": "false"
+        },
+        {
+          "command": "sentriflow.refreshIPTree",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.copyIPValue",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.copyIPCategory",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.copyAllIPs",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -255,6 +284,16 @@
           "command": "sentriflow.refreshRulesTree",
           "when": "view == sentriflowRules",
           "group": "navigation"
+        },
+        {
+          "command": "sentriflow.refreshIPTree",
+          "when": "view == sentriflowIPAddresses",
+          "group": "navigation@1"
+        },
+        {
+          "command": "sentriflow.copyAllIPs",
+          "when": "view == sentriflowIPAddresses",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -307,6 +346,26 @@
           "command": "sentriflow.viewRuleDetails",
           "when": "view == sentriflowRules && viewItem =~ /^rule-/",
           "group": "3_view@1"
+        },
+        {
+          "command": "sentriflow.copyIPValue",
+          "when": "view == sentriflowIPAddresses && viewItem =~ /^ip-(address|subnet)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "sentriflow.copyIPValue",
+          "when": "view == sentriflowIPAddresses && viewItem =~ /^ip-(address|subnet)$/",
+          "group": "1_copy@1"
+        },
+        {
+          "command": "sentriflow.copyIPCategory",
+          "when": "view == sentriflowIPAddresses && viewItem =~ /^ip-category-/",
+          "group": "inline@1"
+        },
+        {
+          "command": "sentriflow.copyIPCategory",
+          "when": "view == sentriflowIPAddresses && viewItem =~ /^ip-category-/",
+          "group": "1_copy@1"
         }
       ]
     },

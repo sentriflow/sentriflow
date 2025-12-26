@@ -19,6 +19,7 @@ bun add @sentriflow/core
 - **Multi-vendor support**: Cisco IOS/NX-OS, Juniper JunOS, Arista EOS, Fortinet FortiGate, Palo Alto PAN-OS, and more
 - **AST-based parsing**: Converts configurations into a vendor-agnostic Abstract Syntax Tree
 - **Extensible rule engine**: Define compliance rules for best practices or organization-specific policies
+- **IP/Subnet Extraction**: Extract and deduplicate IP addresses and CIDR subnets from configurations
 - **TypeScript native**: Full type safety with comprehensive type definitions
 
 ## Supported Vendors
@@ -74,6 +75,34 @@ Checks an AST for compliance against a set of rules.
 ### `detect(config: string): VendorInfo | null`
 
 Auto-detects the vendor/platform from configuration content.
+
+### `extractIPSummary(content: string, options?: ExtractOptions): IPSummary`
+
+Extracts all IP addresses and subnets from configuration text.
+
+```typescript
+import { extractIPSummary } from '@sentriflow/core';
+
+const config = `
+interface GigabitEthernet0/1
+  ip address 192.168.1.1 255.255.255.0
+  ip route 10.0.0.0/24 via 192.168.1.254
+`;
+
+const summary = extractIPSummary(config);
+// {
+//   ipv4Addresses: ['192.168.1.1', '192.168.1.254'],
+//   ipv6Addresses: [],
+//   ipv4Subnets: ['10.0.0.0/24'],
+//   ipv6Subnets: [],
+//   counts: { total: 3, ipv4: 2, ipv6: 0, ipv4Subnets: 1, ipv6Subnets: 0 }
+// }
+```
+
+**Options:**
+- `maxContentSize`: Maximum input size in bytes (default: 50MB) - prevents DoS
+- `includeSubnetNetworks`: Include subnet network addresses in address lists
+- `skipIPv4`, `skipIPv6`, `skipSubnets`: Skip specific extraction types
 
 ## Related Packages
 

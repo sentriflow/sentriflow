@@ -24,6 +24,8 @@ interface SarifRule {
     'security-severity'?: string;
     'cvss-vector'?: string;
     tags?: string[];
+    /** Rule category for grouping (e.g., 'authentication', 'routing') */
+    category?: string | string[];
   };
 }
 
@@ -117,12 +119,16 @@ export function generateSarif(
         }));
       }
 
-      // SEC-007: Add CVSS and tags if present
+      // SEC-007: Add CVSS, tags, and category if present
       const hasCvss = secMeta?.cvssScore !== undefined || secMeta?.cvssVector;
       const hasTags = rule.metadata.tags && rule.metadata.tags.length > 0;
+      const hasCategory = rule.category !== undefined;
 
-      if (hasCvss || hasTags) {
+      if (hasCvss || hasTags || hasCategory) {
         base.properties = {};
+        if (hasCategory) {
+          base.properties.category = rule.category;
+        }
         if (secMeta?.cvssScore !== undefined) {
           base.properties['security-severity'] = String(secMeta.cvssScore);
         }
@@ -316,12 +322,16 @@ export function generateMultiFileSarif(
         }));
       }
 
-      // SEC-007: Add CVSS and tags if present
+      // SEC-007: Add CVSS, tags, and category if present
       const hasCvss = secMeta?.cvssScore !== undefined || secMeta?.cvssVector;
       const hasTags = rule.metadata.tags && rule.metadata.tags.length > 0;
+      const hasCategory = rule.category !== undefined;
 
-      if (hasCvss || hasTags) {
+      if (hasCvss || hasTags || hasCategory) {
         base.properties = {};
+        if (hasCategory) {
+          base.properties.category = rule.category;
+        }
         if (secMeta?.cvssScore !== undefined) {
           base.properties['security-severity'] = String(secMeta.cvssScore);
         }
