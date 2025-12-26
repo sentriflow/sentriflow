@@ -36,6 +36,7 @@ export class RuleTreeItem extends vscode.TreeItem {
     public readonly categoryId?: string,
     public readonly rule?: IRule,
     public readonly isEnabled: boolean = true,
+    public readonly isEncrypted: boolean = false,
   ) {
     super(label, collapsibleState);
     // Encode enabled state in contextValue for conditional menu icons
@@ -46,12 +47,15 @@ export class RuleTreeItem extends vscode.TreeItem {
   private updateAppearance(): void {
     switch (this.itemType) {
       case 'pack':
+        // Use lock icon for encrypted packs, package icon for regular packs
+        const packIcon = this.isEncrypted ? 'lock' : 'package';
         this.iconPath = this.isEnabled
-          ? new vscode.ThemeIcon('package', new vscode.ThemeColor('testing.iconPassed'))
-          : new vscode.ThemeIcon('package', new vscode.ThemeColor('testing.iconSkipped'));
+          ? new vscode.ThemeIcon(packIcon, new vscode.ThemeColor('testing.iconPassed'))
+          : new vscode.ThemeIcon(packIcon, new vscode.ThemeColor('testing.iconSkipped'));
+        const encryptedLabel = this.isEncrypted ? ' [encrypted]' : '';
         this.tooltip = this.isEnabled
-          ? `Pack: ${this.packName} (enabled)`
-          : `Pack: ${this.packName} (disabled)`;
+          ? `Pack: ${this.packName}${encryptedLabel} (enabled)`
+          : `Pack: ${this.packName}${encryptedLabel} (disabled)`;
         break;
 
       case 'vendor':
@@ -146,6 +150,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
   private _getRegisteredPacks: () => Map<string, RulePack> = () => new Map();
   private _getAllRules: () => IRule[] = () => [];
   private _getDisabledRulesSet: () => Set<string> = () => new Set();
+  private _isPackEncrypted: (packName: string) => boolean = () => false;
 
   constructor() {}
 
@@ -157,11 +162,13 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
     getRegisteredPacks: () => Map<string, RulePack>,
     getAllRules: () => IRule[],
     getDisabledRulesSet: () => Set<string>,
+    isPackEncrypted?: (packName: string) => boolean,
   ): void {
     this._getDefaultPack = getDefaultPack;
     this._getRegisteredPacks = getRegisteredPacks;
     this._getAllRules = getAllRules;
     this._getDisabledRulesSet = getDisabledRulesSet;
+    this._isPackEncrypted = isPackEncrypted ?? (() => false);
   }
 
   /**
@@ -323,6 +330,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
     const registeredPacks = this._getRegisteredPacks();
     for (const [name, pack] of registeredPacks) {
       const isEnabled = !blockedPacks.has(name);
+      const isEncrypted = this._isPackEncrypted(name);
       items.push(new RuleTreeItem(
         `${name} (${pack.rules.length} rules)`,
         vscode.TreeItemCollapsibleState.Collapsed,
@@ -332,6 +340,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
         undefined,
         undefined,
         isEnabled,
+        isEncrypted,
       ));
     }
 

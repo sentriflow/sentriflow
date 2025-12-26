@@ -281,6 +281,40 @@ See the [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/mai
 - [SentriFlow CLI](https://github.com/sentriflow/sentriflow/tree/main/packages/cli)
 - [SentriFlow Core](https://github.com/sentriflow/sentriflow/tree/main/packages/core)
 
+## Privacy & Data Collection
+
+SentriFlow is designed with privacy in mind:
+
+### Open Source Features (Free)
+
+- **No data collection**: The open-source extension collects no telemetry or usage data
+- **Local processing**: All configuration scanning happens locally on your machine
+- **No network calls**: No data is transmitted to external servers
+
+### Commercial Features (Encrypted Packs)
+
+When using commercial encrypted rule packs, the following applies:
+
+| Data | Purpose | Storage |
+|------|---------|---------|
+| Hardware ID | License binding to prevent sharing | Local only (VS Code secrets) |
+| License key | Authentication with update server | Local only (VS Code secrets) |
+| API requests | Check for pack updates | Transmitted to SentriFlow API |
+
+**Important Notes**:
+
+- Hardware ID is a hash that cannot identify you personally
+- Data collection only occurs when you explicitly enter a license key
+- You can clear all stored data via "SENTRIFLOW: Clear License Key" command
+- See our [Privacy Policy](https://sentriflow.com.au/privacy) for complete details
+
+### Opt-Out
+
+Commercial features are disabled by default. To ensure no data collection:
+
+1. Don't enter a license key
+2. Or set `sentriflow.encryptedPacks.enabled` to `false`
+
 ## License
 
 Apache-2.0

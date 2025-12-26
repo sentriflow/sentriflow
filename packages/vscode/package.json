@@ -4,6 +4,26 @@
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
   "version": "0.2.2",
   "license": "Apache-2.0",
+  "qna": "marketplace",
+  "privacy": {
+    "termsOfService": "https://sentriflow.com.au/terms",
+    "privacyPolicy": "https://sentriflow.com.au/privacy",
+    "dataCollection": {
+      "machineId": {
+        "collected": true,
+        "purpose": "License binding for commercial encrypted rule packs",
+        "library": "node-machine-id",
+        "stored": "Local only (VS Code secrets storage)",
+        "transmitted": "Hash used for license validation API calls when using commercial features",
+        "optional": "Only collected when encrypted pack features are used"
+      },
+      "telemetry": {
+        "collected": false,
+        "details": "No telemetry data is collected or transmitted"
+      }
+    },
+    "thirdPartyDisclosure": "When using commercial features, a hardware-derived identifier is transmitted to SentriFlow servers for license validation. This identifier cannot be used to personally identify you."
+  },
   "publisher": "sentriflow",
   "engines": {
     "vscode": "^1.80.0"
@@ -215,6 +235,48 @@
         "title": "Filter Diagnostics by Category",
         "category": "SentriFlow",
         "icon": "$(filter)"
+      },
+      {
+        "command": "sentriflow.enterLicenseKey",
+        "title": "Enter License Key",
+        "category": "SentriFlow",
+        "icon": "$(key)"
+      },
+      {
+        "command": "sentriflow.clearLicenseKey",
+        "title": "Clear License Key",
+        "category": "SentriFlow",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "sentriflow.showLicenseStatus",
+        "title": "Show License Status",
+        "category": "SentriFlow",
+        "icon": "$(info)"
+      },
+      {
+        "command": "sentriflow.checkForUpdates",
+        "title": "Check for Pack Updates",
+        "category": "SentriFlow",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "sentriflow.downloadUpdates",
+        "title": "Download Pack Updates",
+        "category": "SentriFlow",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "sentriflow.reloadEncryptedPacks",
+        "title": "Reload Encrypted Packs",
+        "category": "SentriFlow",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "sentriflow.showEncryptedPackStatus",
+        "title": "Show Encrypted Pack Status",
+        "category": "SentriFlow",
+        "icon": "$(lock)"
       }
     ],
     "menus": {
@@ -491,6 +553,33 @@
           ],
           "default": "all",
           "description": "Filter tags by type in the 'By Tag' section. Choose 'all' to show all tags, or select a specific type."
+        },
+        "sentriflow.encryptedPacks.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable loading of encrypted rule packs (.grx2 files)"
+        },
+        "sentriflow.encryptedPacks.directory": {
+          "type": "string",
+          "default": "~/.sentriflow/packs",
+          "description": "Directory to scan for encrypted rule packs (.grx2 files)"
+        },
+        "sentriflow.encryptedPacks.autoUpdate": {
+          "type": "string",
+          "enum": ["disabled", "on-activation", "daily", "manual"],
+          "enumDescriptions": [
+            "Never check for updates automatically",
+            "Check when extension activates",
+            "Check once per day",
+            "Only when manually triggered"
+          ],
+          "default": "on-activation",
+          "description": "When to check for encrypted pack updates from cloud"
+        },
+        "sentriflow.encryptedPacks.showInTree": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show encrypted packs in the rules tree view with a lock icon"
         }
       }
     },
@@ -568,6 +657,9 @@
     "build:dev": "bun build.mjs --dev",
     "watch": "bun build.mjs --watch --dev",
     "package": "bun run build && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "node-machine-id": "1.1.12"
   },
   "devDependencies": {
     "@sentriflow/core": "workspace:*",
