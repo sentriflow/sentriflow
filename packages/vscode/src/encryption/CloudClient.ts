@@ -80,6 +80,13 @@ export class CloudClient {
   }
 
   /**
+   * Get the API URL (for logging/debugging)
+   */
+  getApiUrl(): string {
+    return this.apiUrl;
+  }
+
+  /**
    * Resolve path with ~ expansion
    */
   private resolvePath(path: string): string {
@@ -518,7 +525,9 @@ export async function checkForUpdatesWithProgress(
         // Log error silently - don't bother users with connection issues
         // Extension will continue using existing/cached packs
         const errorMessage = (error as Error).message;
-        logger?.(`[EncryptedPacks] Update check failed: ${errorMessage}`);
+        logger?.(
+          `[EncryptedPacks] Update check failed for ${cloudClient.getApiUrl()}: ${errorMessage}`
+        );
         return null;
       }
     }
