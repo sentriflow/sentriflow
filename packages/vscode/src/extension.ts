@@ -29,6 +29,7 @@ import { RulesTreeProvider, RuleTreeItem } from './providers/RulesTreeProvider';
 import { SettingsWebviewProvider } from './providers/SettingsWebviewProvider';
 import { SentriFlowHoverProvider } from './providers/HoverProvider';
 import { IPAddressesTreeProvider, IPTreeItem } from './providers/IPAddressesTreeProvider';
+import { LicenseTreeProvider } from './providers/LicenseTreeProvider';
 import {
   LicenseManager,
   CloudClient,
@@ -746,6 +747,7 @@ let diagnosticCollection: vscode.DiagnosticCollection;
 let rulesTreeProvider: RulesTreeProvider;
 let settingsWebviewProvider: SettingsWebviewProvider;
 let ipAddressesTreeProvider: IPAddressesTreeProvider;
+let licenseTreeProvider: LicenseTreeProvider;
 
 // Debounce timers per document URI
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -770,32 +772,40 @@ let debugMode = false;
  * Called during extension activation.
  */
 async function initializeEncryptedPacks(context: vscode.ExtensionContext): Promise<void> {
+  log('[EncryptedPacks] Initializing encrypted packs support...');
+
+  // Always initialize license manager (for license info display)
+  licenseManager = new LicenseManager(context);
+  log('[EncryptedPacks] License manager initialized');
+
   const config = vscode.workspace.getConfiguration('sentriflow');
   const enabled = config.get<boolean>('encryptedPacks.enabled', true);
-
-  if (!enabled) {
-    log('Encrypted packs disabled by configuration');
-    return;
-  }
-
-  // Initialize license manager
-  licenseManager = new LicenseManager(context);
+  log(`[EncryptedPacks] encryptedPacks.enabled = ${enabled}`);
 
   // Check if we have a license key
   const hasLicense = await licenseManager.hasLicenseKey();
+  log(`[EncryptedPacks] Has license key: ${hasLicense}`);
   if (!hasLicense) {
-    log('No license key configured for encrypted packs');
+    log('[EncryptedPacks] No license key configured - encrypted packs not available');
     return;
   }
 
-  // Get license info
+  // Get license info (for display even if packs disabled)
   const licenseInfo = await licenseManager.getLicenseInfo();
   if (!licenseInfo) {
-    log('Failed to get license info');
+    logInfo('[EncryptedPacks] Failed to parse license info');
+    return;
+  }
+  log(`[EncryptedPacks] License info: tier=${licenseInfo.payload.tier}, expires=${licenseInfo.expiryDate}, feeds=${licenseInfo.payload.feeds.join(',')}`);
+
+  // Stop here if encrypted packs are disabled (but license info is still available)
+  if (!enabled) {
+    log('[EncryptedPacks] Encrypted packs disabled by configuration - license info still available');
     return;
   }
 
   if (licenseInfo.isExpired) {
+    logInfo(`[EncryptedPacks] License expired on ${licenseInfo.expiryDate}`);
     vscode.window.showWarningMessage(
       `SentriFlow license expired on ${licenseInfo.expiryDate}. Encrypted packs will not be loaded.`
     );
@@ -810,6 +820,7 @@ async function initializeEncryptedPacks(context: vscode.ExtensionContext): Promi
   }
 
   // Initialize cloud client
+  log(`[EncryptedPacks] API URL for updates: ${licenseInfo.payload.api}`);
   cloudClient = new CloudClient({
     apiUrl: licenseInfo.payload.api,
     licenseKey: licenseInfo.jwt,
@@ -829,7 +840,13 @@ async function initializeEncryptedPacks(context: vscode.ExtensionContext): Promi
   }
 
   // Load encrypted packs
+  console.log('[SentriFlow] About to call loadEncryptedPacks()...');
   await loadEncryptedPacks();
+  console.log('[SentriFlow] loadEncryptedPacks() returned');
+
+  // Update license tree view
+  updateLicenseTree();
+  console.log('[SentriFlow] initializeEncryptedPacks() COMPLETED');
 }
 
 /**
@@ -874,20 +891,58 @@ async function checkAndDownloadUpdates(): Promise<void> {
  * Load encrypted packs from configured directory and cache.
  */
 async function loadEncryptedPacks(): Promise<void> {
-  if (!licenseManager) {
-    log('Cannot load encrypted packs - no license manager');
-    return;
-  }
+  log('[EncryptedPacks] Starting loadEncryptedPacks...');
 
-  const licenseInfo = await licenseManager.getLicenseInfo();
-  if (!licenseInfo || licenseInfo.isExpired) {
-    log('Cannot load encrypted packs - no valid license');
+  if (!licenseManager) {
+    log('[EncryptedPacks] Cannot load - no license manager initialized');
     return;
   }
 
   const config = vscode.workspace.getConfiguration('sentriflow');
-  const directory = config.get<string>('encryptedPacks.directory', DEFAULT_PACKS_DIRECTORY);
-  const machineId = await licenseManager.getMachineId();
+  const enabled = config.get<boolean>('encryptedPacks.enabled', true);
+  log(`[EncryptedPacks] Enabled setting: ${enabled}`);
+
+  if (!enabled) {
+    log('[EncryptedPacks] Encrypted packs disabled in settings');
+    return;
+  }
+
+  const licenseInfo = await licenseManager.getLicenseInfo();
+  if (!licenseInfo) {
+    log('[EncryptedPacks] No license key configured');
+    return;
+  }
+  if (licenseInfo.isExpired) {
+    log(`[EncryptedPacks] License expired on ${licenseInfo.expiryDate}`);
+    return;
+  }
+  log(`[EncryptedPacks] License valid - tier: ${licenseInfo.payload.tier}, feeds: ${licenseInfo.payload.feeds.join(', ')}`);
+
+  const configDirectory = config.get<string>('encryptedPacks.directory', '');
+  const directory = configDirectory || DEFAULT_PACKS_DIRECTORY;
+  log(`[EncryptedPacks] Scanning directory: ${directory}`);
+
+  // Use machine ID only if license is bound to a specific machine
+  // Portable licenses (no 'mid' in JWT) use 'portable-pack' convention
+  let machineId: string;
+  const actualMachineId = await licenseManager.getMachineId();
+  log(`[EncryptedPacks] This machine's ID: ${actualMachineId}`);
+
+  if (licenseInfo.payload.mid) {
+    if (licenseInfo.payload.mid !== actualMachineId) {
+      logInfo(`[EncryptedPacks] ERROR: License bound to different machine`);
+      log(`[EncryptedPacks] Machine ID mismatch! License: ${licenseInfo.payload.mid}, this machine: ${actualMachineId}`);
+      vscode.window.showErrorMessage(
+        'SentriFlow: This license is bound to a different machine. Encrypted packs will not load.'
+      );
+      return;
+    }
+    machineId = actualMachineId;
+    log(`[EncryptedPacks] Machine ID verified: ${machineId.substring(0, 8)}...`);
+  } else {
+    machineId = 'portable-pack';
+    log('[EncryptedPacks] Machine ID binding: portable (portable-pack)');
+  }
 
   // Clear existing encrypted packs
   for (const packInfo of encryptedPacksInfo) {
@@ -898,20 +953,35 @@ async function loadEncryptedPacks(): Promise<void> {
   encryptedPacksInfo = [];
 
   // Load from main directory
+  log(`[EncryptedPacks] Loading from main directory: ${directory}`);
   const mainResult = await loadAllPacks(
     directory,
     licenseInfo.jwt,
     machineId,
-    licenseInfo.payload.feeds
+    licenseInfo.payload.feeds,
+    log
   );
+  log(`[EncryptedPacks] Main directory result: ${mainResult.packs.length} packs found, ${mainResult.errors.length} errors`);
+  if (mainResult.errors.length > 0) {
+    logInfo(`[EncryptedPacks] Errors loading packs: ${mainResult.errors.join('; ')}`);
+  }
+  for (const pack of mainResult.packs) {
+    log(`[EncryptedPacks]   - ${pack.feedId}: ${pack.loaded ? 'loaded' : 'failed'} (${pack.error || 'ok'})`);
+  }
 
   // Load from cache directory
+  log(`[EncryptedPacks] Loading from cache directory: ${CACHE_DIRECTORY}`);
   const cacheResult = await loadAllPacks(
     CACHE_DIRECTORY,
     licenseInfo.jwt,
     machineId,
-    licenseInfo.payload.feeds
+    licenseInfo.payload.feeds,
+    log
   );
+  log(`[EncryptedPacks] Cache directory result: ${cacheResult.packs.length} packs found, ${cacheResult.errors.length} errors`);
+  if (cacheResult.errors.length > 0) {
+    log(`[EncryptedPacks] Cache directory errors: ${cacheResult.errors.join('; ')}`);
+  }
 
   // Merge results (prefer cache for newer versions)
   const allPacks = new Map<string, EncryptedPackInfo>();
@@ -928,6 +998,7 @@ async function loadEncryptedPacks(): Promise<void> {
   }
 
   encryptedPacksInfo = Array.from(allPacks.values());
+  log(`[EncryptedPacks] Total merged packs: ${encryptedPacksInfo.length}`);
 
   // Register loaded packs with the extension
   let loadedCount = 0;
@@ -941,14 +1012,15 @@ async function loadEncryptedPacks(): Promise<void> {
           packInfo.source === 'cache' ? CACHE_DIRECTORY : directory,
           licenseInfo.jwt,
           machineId,
-          [packInfo.feedId]
+          [packInfo.feedId],
+          log
         );
 
         // Find matching pack with rules
         // The loadAllPacks returns pack info but not the actual rules
         // We need to use loadExtendedPack directly
         const { loadExtendedPack } = await import('./encryption/GRX2ExtendedLoader');
-        const pack = await loadExtendedPack(packInfo.filePath, licenseInfo.jwt, machineId);
+        const pack = await loadExtendedPack(packInfo.filePath, licenseInfo.jwt, machineId, log);
 
         // Register the pack
         registeredPacks.set(packInfo.feedId, {
@@ -958,15 +1030,15 @@ async function loadEncryptedPacks(): Promise<void> {
 
         loadedCount++;
         totalRules += pack.rules.length;
-        log(`Loaded encrypted pack: ${packInfo.feedId} v${packInfo.version} (${pack.rules.length} rules)`);
+        logInfo(`Loaded encrypted pack: ${packInfo.feedId} v${packInfo.version} (${pack.rules.length} rules)`);
       } catch (err) {
-        log(`Failed to load encrypted pack ${packInfo.feedId}: ${(err as Error).message}`);
+        logInfo(`Failed to load encrypted pack ${packInfo.feedId}: ${(err as Error).message}`);
       }
     }
   }
 
   if (loadedCount > 0) {
-    log(`Loaded ${loadedCount} encrypted pack(s) with ${totalRules} rules`);
+    logInfo(`Loaded ${loadedCount} encrypted pack(s) with ${totalRules} rules`);
     rulesTreeProvider?.refresh();
     rescanActiveEditor();
   }
@@ -976,6 +1048,24 @@ async function loadEncryptedPacks(): Promise<void> {
   for (const error of allErrors) {
     log(`Encrypted pack error: ${error}`);
   }
+
+  // Update license tree with loaded packs
+  updateLicenseTree();
+}
+
+/**
+ * Update the license tree view with current license and pack info.
+ */
+async function updateLicenseTree(): Promise<void> {
+  if (!licenseTreeProvider) {
+    return;
+  }
+
+  const hasKey = licenseManager ? await licenseManager.hasLicenseKey() : false;
+  const licenseInfo = licenseManager ? await licenseManager.getLicenseInfo() : null;
+
+  licenseTreeProvider.setLicenseInfo(licenseInfo, hasKey);
+  licenseTreeProvider.setEncryptedPacks(encryptedPacksInfo);
 }
 
 /**
@@ -1023,6 +1113,7 @@ async function cmdClearLicenseKey(): Promise<void> {
     vscode.window.showInformationMessage('License key cleared');
     rulesTreeProvider?.refresh();
     rescanActiveEditor();
+    updateLicenseTree();
   }
 }
 
@@ -1215,6 +1306,14 @@ export function activate(context: vscode.ExtensionContext) {
       ipAddressesTreeProvider.updateFromDocument(vscode.window.activeTextEditor.document);
     }
 
+    // Create and register License TreeView
+    licenseTreeProvider = new LicenseTreeProvider();
+    const licenseTreeView = vscode.window.createTreeView('sentriflowLicense', {
+      treeDataProvider: licenseTreeProvider,
+      showCollapseAll: false,
+    });
+    context.subscriptions.push(licenseTreeView);
+
     // Register hover provider for diagnostic tooltips with category and tags
     const hoverProvider = new SentriFlowHoverProvider(
       diagnosticCollection,
@@ -1367,12 +1466,17 @@ export function activate(context: vscode.ExtensionContext) {
     promptDefaultRulesOnce();
 
     // Initialize encrypted pack support (async, don't block activation)
-    initializeEncryptedPacks(context).catch((err) => {
-      log(`Failed to initialize encrypted packs: ${(err as Error).message}`);
-    });
+    initializeEncryptedPacks(context)
+      .catch((err) => {
+        log(`Failed to initialize encrypted packs: ${(err as Error).message}`);
+      })
+      .finally(() => {
+        // Always update license tree after initialization attempt
+        updateLicenseTree();
+      });
 
-    log('SENTRIFLOW extension activated');
-    log(`Available vendors: ${getAvailableVendors().join(', ')}`);
+    logInfo('SENTRIFLOW extension activated');
+    logInfo(`Available vendors: ${getAvailableVendors().join(', ')}`);
 
     // Return API for other extensions to register rules and packs
     return {
@@ -1463,7 +1567,7 @@ export function activate(context: vscode.ExtensionContext) {
           }
 
           registeredPacks.set(validPack.name, validPack);
-          log(
+          logInfo(
             `Registered rule pack '${validPack.name}' v${validPack.version} (${validPack.rules.length} rules, priority ${validPack.priority})`
           );
 
@@ -3834,9 +3938,19 @@ function updateVendorStatusBar() {
   vendorStatusBarItem.tooltip = tooltip;
 }
 
+/**
+ * Log important operational messages (always visible)
+ */
+function logInfo(message: string) {
+  outputChannel.appendLine(`[${new Date().toISOString()}] ${message}`);
+}
+
+/**
+ * Log debug messages (only when debug mode is enabled)
+ */
 function log(message: string) {
   if (debugMode) {
-    outputChannel.appendLine(`[${new Date().toISOString()}] ${message}`);
+    logInfo(`[DEBUG] ${message}`);
   }
 }
 

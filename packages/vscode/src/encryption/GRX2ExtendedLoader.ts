@@ -321,18 +321,27 @@ function parseExtendedHeader(data: Buffer): {
 export async function loadExtendedPack(
   filePath: string,
   licenseKey: string,
-  machineId: string
+  machineId: string,
+  debug?: (msg: string) => void
 ): Promise<RulePack> {
+  debug?.(`[GRX2Loader] Loading pack: ${filePath}`);
+  debug?.(`[GRX2Loader] License key length: ${licenseKey.length}, first 20 chars: ${licenseKey.substring(0, 20)}...`);
+  debug?.(`[GRX2Loader] Machine ID: "${machineId}" (length: ${machineId.length})`);
+
   // Read pack file
   const data = await readFile(filePath);
+  debug?.(`[GRX2Loader] Pack file size: ${data.length} bytes`);
 
   // Parse extended header
   const { header, payloadOffset } = parseExtendedHeader(data);
+  debug?.(`[GRX2Loader] Header parsed - version: ${header.version}, keyType: ${header.keyType}, tmkVersion: ${header.tmkVersion}`);
+  debug?.(`[GRX2Loader] Wrapped TMK - ldkSalt: ${header.wrappedTMK.ldkSalt.toString('hex').substring(0, 16)}...`);
 
   // Derive LDK from license key, random salt, and machine ID
   // SECURITY: Salt is cryptographically random (stored in wrapped TMK)
   // MachineId provides device binding but is NOT the primary entropy source
   const ldk = deriveLDK(licenseKey, header.wrappedTMK.ldkSalt, machineId);
+  debug?.(`[GRX2Loader] LDK derived (first 8 bytes): ${ldk.subarray(0, 8).toString('hex')}`);
 
   // Unwrap TMK using LDK
   let tmk: Buffer;
@@ -343,10 +352,12 @@ export async function loadExtendedPack(
       header.wrappedTMK.iv,
       header.wrappedTMK.authTag
     );
+    debug?.(`[GRX2Loader] TMK unwrapped successfully`);
   } catch (error) {
+    debug?.(`[GRX2Loader] TMK unwrap FAILED: ${(error as Error).message}`);
     zeroize(ldk);
     throw new EncryptedPackError(
-      'Failed to unwrap TMK - invalid license key',
+      'Failed to unwrap TMK - invalid license key or machine ID mismatch',
       'DECRYPTION_FAILED',
       error
     );
@@ -422,19 +433,29 @@ function resolvePath(path: string): string {
  * Scan directory for .grx2 files
  *
  * @param directory - Directory to scan
+ * @param debug - Optional debug callback for logging
  * @returns Array of .grx2 file paths
  */
-async function scanForPacks(directory: string): Promise<string[]> {
+async function scanForPacks(
+  directory: string,
+  debug?: (msg: string) => void
+): Promise<string[]> {
   const resolvedDir = resolvePath(directory);
+  debug?.(`[GRX2Loader] Scanning directory: ${directory} -> resolved: ${resolvedDir}`);
 
   if (!existsSync(resolvedDir)) {
+    debug?.(`[GRX2Loader] Directory does not exist: ${resolvedDir}`);
     return [];
   }
 
   const entries = await readdir(resolvedDir);
+  debug?.(`[GRX2Loader] Found ${entries.length} entries in directory`);
+
   const grx2Files = entries
     .filter((entry) => entry.endsWith('.grx2'))
     .map((entry) => join(resolvedDir, entry));
+
+  debug?.(`[GRX2Loader] Found ${grx2Files.length} .grx2 files: ${grx2Files.join(', ')}`);
 
   return grx2Files;
 }
@@ -446,20 +467,22 @@ async function scanForPacks(directory: string): Promise<string[]> {
  * @param licenseKey - License key for decryption
  * @param machineId - Machine ID for LDK derivation
  * @param entitledFeeds - Optional list of entitled feed IDs (filter)
+ * @param debug - Optional debug callback for logging
  * @returns Load result with packs and errors
  */
 export async function loadAllPacks(
   directory: string,
   licenseKey: string,
   machineId: string,
-  entitledFeeds?: string[]
+  entitledFeeds?: string[],
+  debug?: (msg: string) => void
 ): Promise<PackLoadResult> {
   const packs: EncryptedPackInfo[] = [];
   const errors: string[] = [];
   let totalRules = 0;
 
   // Scan for pack files
-  const packFiles = await scanForPacks(directory);
+  const packFiles = await scanForPacks(directory, debug);
 
   if (packFiles.length === 0) {
     return {
@@ -480,7 +503,7 @@ export async function loadAllPacks(
     }
 
     try {
-      const pack = await loadExtendedPack(filePath, licenseKey, machineId);
+      const pack = await loadExtendedPack(filePath, licenseKey, machineId, debug);
 
       packs.push({
         feedId: fileName,

@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "license": "Apache-2.0",
   "qna": "marketplace",
   "privacy": {
@@ -69,6 +69,11 @@
         {
           "id": "sentriflowIPAddresses",
           "name": "IP Addresses",
+          "type": "tree"
+        },
+        {
+          "id": "sentriflowLicense",
+          "name": "License",
           "type": "tree"
         },
         {
@@ -561,8 +566,8 @@
         },
         "sentriflow.encryptedPacks.directory": {
           "type": "string",
-          "default": "~/.sentriflow/packs",
-          "description": "Directory to scan for encrypted rule packs (.grx2 files)"
+          "default": "",
+          "markdownDescription": "Directory to scan for encrypted rule packs (.grx2 files). Leave empty for platform default: `~/.sentriflow/packs` on Unix, `%USERPROFILE%\\.sentriflow\\packs` on Windows."
         },
         "sentriflow.encryptedPacks.autoUpdate": {
           "type": "string",

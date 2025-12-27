@@ -5,6 +5,22 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2025-12-27
+
+### Added
+- **Platform-Aware Pack Paths** - Encrypted pack directory now uses platform-aware paths:
+  - Unix/macOS: `~/.sentriflow/packs`
+  - Windows: `%USERPROFILE%\.sentriflow\packs`
+  - Leave setting empty to use platform default
+- **Enhanced Debug Logging** - Debug mode now shows API URL and machine ID for troubleshooting
+- **Machine ID Verification** - License bound to a specific machine now verified at load time
+
+### Fixed
+- **Portable License Loading** - Fixed TMK unwrap failure for portable licenses by using `portable-pack` convention for machine ID
+- **TreeView Unique IDs** - Fixed "Data tree node not found" error by adding unique IDs to LicenseTreeItem
+- **License Info Visibility** - License information now visible even when encrypted packs are disabled
+- **Logging Separation** - Split logging into `logInfo()` (always visible) and `log()` (debug only) for cleaner output
+
 ## [0.2.2] - 2025-12-26
 
 ### Added

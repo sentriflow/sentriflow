@@ -7,6 +7,9 @@
  * @module encryption/types
  */
 
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 // =============================================================================
 // License Types
 // =============================================================================
@@ -379,8 +382,8 @@ export const GRX2_KEY_TYPE_TMK = 1;
 /** CTMK key type */
 export const GRX2_KEY_TYPE_CTMK = 2;
 
-/** Default packs directory */
-export const DEFAULT_PACKS_DIRECTORY = '~/.sentriflow/packs';
+/** Default packs directory (platform-aware) */
+export const DEFAULT_PACKS_DIRECTORY = join(homedir(), '.sentriflow', 'packs');
 
-/** Cache directory (for downloaded packs) */
-export const CACHE_DIRECTORY = '~/.sentriflow/cache';
+/** Cache directory (for downloaded packs, platform-aware) */
+export const CACHE_DIRECTORY = join(homedir(), '.sentriflow', 'cache');

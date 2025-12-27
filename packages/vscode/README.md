@@ -131,6 +131,9 @@ The extension automatically activates for files with these extensions:
 | `sentriflow.disabledRules` | List of rule IDs to disable globally | `[]` |
 | `sentriflow.blockedPacks` | List of rule pack names to block | `[]` |
 | `sentriflow.packVendorOverrides` | Per-pack vendor settings | `{}` |
+| `sentriflow.encryptedPacks.enabled` | Enable loading of encrypted rule packs | `true` |
+| `sentriflow.encryptedPacks.directory` | Directory for encrypted packs (leave empty for platform default) | `""` |
+| `sentriflow.encryptedPacks.autoUpdate` | Auto-update behavior (`disabled`, `on-activation`, `daily`, `manual`) | `on-activation` |
 
 ### Disabling Individual Rules
 
