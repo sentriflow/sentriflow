@@ -497,11 +497,13 @@ export class CloudClient {
  *
  * @param cloudClient - Cloud client instance
  * @param localPacks - Local pack versions
- * @returns Update check result
+ * @param logger - Optional logger for debug messages (errors are logged silently)
+ * @returns Update check result, or null if check failed
  */
 export async function checkForUpdatesWithProgress(
   cloudClient: CloudClient,
-  localPacks: Map<string, string>
+  localPacks: Map<string, string>,
+  logger?: (message: string) => void
 ): Promise<UpdateCheckResult | null> {
   return vscode.window.withProgress(
     {
@@ -513,9 +515,10 @@ export async function checkForUpdatesWithProgress(
       try {
         return await cloudClient.checkForUpdates(localPacks);
       } catch (error) {
-        vscode.window.showErrorMessage(
-          `Failed to check for updates: ${(error as Error).message}`
-        );
+        // Log error silently - don't bother users with connection issues
+        // Extension will continue using existing/cached packs
+        const errorMessage = (error as Error).message;
+        logger?.(`[EncryptedPacks] Update check failed: ${errorMessage}`);
         return null;
       }
     }

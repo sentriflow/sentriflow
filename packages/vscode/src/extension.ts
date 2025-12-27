@@ -888,10 +888,11 @@ async function checkAndDownloadUpdates(): Promise<void> {
     }
   }
 
-  // Check for updates
+  // Check for updates (errors logged silently, continues with cached packs)
   lastUpdateCheck = await checkForUpdatesWithProgress(
     cloudClient,
-    localVersions
+    localVersions,
+    log
   );
 
   if (lastUpdateCheck?.hasUpdates) {
@@ -1229,7 +1230,8 @@ async function cmdCheckForUpdates(): Promise<void> {
 
   lastUpdateCheck = await checkForUpdatesWithProgress(
     cloudClient,
-    localVersions
+    localVersions,
+    log
   );
 
   if (lastUpdateCheck) {
