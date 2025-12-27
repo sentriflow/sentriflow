@@ -632,12 +632,32 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
    * Get all tags across all rules, mapped to the rules that have them
    * Rules with multiple tags will appear under each tag they have
    * Returns both the rules and the first Tag object found for metadata display
+   * Only includes rules from enabled packs (respects enableDefaultRules and blockedPacks)
    */
   private getAllTags(): Map<string, { rules: IRule[]; tagMeta: TagMeta }> {
     const tagMap = new Map<string, { rules: IRule[]; tagMeta: TagMeta }>();
-    const allRules = this._getAllRules();
+    const config = vscode.workspace.getConfiguration('sentriflow');
+    const enableDefaultRules = config.get<boolean>('enableDefaultRules', true);
+    const blockedPacks = new Set(config.get<string[]>('blockedPacks', []));
 
-    for (const rule of allRules) {
+    // Collect rules from enabled packs only
+    const rulesToProcess: IRule[] = [];
+
+    // Include default pack rules only if enabled
+    if (enableDefaultRules) {
+      rulesToProcess.push(...this._getAllRules());
+    }
+
+    // Include rules from enabled external packs
+    const registeredPacks = this._getRegisteredPacks();
+    for (const [packName, pack] of registeredPacks) {
+      if (!blockedPacks.has(packName)) {
+        rulesToProcess.push(...pack.rules);
+      }
+    }
+
+    // Build tag map from filtered rules
+    for (const rule of rulesToProcess) {
       const tags = rule.metadata.tags ?? [];
       for (const tag of tags) {
         if (!tagMap.has(tag.label)) {
