@@ -7,6 +7,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./grx2-loader": "./src/grx2-loader/index.ts",
     "./helpers": "./src/helpers/index.ts",
     "./helpers/common": "./src/helpers/common/index.ts",
     "./helpers/arista": "./src/helpers/arista/index.ts",
@@ -51,8 +52,12 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "node-machine-id": "^1.1.12"
+  },
   "devDependencies": {
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "@types/node": "^20.0.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

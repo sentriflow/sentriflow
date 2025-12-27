@@ -11,6 +11,10 @@ import {
   getAvailableVendors,
   extractIPSummary,
   InputValidationError,
+  // GRX2 Extended Pack Support
+  getMachineId,
+  loadExtendedPack,
+  EncryptedPackError,
 } from '@sentriflow/core';
 import type { VendorSchema } from '@sentriflow/core';
 import type { IRule, RuleResult, Tag } from '@sentriflow/core';
@@ -99,6 +103,18 @@ program
     'Fail if encrypted pack cannot be loaded (default: warn and continue)'
   )
   .option(
+    '--grx2-pack <path...>',
+    'Path(s) to extended encrypted rule pack(s) (.grx2), can specify multiple'
+  )
+  .option(
+    '--strict-grx2',
+    'Fail immediately if any GRX2 pack cannot be loaded'
+  )
+  .option(
+    '--show-machine-id',
+    'Display the current machine ID (for license binding support)'
+  )
+  .option(
     '--json-rules <path...>',
     'Path(s) to JSON rules file(s), can specify multiple'
   )
@@ -162,6 +178,20 @@ program
   .option('--progress', 'Show progress during directory scanning')
   .action(async (files: string[], options) => {
     try {
+      // Show machine ID mode (for license binding support)
+      if (options.showMachineId) {
+        try {
+          const machineId = await getMachineId();
+          console.log(`Machine ID: ${machineId}`);
+          console.log(`\nUse this ID when requesting a machine-bound license.`);
+        } catch (error) {
+          console.error('Error: Failed to retrieve machine ID');
+          console.error(error instanceof Error ? error.message : String(error));
+          process.exit(1);
+        }
+        return;
+      }
+
       // List vendors mode
       if (options.listVendors) {
         console.log('Supported vendors:\n');
@@ -223,6 +253,8 @@ program
         encryptedPackPaths: options.encryptedPack, // SEC-012: Now supports array
         licenseKey, // SEC-012: From CLI or SENTRIFLOW_LICENSE_KEY env var
         strictPacks: options.strictPacks, // SEC-012: Fail on pack load errors
+        grx2PackPaths: options.grx2Pack, // Extended GRX2 packs
+        strictGrx2: options.strictGrx2, // Fail on GRX2 pack load errors
         jsonRulesPaths: options.jsonRules, // JSON rules files
         disableIds: options.disable ?? [],
         vendorId,
@@ -655,6 +687,8 @@ program
           encryptedPackPaths: options.encryptedPack,
           licenseKey,
           strictPacks: options.strictPacks,
+          grx2PackPaths: options.grx2Pack,
+          strictGrx2: options.strictGrx2,
           jsonRulesPaths: options.jsonRules,
           disableIds: options.disable ?? [],
           vendorId: vendor.id,
@@ -897,6 +931,8 @@ program
         encryptedPackPaths: options.encryptedPack,
         licenseKey,
         strictPacks: options.strictPacks,
+        grx2PackPaths: options.grx2Pack,
+        strictGrx2: options.strictGrx2,
         jsonRulesPaths: options.jsonRules, // JSON rules files
         disableIds: options.disable ?? [],
         vendorId: vendor.id, // Now we have the actual detected vendor

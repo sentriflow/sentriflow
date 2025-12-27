@@ -18,6 +18,9 @@ export * from './pack-loader';
 // Pack Provider abstraction for cloud licensing extension
 export * from './pack-provider';
 
+// GRX2 Extended Pack Loader - for CLI and VS Code extension
+export * from './grx2-loader';
+
 // SEC-001: Declarative rules and sandboxed execution
 export * from './types/DeclarativeRule';
 export * from './engine/SandboxedExecutor';

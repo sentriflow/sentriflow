@@ -15,6 +15,10 @@ import {
   validateJsonRuleFile,
   compileJsonRules,
   type JsonRuleFile,
+  // GRX2 Extended Pack Support
+  loadExtendedPack,
+  getMachineId,
+  EncryptedPackError,
 } from '@sentriflow/core';
 import type {
   IRule,
@@ -607,6 +611,12 @@ export interface ResolveOptions {
   /** SEC-012: Fail if encrypted pack cannot be loaded (default: false, warn and continue) */
   strictPacks?: boolean;
 
+  /** Path(s) to extended encrypted rule pack(s) (.grx2) */
+  grx2PackPaths?: string | string[];
+
+  /** Fail immediately if any GRX2 pack cannot be loaded (default: false, warn and continue) */
+  strictGrx2?: boolean;
+
   /** Path(s) to JSON rules file(s) */
   jsonRulesPaths?: string | string[];
 
@@ -767,6 +777,8 @@ export async function resolveRules(
     encryptedPackPaths,
     licenseKey,
     strictPacks = false, // SEC-012: Default to graceful handling
+    grx2PackPaths,
+    strictGrx2 = false, // Default to graceful handling
     jsonRulesPaths,
     disableIds = [],
     vendorId,
@@ -786,6 +798,13 @@ export async function resolveRules(
     ? Array.isArray(jsonRulesPaths)
       ? jsonRulesPaths
       : [jsonRulesPaths]
+    : [];
+
+  // Normalize GRX2 pack paths to array
+  const grx2PathsArray = grx2PackPaths
+    ? Array.isArray(grx2PackPaths)
+      ? grx2PackPaths
+      : [grx2PackPaths]
     : [];
 
   let config: SentriflowConfig = { includeDefaults: true };
@@ -921,6 +940,106 @@ export async function resolveRules(
           }
           console.error(`Warning: Failed to load encrypted pack: ${errorMsg}`);
           console.error(`Warning: Skipping encrypted pack: ${packPath}`);
+        }
+      }
+    }
+  }
+
+  // Add CLI --grx2-pack file(s) (priority 300+)
+  // Extended GRX2 format with embedded wrapped TMK - higher priority than legacy .grpx
+  if (grx2PathsArray.length > 0) {
+    if (!licenseKey) {
+      const errorMsg =
+        'License key required for GRX2 packs (use --license-key or set SENTRIFLOW_LICENSE_KEY)';
+      if (strictGrx2) {
+        throw new SentriflowConfigError(errorMsg);
+      }
+      console.error(`Warning: ${errorMsg}`);
+      console.error(
+        `Warning: Skipping ${grx2PathsArray.length} GRX2 pack(s)`
+      );
+    } else {
+      // Get machine ID for license binding
+      let machineId: string;
+      try {
+        machineId = await getMachineId();
+      } catch (error) {
+        const errorMsg = 'Failed to retrieve machine ID for license validation';
+        if (strictGrx2) {
+          throw new SentriflowConfigError(errorMsg);
+        }
+        console.error(`Warning: ${errorMsg}`);
+        console.error(
+          `Warning: Skipping ${grx2PathsArray.length} GRX2 pack(s)`
+        );
+        machineId = ''; // Will be checked in loader
+      }
+
+      if (machineId) {
+        // Track loading statistics for summary
+        let loadedCount = 0;
+        let totalRules = 0;
+        const failedPacks: string[] = [];
+
+        // Load each GRX2 pack with incrementing priority (300, 301, 302, ...)
+        for (let i = 0; i < grx2PathsArray.length; i++) {
+          const packPath = grx2PathsArray[i];
+          if (!packPath) continue;
+
+          try {
+            // Validate path is within allowed directories
+            const validation = validateEncryptedPackPath(packPath, allowedBaseDirs);
+            if (!validation.valid) {
+              throw new SentriflowConfigError(validation.error ?? 'Invalid pack path');
+            }
+
+            const grx2Pack = await loadExtendedPack(
+              validation.canonicalPath!,
+              licenseKey,
+              machineId
+            );
+            // Increment priority for each pack so later packs override earlier ones
+            grx2Pack.priority = 300 + i;
+            allPacks.push(grx2Pack);
+            loadedCount++;
+            totalRules += grx2Pack.rules.length;
+          } catch (error) {
+            // Map error codes to user-friendly messages
+            let errorMsg: string;
+            if (error instanceof EncryptedPackError) {
+              const messages: Record<string, string> = {
+                LICENSE_MISSING: 'Invalid or missing license key',
+                LICENSE_EXPIRED: 'License has expired',
+                LICENSE_INVALID: 'License key is invalid for this pack',
+                DECRYPTION_FAILED: 'Failed to decrypt pack (invalid key or corrupted data)',
+                MACHINE_MISMATCH: 'License is not valid for this machine',
+                PACK_CORRUPTED: 'Pack file is corrupted or invalid',
+                NOT_EXTENDED_FORMAT: 'Pack is not in extended GRX2 format',
+              };
+              errorMsg = messages[error.code] ?? `Pack load error: ${error.message}`;
+            } else {
+              errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            }
+
+            if (strictGrx2) {
+              throw new SentriflowConfigError(
+                `Failed to load GRX2 pack '${packPath}': ${errorMsg}`
+              );
+            }
+            console.error(`Warning: Failed to load GRX2 pack: ${errorMsg}`);
+            console.error(`Warning: Skipping GRX2 pack: ${packPath}`);
+            failedPacks.push(packPath);
+          }
+        }
+
+        // Display summary of loaded packs
+        if (grx2PathsArray.length > 0) {
+          const successMsg = `GRX2 packs: ${loadedCount} of ${grx2PathsArray.length} loaded (${totalRules} rules)`;
+          if (failedPacks.length > 0) {
+            console.error(`${successMsg}, ${failedPacks.length} failed`);
+          } else {
+            console.error(successMsg);
+          }
         }
       }
     }
