@@ -279,6 +279,14 @@ api?.registerRulePack({
 
 See the [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md) for details.
 
+## Architecture Notes
+
+### GRX2 Loader
+
+The GRX2 encrypted pack loader implementation lives in `@sentriflow/core/grx2-loader`. The VS Code extension re-exports these functions for internal use. This shared implementation ensures consistent behavior between CLI and VS Code when loading encrypted rule packs.
+
+See the [Core package documentation](https://github.com/sentriflow/sentriflow/tree/main/packages/core#grx2-loader-module) for API details.
+
 ## Related
 
 - [SentriFlow CLI](https://github.com/sentriflow/sentriflow/tree/main/packages/cli)

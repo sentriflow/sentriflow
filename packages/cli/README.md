@@ -111,6 +111,46 @@ Supported vendors: `cisco-ios`, `juniper-junos`, `palo-alto`, `fortinet`, `arist
 | `--license-key <key>` | License key (or set `SENTRIFLOW_LICENSE_KEY` env var) |
 | `--strict-packs` | Fail if encrypted pack cannot be loaded |
 
+### Extended Encrypted Packs (GRX2)
+
+Extended GRX2 packs (.grx2) embed wrapped encryption keys, enabling offline scanning without network access.
+
+| Option | Description |
+|--------|-------------|
+| `--grx2-pack <path...>` | Path(s) to extended encrypted rule pack(s) (.grx2) |
+| `--strict-grx2` | Fail immediately if any GRX2 pack cannot be loaded |
+| `--show-machine-id` | Display the current machine ID (for license binding support) |
+
+**Environment Variable:**
+- `SENTRIFLOW_LICENSE_KEY` - License key for decrypting packs
+
+**Offline Usage:**
+
+GRX2 packs contain embedded wrapped keys, allowing complete offline operation:
+
+```bash
+# Scan with portable pack (no network required)
+SENTRIFLOW_LICENSE_KEY=ey... sentriflow --grx2-pack ./enterprise-rules.grx2 router.conf
+
+# Scan with multiple packs
+sentriflow --grx2-pack pack1.grx2 pack2.grx2 --license-key ey... configs/
+
+# Strict mode: fail on pack load errors
+sentriflow --grx2-pack rules.grx2 --strict-grx2 router.conf
+```
+
+**Machine-Bound vs Portable Packs:**
+
+- **Portable packs**: Work on any machine with a valid license key
+- **Machine-bound packs**: Tied to a specific machine ID for additional security
+
+Use `--show-machine-id` to display your machine ID when requesting machine-bound packs:
+
+```bash
+sentriflow --show-machine-id
+# Output: Machine ID: a1b2c3d4...
+```
+
 ### Directory Scanning
 
 | Option | Description |

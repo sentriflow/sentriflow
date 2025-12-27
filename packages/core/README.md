@@ -20,6 +20,7 @@ bun add @sentriflow/core
 - **AST-based parsing**: Converts configurations into a vendor-agnostic Abstract Syntax Tree
 - **Extensible rule engine**: Define compliance rules for best practices or organization-specific policies
 - **IP/Subnet Extraction**: Extract and deduplicate IP addresses and CIDR subnets from configurations
+- **GRX2 Loader**: Load and decrypt extended encrypted rule packs for offline usage
 - **TypeScript native**: Full type safety with comprehensive type definitions
 
 ## Supported Vendors
@@ -103,6 +104,71 @@ const summary = extractIPSummary(config);
 - `maxContentSize`: Maximum input size in bytes (default: 50MB) - prevents DoS
 - `includeSubnetNetworks`: Include subnet network addresses in address lists
 - `skipIPv4`, `skipIPv6`, `skipSubnets`: Skip specific extraction types
+
+## GRX2 Loader Module
+
+The `grx2-loader` module provides functionality for loading extended encrypted rule packs (.grx2). These packs embed wrapped encryption keys, enabling offline scanning without network access.
+
+### Exported Functions
+
+```typescript
+import {
+  loadExtendedPack,
+  loadAllPacks,
+  getPackInfo,
+  getMachineId,
+  getMachineIdSync,
+  isExtendedGRX2,
+} from '@sentriflow/core/grx2-loader';
+```
+
+| Function | Description |
+|----------|-------------|
+| `loadExtendedPack(filePath, licenseKey, machineId?)` | Load and decrypt a single GRX2 pack |
+| `loadAllPacks(directory, licenseKey, machineId?)` | Load all GRX2 packs from a directory |
+| `getPackInfo(filePath)` | Get metadata from a pack without decrypting |
+| `getMachineId()` | Get the current machine identifier (async) |
+| `getMachineIdSync()` | Get the current machine identifier (sync) |
+| `isExtendedGRX2(buffer)` | Check if a buffer contains an extended GRX2 pack |
+
+### Types
+
+```typescript
+import type {
+  GRX2ExtendedHeader,
+  GRX2PackLoadResult,
+  EncryptedPackInfo,
+  EncryptedPackErrorCode,
+  LicensePayload,
+} from '@sentriflow/core/grx2-loader';
+
+import { EncryptedPackError } from '@sentriflow/core/grx2-loader';
+```
+
+### Example Usage
+
+```typescript
+import { loadExtendedPack, getMachineId } from '@sentriflow/core/grx2-loader';
+
+const licenseKey = process.env.SENTRIFLOW_LICENSE_KEY;
+const machineId = await getMachineId();
+
+try {
+  const result = await loadExtendedPack('./rules.grx2', licenseKey, machineId);
+  if (result.success) {
+    console.log(`Loaded ${result.totalRules} rules`);
+  }
+} catch (error) {
+  if (error instanceof EncryptedPackError) {
+    console.error(`Pack error: ${error.code} - ${error.message}`);
+  }
+}
+```
+
+### Machine-Bound vs Portable Packs
+
+- **Portable packs**: Pass empty string for `machineId` parameter
+- **Machine-bound packs**: Pass the result of `getMachineId()` for device-specific binding
 
 ## Related Packages
 
