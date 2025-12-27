@@ -36,6 +36,7 @@ import { resolve, dirname } from 'path';
 import {
   validateConfigPath,
   validateEncryptedPackPath,
+  validateGrx2PackPath,
   validateJsonRulesPath,
 } from './security/pathValidator';
 import {
@@ -988,7 +989,7 @@ export async function resolveRules(
 
           try {
             // Validate path is within allowed directories
-            const validation = validateEncryptedPackPath(packPath, allowedBaseDirs);
+            const validation = validateGrx2PackPath(packPath, allowedBaseDirs);
             if (!validation.valid) {
               throw new SentriflowConfigError(validation.error ?? 'Invalid pack path');
             }

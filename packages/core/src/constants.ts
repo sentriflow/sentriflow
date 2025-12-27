@@ -23,8 +23,11 @@ export const MAX_TRAVERSAL_DEPTH = 20;
 /** Allowed extensions for config/rules files */
 export const ALLOWED_CONFIG_EXTENSIONS = ['.js', '.ts', '.mjs', '.cjs'];
 
-/** SEC-012: Allowed extensions for encrypted rule packs */
+/** SEC-012: Allowed extensions for encrypted rule packs (.grpx legacy format) */
 export const ALLOWED_ENCRYPTED_PACK_EXTENSIONS = ['.grpx'];
+
+/** Allowed extensions for GRX2 extended encrypted rule packs */
+export const ALLOWED_GRX2_PACK_EXTENSIONS = ['.grx2'];
 
 /** Allowed extensions for JSON rule files */
 export const ALLOWED_JSON_RULES_EXTENSIONS = ['.json'];

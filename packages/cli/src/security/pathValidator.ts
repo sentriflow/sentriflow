@@ -5,6 +5,7 @@ import { extname, resolve, isAbsolute, sep } from 'path';
 import {
   ALLOWED_CONFIG_EXTENSIONS,
   ALLOWED_ENCRYPTED_PACK_EXTENSIONS,
+  ALLOWED_GRX2_PACK_EXTENSIONS,
   ALLOWED_JSON_RULES_EXTENSIONS,
   MAX_CONFIG_FILE_SIZE,
   MAX_ENCRYPTED_PACK_SIZE,
@@ -202,6 +203,26 @@ export function validateEncryptedPackPath(
   return validatePath(packPath, {
     allowedBaseDirs: baseDirs,
     allowedExtensions: ALLOWED_ENCRYPTED_PACK_EXTENSIONS,
+    maxFileSize: MAX_ENCRYPTED_PACK_SIZE,
+    mustExist: true,
+  });
+}
+
+/**
+ * Validates a GRX2 extended encrypted rule pack (.grx2) file path.
+ * Wrapper around validatePath with GRX2 pack-specific defaults.
+ *
+ * @param packPath - Path to the GRX2 pack file
+ * @param baseDirs - Optional allowed base directories
+ * @returns Validation result
+ */
+export function validateGrx2PackPath(
+  packPath: string,
+  baseDirs?: string[]
+): PathValidationResult {
+  return validatePath(packPath, {
+    allowedBaseDirs: baseDirs,
+    allowedExtensions: ALLOWED_GRX2_PACK_EXTENSIONS,
     maxFileSize: MAX_ENCRYPTED_PACK_SIZE,
     mustExist: true,
   });
