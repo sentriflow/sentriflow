@@ -5,21 +5,24 @@ import type { LicenseInfo, EncryptedPackInfo } from '../encryption/types';
  * Tree item for license information display
  */
 class LicenseTreeItem extends vscode.TreeItem {
+  public readonly children?: LicenseTreeItem[];
+
   constructor(
-    public readonly itemId: string,
-    public readonly label: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly contextValue: string,
-    public readonly description?: string,
-    public readonly icon?: vscode.ThemeIcon,
-    public readonly children?: LicenseTreeItem[],
-    public readonly command?: vscode.Command
+    itemId: string,
+    label: string,
+    collapsibleState: vscode.TreeItemCollapsibleState,
+    contextValue: string,
+    description?: string,
+    icon?: vscode.ThemeIcon,
+    children?: LicenseTreeItem[],
+    command?: vscode.Command
   ) {
     super(label, collapsibleState);
     this.id = itemId; // Unique ID to prevent tree refresh errors
     this.description = description;
     this.iconPath = icon;
     this.contextValue = contextValue;
+    this.children = children;
     if (command) {
       this.command = command;
     }
