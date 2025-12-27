@@ -28,7 +28,10 @@ import { allRules, getRulesByVendor } from '@sentriflow/rules-default';
 import { RulesTreeProvider, RuleTreeItem } from './providers/RulesTreeProvider';
 import { SettingsWebviewProvider } from './providers/SettingsWebviewProvider';
 import { SentriFlowHoverProvider } from './providers/HoverProvider';
-import { IPAddressesTreeProvider, IPTreeItem } from './providers/IPAddressesTreeProvider';
+import {
+  IPAddressesTreeProvider,
+  IPTreeItem,
+} from './providers/IPAddressesTreeProvider';
 import { LicenseTreeProvider } from './providers/LicenseTreeProvider';
 import {
   LicenseManager,
@@ -166,7 +169,10 @@ function getDisabledRulesSet(): Set<string> {
 
   for (const item of disabledRules) {
     // Handle comma-separated values in a single item
-    const parts = item.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const parts = item
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     for (const part of parts) {
       ruleSet.add(part);
     }
@@ -713,7 +719,9 @@ function getRuleById(ruleId: string): IRule | undefined {
  */
 function formatCategory(rule: IRule | undefined): string {
   if (!rule?.category) return 'general';
-  return Array.isArray(rule.category) ? rule.category.join(', ') : rule.category;
+  return Array.isArray(rule.category)
+    ? rule.category.join(', ')
+    : rule.category;
 }
 
 // Track current vendor for status bar display
@@ -729,7 +737,9 @@ function getUniqueCategories(): string[] {
   const categories = new Set<string>();
   for (const rule of currentRuleMap.values()) {
     if (rule.category) {
-      const cats = Array.isArray(rule.category) ? rule.category : [rule.category];
+      const cats = Array.isArray(rule.category)
+        ? rule.category
+        : [rule.category];
       cats.forEach((c) => categories.add(c));
     }
   }
@@ -771,7 +781,9 @@ let debugMode = false;
  * Initialize encrypted pack support.
  * Called during extension activation.
  */
-async function initializeEncryptedPacks(context: vscode.ExtensionContext): Promise<void> {
+async function initializeEncryptedPacks(
+  context: vscode.ExtensionContext
+): Promise<void> {
   log('[EncryptedPacks] Initializing encrypted packs support...');
 
   // Always initialize license manager (for license info display)
@@ -786,7 +798,9 @@ async function initializeEncryptedPacks(context: vscode.ExtensionContext): Promi
   const hasLicense = await licenseManager.hasLicenseKey();
   log(`[EncryptedPacks] Has license key: ${hasLicense}`);
   if (!hasLicense) {
-    log('[EncryptedPacks] No license key configured - encrypted packs not available');
+    log(
+      '[EncryptedPacks] No license key configured - encrypted packs not available'
+    );
     return;
   }
 
@@ -796,11 +810,17 @@ async function initializeEncryptedPacks(context: vscode.ExtensionContext): Promi
     logInfo('[EncryptedPacks] Failed to parse license info');
     return;
   }
-  log(`[EncryptedPacks] License info: tier=${licenseInfo.payload.tier}, expires=${licenseInfo.expiryDate}, feeds=${licenseInfo.payload.feeds.join(',')}`);
+  log(
+    `[EncryptedPacks] License info: tier=${licenseInfo.payload.tier}, expires=${
+      licenseInfo.expiryDate
+    }, feeds=${licenseInfo.payload.feeds.join(',')}`
+  );
 
   // Stop here if encrypted packs are disabled (but license info is still available)
   if (!enabled) {
-    log('[EncryptedPacks] Encrypted packs disabled by configuration - license info still available');
+    log(
+      '[EncryptedPacks] Encrypted packs disabled by configuration - license info still available'
+    );
     return;
   }
 
@@ -827,7 +847,10 @@ async function initializeEncryptedPacks(context: vscode.ExtensionContext): Promi
   });
 
   // Check auto-update setting
-  const autoUpdate = config.get<string>('encryptedPacks.autoUpdate', 'on-activation');
+  const autoUpdate = config.get<string>(
+    'encryptedPacks.autoUpdate',
+    'on-activation'
+  );
   const shouldCheckUpdates = await licenseManager.isUpdateCheckDue(
     autoUpdate as 'disabled' | 'on-activation' | 'daily' | 'manual'
   );
@@ -840,13 +863,13 @@ async function initializeEncryptedPacks(context: vscode.ExtensionContext): Promi
   }
 
   // Load encrypted packs
-  console.log('[SentriFlow] About to call loadEncryptedPacks()...');
+  log('[EncryptedPacks] About to call loadEncryptedPacks()...');
   await loadEncryptedPacks();
-  console.log('[SentriFlow] loadEncryptedPacks() returned');
+  log('[EncryptedPacks] loadEncryptedPacks() returned');
 
   // Update license tree view
   updateLicenseTree();
-  console.log('[SentriFlow] initializeEncryptedPacks() COMPLETED');
+  log('[EncryptedPacks] initializeEncryptedPacks() COMPLETED');
 }
 
 /**
@@ -866,7 +889,10 @@ async function checkAndDownloadUpdates(): Promise<void> {
   }
 
   // Check for updates
-  lastUpdateCheck = await checkForUpdatesWithProgress(cloudClient, localVersions);
+  lastUpdateCheck = await checkForUpdatesWithProgress(
+    cloudClient,
+    localVersions
+  );
 
   if (lastUpdateCheck?.hasUpdates) {
     const updateCount = lastUpdateCheck.updatesAvailable.length;
@@ -877,7 +903,10 @@ async function checkAndDownloadUpdates(): Promise<void> {
     );
 
     if (action === 'Download Now') {
-      await downloadUpdatesWithProgress(cloudClient, lastUpdateCheck.updatesAvailable);
+      await downloadUpdatesWithProgress(
+        cloudClient,
+        lastUpdateCheck.updatesAvailable
+      );
       // Reload packs after download
       await loadEncryptedPacks();
     }
@@ -916,7 +945,11 @@ async function loadEncryptedPacks(): Promise<void> {
     log(`[EncryptedPacks] License expired on ${licenseInfo.expiryDate}`);
     return;
   }
-  log(`[EncryptedPacks] License valid - tier: ${licenseInfo.payload.tier}, feeds: ${licenseInfo.payload.feeds.join(', ')}`);
+  log(
+    `[EncryptedPacks] License valid - tier: ${
+      licenseInfo.payload.tier
+    }, feeds: ${licenseInfo.payload.feeds.join(', ')}`
+  );
 
   const configDirectory = config.get<string>('encryptedPacks.directory', '');
   const directory = configDirectory || DEFAULT_PACKS_DIRECTORY;
@@ -931,14 +964,18 @@ async function loadEncryptedPacks(): Promise<void> {
   if (licenseInfo.payload.mid) {
     if (licenseInfo.payload.mid !== actualMachineId) {
       logInfo(`[EncryptedPacks] ERROR: License bound to different machine`);
-      log(`[EncryptedPacks] Machine ID mismatch! License: ${licenseInfo.payload.mid}, this machine: ${actualMachineId}`);
+      log(
+        `[EncryptedPacks] Machine ID mismatch! License: ${licenseInfo.payload.mid}, this machine: ${actualMachineId}`
+      );
       vscode.window.showErrorMessage(
         'SentriFlow: This license is bound to a different machine. Encrypted packs will not load.'
       );
       return;
     }
     machineId = actualMachineId;
-    log(`[EncryptedPacks] Machine ID verified: ${machineId.substring(0, 8)}...`);
+    log(
+      `[EncryptedPacks] Machine ID verified: ${machineId.substring(0, 8)}...`
+    );
   } else {
     machineId = 'portable-pack';
     log('[EncryptedPacks] Machine ID binding: portable (portable-pack)');
@@ -961,12 +998,20 @@ async function loadEncryptedPacks(): Promise<void> {
     licenseInfo.payload.feeds,
     log
   );
-  log(`[EncryptedPacks] Main directory result: ${mainResult.packs.length} packs found, ${mainResult.errors.length} errors`);
+  log(
+    `[EncryptedPacks] Main directory result: ${mainResult.packs.length} packs found, ${mainResult.errors.length} errors`
+  );
   if (mainResult.errors.length > 0) {
-    logInfo(`[EncryptedPacks] Errors loading packs: ${mainResult.errors.join('; ')}`);
+    logInfo(
+      `[EncryptedPacks] Errors loading packs: ${mainResult.errors.join('; ')}`
+    );
   }
   for (const pack of mainResult.packs) {
-    log(`[EncryptedPacks]   - ${pack.feedId}: ${pack.loaded ? 'loaded' : 'failed'} (${pack.error || 'ok'})`);
+    log(
+      `[EncryptedPacks]   - ${pack.feedId}: ${
+        pack.loaded ? 'loaded' : 'failed'
+      } (${pack.error || 'ok'})`
+    );
   }
 
   // Load from cache directory
@@ -978,9 +1023,15 @@ async function loadEncryptedPacks(): Promise<void> {
     licenseInfo.payload.feeds,
     log
   );
-  log(`[EncryptedPacks] Cache directory result: ${cacheResult.packs.length} packs found, ${cacheResult.errors.length} errors`);
+  log(
+    `[EncryptedPacks] Cache directory result: ${cacheResult.packs.length} packs found, ${cacheResult.errors.length} errors`
+  );
   if (cacheResult.errors.length > 0) {
-    log(`[EncryptedPacks] Cache directory errors: ${cacheResult.errors.join('; ')}`);
+    log(
+      `[EncryptedPacks] Cache directory errors: ${cacheResult.errors.join(
+        '; '
+      )}`
+    );
   }
 
   // Merge results (prefer cache for newer versions)
@@ -1019,8 +1070,15 @@ async function loadEncryptedPacks(): Promise<void> {
         // Find matching pack with rules
         // The loadAllPacks returns pack info but not the actual rules
         // We need to use loadExtendedPack directly
-        const { loadExtendedPack } = await import('./encryption/GRX2ExtendedLoader');
-        const pack = await loadExtendedPack(packInfo.filePath, licenseInfo.jwt, machineId, log);
+        const { loadExtendedPack } = await import(
+          './encryption/GRX2ExtendedLoader'
+        );
+        const pack = await loadExtendedPack(
+          packInfo.filePath,
+          licenseInfo.jwt,
+          machineId,
+          log
+        );
 
         // Register the pack
         registeredPacks.set(packInfo.feedId, {
@@ -1030,9 +1088,15 @@ async function loadEncryptedPacks(): Promise<void> {
 
         loadedCount++;
         totalRules += pack.rules.length;
-        logInfo(`Loaded encrypted pack: ${packInfo.feedId} v${packInfo.version} (${pack.rules.length} rules)`);
+        logInfo(
+          `Loaded encrypted pack: ${packInfo.feedId} v${packInfo.version} (${pack.rules.length} rules)`
+        );
       } catch (err) {
-        logInfo(`Failed to load encrypted pack ${packInfo.feedId}: ${(err as Error).message}`);
+        logInfo(
+          `Failed to load encrypted pack ${packInfo.feedId}: ${
+            (err as Error).message
+          }`
+        );
       }
     }
   }
@@ -1062,7 +1126,9 @@ async function updateLicenseTree(): Promise<void> {
   }
 
   const hasKey = licenseManager ? await licenseManager.hasLicenseKey() : false;
-  const licenseInfo = licenseManager ? await licenseManager.getLicenseInfo() : null;
+  const licenseInfo = licenseManager
+    ? await licenseManager.getLicenseInfo()
+    : null;
 
   licenseTreeProvider.setLicenseInfo(licenseInfo, hasKey);
   licenseTreeProvider.setEncryptedPacks(encryptedPacksInfo);
@@ -1078,8 +1144,19 @@ async function cmdEnterLicenseKey(): Promise<void> {
 
   const success = await licenseManager.promptForLicenseKey();
   if (success) {
+    // Initialize cloud client for update checks
+    const licenseInfo = await licenseManager.getLicenseInfo();
+    if (licenseInfo && !licenseInfo.isExpired && licenseInfo.payload.api) {
+      log(`[EncryptedPacks] API URL for updates: ${licenseInfo.payload.api}`);
+      cloudClient = new CloudClient({
+        apiUrl: licenseInfo.payload.api,
+        licenseKey: licenseInfo.jwt,
+      });
+    }
+
     // Reload encrypted packs with new license
     await loadEncryptedPacks();
+    updateLicenseTree();
   }
 }
 
@@ -1150,7 +1227,10 @@ async function cmdCheckForUpdates(): Promise<void> {
     }
   }
 
-  lastUpdateCheck = await checkForUpdatesWithProgress(cloudClient, localVersions);
+  lastUpdateCheck = await checkForUpdatesWithProgress(
+    cloudClient,
+    localVersions
+  );
 
   if (lastUpdateCheck) {
     await licenseManager.setLastUpdateCheck(new Date().toISOString());
@@ -1161,7 +1241,9 @@ async function cmdCheckForUpdates(): Promise<void> {
         `SentriFlow: ${updateCount} pack update(s) available. Use "Download Pack Updates" to download.`
       );
     } else {
-      vscode.window.showInformationMessage('SentriFlow: All packs are up to date');
+      vscode.window.showInformationMessage(
+        'SentriFlow: All packs are up to date'
+      );
     }
   }
 }
@@ -1223,7 +1305,9 @@ async function cmdShowEncryptedPackStatus(): Promise<void> {
 
   await vscode.window.showQuickPick(items, {
     title: 'Encrypted Pack Status',
-    placeHolder: `${encryptedPacksInfo.filter((p) => p.loaded).length} of ${encryptedPacksInfo.length} packs loaded`,
+    placeHolder: `${encryptedPacksInfo.filter((p) => p.loaded).length} of ${
+      encryptedPacksInfo.length
+    } packs loaded`,
   });
 }
 
@@ -1270,7 +1354,8 @@ export function activate(context: vscode.ExtensionContext) {
       () => registeredPacks,
       () => allRules,
       getDisabledRulesSet,
-      (packName: string) => encryptedPacksInfo.some((p) => p.feedId === packName && p.loaded),
+      (packName: string) =>
+        encryptedPacksInfo.some((p) => p.feedId === packName && p.loaded)
     );
     const rulesTreeView = vscode.window.createTreeView('sentriflowRules', {
       treeDataProvider: rulesTreeProvider,
@@ -1295,15 +1380,20 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create and register IP Addresses TreeView
     ipAddressesTreeProvider = new IPAddressesTreeProvider();
-    const ipAddressesTreeView = vscode.window.createTreeView('sentriflowIPAddresses', {
-      treeDataProvider: ipAddressesTreeProvider,
-      showCollapseAll: true,
-    });
+    const ipAddressesTreeView = vscode.window.createTreeView(
+      'sentriflowIPAddresses',
+      {
+        treeDataProvider: ipAddressesTreeProvider,
+        showCollapseAll: true,
+      }
+    );
     context.subscriptions.push(ipAddressesTreeView);
 
     // Initialize IP view with current document
     if (vscode.window.activeTextEditor) {
-      ipAddressesTreeProvider.updateFromDocument(vscode.window.activeTextEditor.document);
+      ipAddressesTreeProvider.updateFromDocument(
+        vscode.window.activeTextEditor.document
+      );
     }
 
     // Create and register License TreeView
@@ -1354,9 +1444,8 @@ export function activate(context: vscode.ExtensionContext) {
         'sentriflow.viewRuleDetails',
         cmdViewRuleDetails
       ),
-      vscode.commands.registerCommand(
-        'sentriflow.refreshRulesTree',
-        () => rulesTreeProvider.refresh()
+      vscode.commands.registerCommand('sentriflow.refreshRulesTree', () =>
+        rulesTreeProvider.refresh()
       ),
       // Direct commands
       vscode.commands.registerCommand('sentriflow.togglePack', cmdTogglePack),
@@ -1384,28 +1473,50 @@ export function activate(context: vscode.ExtensionContext) {
         'sentriflow.filterByCategory',
         cmdFilterByCategory
       ),
-      vscode.commands.registerCommand(
-        'sentriflow.focusRulesView',
-        () => vscode.commands.executeCommand('sentriflowRules.focus')
+      vscode.commands.registerCommand('sentriflow.focusRulesView', () =>
+        vscode.commands.executeCommand('sentriflowRules.focus')
       )
     );
 
     // Register encrypted pack commands
     context.subscriptions.push(
-      vscode.commands.registerCommand('sentriflow.enterLicenseKey', cmdEnterLicenseKey),
-      vscode.commands.registerCommand('sentriflow.clearLicenseKey', cmdClearLicenseKey),
-      vscode.commands.registerCommand('sentriflow.showLicenseStatus', cmdShowLicenseStatus),
-      vscode.commands.registerCommand('sentriflow.checkForUpdates', cmdCheckForUpdates),
-      vscode.commands.registerCommand('sentriflow.downloadUpdates', cmdDownloadUpdates),
-      vscode.commands.registerCommand('sentriflow.reloadEncryptedPacks', cmdReloadEncryptedPacks),
-      vscode.commands.registerCommand('sentriflow.showEncryptedPackStatus', cmdShowEncryptedPackStatus)
+      vscode.commands.registerCommand(
+        'sentriflow.enterLicenseKey',
+        cmdEnterLicenseKey
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.clearLicenseKey',
+        cmdClearLicenseKey
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.showLicenseStatus',
+        cmdShowLicenseStatus
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.checkForUpdates',
+        cmdCheckForUpdates
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.downloadUpdates',
+        cmdDownloadUpdates
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.reloadEncryptedPacks',
+        cmdReloadEncryptedPacks
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.showEncryptedPackStatus',
+        cmdShowEncryptedPackStatus
+      )
     );
 
     // Register IP TreeView commands
     context.subscriptions.push(
       vscode.commands.registerCommand('sentriflow.refreshIPTree', () => {
         if (vscode.window.activeTextEditor) {
-          ipAddressesTreeProvider.updateFromDocument(vscode.window.activeTextEditor.document);
+          ipAddressesTreeProvider.updateFromDocument(
+            vscode.window.activeTextEditor.document
+          );
         }
       }),
       vscode.commands.registerCommand('sentriflow.copyAllIPs', async () => {
@@ -1420,23 +1531,38 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.window.showInformationMessage('No IP addresses to copy.');
         }
       }),
-      vscode.commands.registerCommand('sentriflow.copyIPValue', async (ipValue: string) => {
-        if (ipValue) {
-          await vscode.env.clipboard.writeText(ipValue);
-          vscode.window.showInformationMessage(`Copied: ${ipValue}`);
-        }
-      }),
-      vscode.commands.registerCommand('sentriflow.copyIPCategory', async (item: IPTreeItem) => {
-        if (item?.categoryId) {
-          const categoryIPs = ipAddressesTreeProvider.getCategoryIPsForClipboard(item.categoryId);
-          if (categoryIPs) {
-            await vscode.env.clipboard.writeText(categoryIPs);
-            const count = ipAddressesTreeProvider.getCategoryCount(item.categoryId);
-            const categoryLabel = item.categoryId.replace(/-/g, ' ').replace(/ipv(\d)/g, 'IPv$1');
-            vscode.window.showInformationMessage(`Copied ${count} ${categoryLabel} to clipboard.`);
+      vscode.commands.registerCommand(
+        'sentriflow.copyIPValue',
+        async (ipValue: string) => {
+          if (ipValue) {
+            await vscode.env.clipboard.writeText(ipValue);
+            vscode.window.showInformationMessage(`Copied: ${ipValue}`);
           }
         }
-      })
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.copyIPCategory',
+        async (item: IPTreeItem) => {
+          if (item?.categoryId) {
+            const categoryIPs =
+              ipAddressesTreeProvider.getCategoryIPsForClipboard(
+                item.categoryId
+              );
+            if (categoryIPs) {
+              await vscode.env.clipboard.writeText(categoryIPs);
+              const count = ipAddressesTreeProvider.getCategoryCount(
+                item.categoryId
+              );
+              const categoryLabel = item.categoryId
+                .replace(/-/g, ' ')
+                .replace(/ipv(\d)/g, 'IPv$1');
+              vscode.window.showInformationMessage(
+                `Copied ${count} ${categoryLabel} to clipboard.`
+              );
+            }
+          }
+        }
+      )
     );
 
     // Register event handlers with debouncing
@@ -2717,7 +2843,9 @@ async function showRuleActions(
       action: 'details',
     },
     {
-      label: isDisabled ? '$(check) Enable Rule' : '$(circle-slash) Disable Rule',
+      label: isDisabled
+        ? '$(check) Enable Rule'
+        : '$(circle-slash) Disable Rule',
       description: isDisabled
         ? 'Remove from disabled rules list'
         : 'Add to disabled rules list',
@@ -2743,7 +2871,9 @@ async function showRuleActions(
       outputChannel.appendLine(`\n${'='.repeat(60)}`);
       outputChannel.appendLine(`Rule: ${rule.id}`);
       outputChannel.appendLine(`${'='.repeat(60)}`);
-      outputChannel.appendLine(`Status:      ${isDisabled ? 'DISABLED' : 'Enabled'}`);
+      outputChannel.appendLine(
+        `Status:      ${isDisabled ? 'DISABLED' : 'Enabled'}`
+      );
       outputChannel.appendLine(`Level:       ${rule.metadata.level}`);
       outputChannel.appendLine(`Vendor:      ${rule.vendor ?? 'common'}`);
       outputChannel.appendLine(`Selector:    ${rule.selector ?? '(none)'}`);
@@ -2769,7 +2899,9 @@ async function showRuleActions(
         }
       }
       if (rule.metadata.tags?.length) {
-        outputChannel.appendLine(`Tags:        ${rule.metadata.tags.map(t => t.label).join(', ')}`);
+        outputChannel.appendLine(
+          `Tags:        ${rule.metadata.tags.map((t) => t.label).join(', ')}`
+        );
       }
       outputChannel.appendLine('');
       // Stay in rule actions
@@ -2859,10 +2991,9 @@ async function cmdDisableTreeItem(item: RuleTreeItem) {
     case 'vendor': {
       const packName = item.packName!;
       const vendorId = item.vendorId!;
-      const overrides = config.get<Record<string, { disabledVendors?: string[] }>>(
-        'packVendorOverrides',
-        {}
-      );
+      const overrides = config.get<
+        Record<string, { disabledVendors?: string[] }>
+      >('packVendorOverrides', {});
       const packOverride = overrides[packName] ?? { disabledVendors: [] };
       const disabledVendors = packOverride.disabledVendors ?? [];
 
@@ -2932,10 +3063,9 @@ async function cmdEnableTreeItem(item: RuleTreeItem) {
     case 'vendor': {
       const packName = item.packName!;
       const vendorId = item.vendorId!;
-      const overrides = config.get<Record<string, { disabledVendors?: string[] }>>(
-        'packVendorOverrides',
-        {}
-      );
+      const overrides = config.get<
+        Record<string, { disabledVendors?: string[] }>
+      >('packVendorOverrides', {});
       const packOverride = overrides[packName] ?? { disabledVendors: [] };
       const disabledVendors = packOverride.disabledVendors ?? [];
 
@@ -2965,10 +3095,9 @@ async function cmdEnableTreeItem(item: RuleTreeItem) {
       const vendorId = item.vendorId!;
 
       // Check if parent vendor is disabled
-      const overrides = config.get<Record<string, { disabledVendors?: string[] }>>(
-        'packVendorOverrides',
-        {}
-      );
+      const overrides = config.get<
+        Record<string, { disabledVendors?: string[] }>
+      >('packVendorOverrides', {});
       const packOverride = overrides[packName] ?? { disabledVendors: [] };
       const disabledVendors = packOverride.disabledVendors ?? [];
 
@@ -2976,15 +3105,20 @@ async function cmdEnableTreeItem(item: RuleTreeItem) {
         // Vendor is disabled - need to enable vendor but disable all other rules
         // 1. Get all rules for this vendor in this pack
         const isDefault = packName === DEFAULT_PACK_NAME;
-        const packRules = isDefault ? allRules : (registeredPacks.get(packName)?.rules ?? []);
+        const packRules = isDefault
+          ? allRules
+          : registeredPacks.get(packName)?.rules ?? [];
         const vendorRules = packRules.filter((r) => {
           if (!r.vendor) return vendorId === 'common';
-          if (Array.isArray(r.vendor)) return r.vendor.includes(vendorId as RuleVendor);
+          if (Array.isArray(r.vendor))
+            return r.vendor.includes(vendorId as RuleVendor);
           return r.vendor === vendorId;
         });
 
         // 2. Enable the vendor (remove from disabledVendors)
-        const newDisabledVendors = disabledVendors.filter((v) => v !== vendorId);
+        const newDisabledVendors = disabledVendors.filter(
+          (v) => v !== vendorId
+        );
         const newOverrides = { ...overrides };
         if (newDisabledVendors.length === 0) {
           delete newOverrides[packName];
@@ -3014,7 +3148,9 @@ async function cmdEnableTreeItem(item: RuleTreeItem) {
         );
 
         vscode.window.showInformationMessage(
-          `SENTRIFLOW: Enabled rule '${ruleId}' - vendor '${vendorId}' enabled, ${vendorRules.length - 1} other rules disabled`
+          `SENTRIFLOW: Enabled rule '${ruleId}' - vendor '${vendorId}' enabled, ${
+            vendorRules.length - 1
+          } other rules disabled`
         );
       } else {
         // Vendor is enabled, just toggle the rule
@@ -3034,7 +3170,9 @@ async function cmdEnableTreeItem(item: RuleTreeItem) {
 async function cmdCopyRuleId(item: RuleTreeItem) {
   if (!item || !item.rule) return;
   await vscode.env.clipboard.writeText(item.rule.id);
-  vscode.window.showInformationMessage(`SENTRIFLOW: Copied '${item.rule.id}' to clipboard`);
+  vscode.window.showInformationMessage(
+    `SENTRIFLOW: Copied '${item.rule.id}' to clipboard`
+  );
 }
 
 /**
@@ -3048,9 +3186,10 @@ async function cmdViewRuleDetails(item: RuleTreeItem) {
 
   switch (item.itemType) {
     case 'pack': {
-      const pack = item.packName === DEFAULT_PACK_NAME
-        ? defaultPack
-        : registeredPacks.get(item.packName!);
+      const pack =
+        item.packName === DEFAULT_PACK_NAME
+          ? defaultPack
+          : registeredPacks.get(item.packName!);
       if (pack) {
         outputChannel.appendLine(`Pack: ${pack.name}`);
         outputChannel.appendLine(`${'='.repeat(60)}`);
@@ -3058,8 +3197,16 @@ async function cmdViewRuleDetails(item: RuleTreeItem) {
         outputChannel.appendLine(`Version:     ${pack.version}`);
         outputChannel.appendLine(`Description: ${pack.description}`);
         outputChannel.appendLine(`Priority:    ${pack.priority}`);
-        outputChannel.appendLine(`Rules:       ${item.packName === DEFAULT_PACK_NAME ? allRules.length : pack.rules.length}`);
-        outputChannel.appendLine(`Status:      ${item.isEnabled ? 'Enabled' : 'DISABLED'}`);
+        outputChannel.appendLine(
+          `Rules:       ${
+            item.packName === DEFAULT_PACK_NAME
+              ? allRules.length
+              : pack.rules.length
+          }`
+        );
+        outputChannel.appendLine(
+          `Status:      ${item.isEnabled ? 'Enabled' : 'DISABLED'}`
+        );
       }
       break;
     }
@@ -3068,7 +3215,9 @@ async function cmdViewRuleDetails(item: RuleTreeItem) {
       outputChannel.appendLine(`Vendor: ${item.vendorId}`);
       outputChannel.appendLine(`${'='.repeat(60)}`);
       outputChannel.appendLine(`Pack:   ${item.packName}`);
-      outputChannel.appendLine(`Status: ${item.isEnabled ? 'Enabled' : 'DISABLED'}`);
+      outputChannel.appendLine(
+        `Status: ${item.isEnabled ? 'Enabled' : 'DISABLED'}`
+      );
       break;
     }
 
@@ -3079,7 +3228,9 @@ async function cmdViewRuleDetails(item: RuleTreeItem) {
       outputChannel.appendLine(`Level:       ${rule.metadata.level}`);
       outputChannel.appendLine(`Vendor:      ${rule.vendor ?? 'common'}`);
       outputChannel.appendLine(`Selector:    ${rule.selector ?? '(none)'}`);
-      outputChannel.appendLine(`Status:      ${item.isEnabled ? 'Enabled' : 'DISABLED'}`);
+      outputChannel.appendLine(
+        `Status:      ${item.isEnabled ? 'Enabled' : 'DISABLED'}`
+      );
       if (rule.metadata.description) {
         outputChannel.appendLine(`Description: ${rule.metadata.description}`);
       }
@@ -3102,7 +3253,9 @@ async function cmdViewRuleDetails(item: RuleTreeItem) {
         }
       }
       if (rule.metadata.tags?.length) {
-        outputChannel.appendLine(`Tags:        ${rule.metadata.tags.map(t => t.label).join(', ')}`);
+        outputChannel.appendLine(
+          `Tags:        ${rule.metadata.tags.map((t) => t.label).join(', ')}`
+        );
       }
       break;
     }
@@ -3132,7 +3285,9 @@ async function cmdTogglePack() {
 
   // Default pack
   items.push({
-    label: `${enableDefaultRules ? '$(check)' : '$(circle-slash)'} ${DEFAULT_PACK_NAME}`,
+    label: `${
+      enableDefaultRules ? '$(check)' : '$(circle-slash)'
+    } ${DEFAULT_PACK_NAME}`,
     description: enableDefaultRules ? 'Enabled' : 'Disabled',
     detail: `${allRules.length} rules`,
     packName: DEFAULT_PACK_NAME,
@@ -3167,7 +3322,7 @@ async function cmdTogglePack() {
     undefined,
     undefined,
     undefined,
-    selected.isEnabled,
+    selected.isEnabled
   );
 
   // Toggle: if enabled, disable it; if disabled, enable it
@@ -3207,7 +3362,9 @@ async function cmdToggleVendor() {
     }
   }
 
-  const defaultDisabled = new Set(overrides[DEFAULT_PACK_NAME]?.disabledVendors ?? []);
+  const defaultDisabled = new Set(
+    overrides[DEFAULT_PACK_NAME]?.disabledVendors ?? []
+  );
   for (const vendor of Array.from(defaultVendors).sort()) {
     const isEnabled = !defaultDisabled.has(vendor);
     items.push({
@@ -3224,7 +3381,9 @@ async function cmdToggleVendor() {
     const packVendors = new Set<string>();
     for (const rule of pack.rules) {
       if (rule.vendor) {
-        const vendors = Array.isArray(rule.vendor) ? rule.vendor : [rule.vendor];
+        const vendors = Array.isArray(rule.vendor)
+          ? rule.vendor
+          : [rule.vendor];
         vendors.forEach((v) => packVendors.add(v));
       } else {
         packVendors.add('common');
@@ -3260,7 +3419,7 @@ async function cmdToggleVendor() {
     selected.vendorId,
     undefined,
     undefined,
-    selected.isEnabled,
+    selected.isEnabled
   );
 
   // Toggle: if enabled, disable it; if disabled, enable it
@@ -3295,7 +3454,9 @@ async function cmdDisableRuleById() {
     }));
 
   if (items.length === 0) {
-    vscode.window.showInformationMessage('SENTRIFLOW: All rules are already disabled');
+    vscode.window.showInformationMessage(
+      'SENTRIFLOW: All rules are already disabled'
+    );
     return;
   }
 
@@ -3335,7 +3496,10 @@ async function cmdEnableRuleById() {
           ? rule.vendor.join(', ')
           : rule.vendor
         : 'common',
-      detail: rule?.metadata.remediation ?? rule?.metadata.description ?? 'Currently disabled',
+      detail:
+        rule?.metadata.remediation ??
+        rule?.metadata.description ??
+        'Currently disabled',
       ruleId: id,
     };
   });
@@ -3373,7 +3537,9 @@ async function cmdShowDisabled() {
   // Packs
   outputChannel.appendLine('\n--- Disabled Packs ---');
   if (!enableDefaultRules) {
-    outputChannel.appendLine(`  - ${DEFAULT_PACK_NAME} (default rules disabled)`);
+    outputChannel.appendLine(
+      `  - ${DEFAULT_PACK_NAME} (default rules disabled)`
+    );
   }
   for (const pack of blockedPacks) {
     outputChannel.appendLine(`  - ${pack}`);
@@ -3386,7 +3552,10 @@ async function cmdShowDisabled() {
   outputChannel.appendLine('\n--- Disabled Vendors ---');
   let hasDisabledVendors = false;
   for (const [packName, packOverride] of Object.entries(overrides)) {
-    if (packOverride.disabledVendors && packOverride.disabledVendors.length > 0) {
+    if (
+      packOverride.disabledVendors &&
+      packOverride.disabledVendors.length > 0
+    ) {
       for (const vendor of packOverride.disabledVendors) {
         outputChannel.appendLine(`  - ${vendor} (in ${packName})`);
         hasDisabledVendors = true;
@@ -3432,11 +3601,31 @@ async function cmdFilterTagType() {
   }
 
   const items: TypePickItem[] = [
-    { label: 'All Types', description: 'Show all tags regardless of type', value: 'all' },
-    { label: 'Security', description: 'Show only security-related tags', value: 'security' },
-    { label: 'Operational', description: 'Show only operational tags', value: 'operational' },
-    { label: 'Compliance', description: 'Show only compliance-related tags', value: 'compliance' },
-    { label: 'General', description: 'Show only general tags', value: 'general' },
+    {
+      label: 'All Types',
+      description: 'Show all tags regardless of type',
+      value: 'all',
+    },
+    {
+      label: 'Security',
+      description: 'Show only security-related tags',
+      value: 'security',
+    },
+    {
+      label: 'Operational',
+      description: 'Show only operational tags',
+      value: 'operational',
+    },
+    {
+      label: 'Compliance',
+      description: 'Show only compliance-related tags',
+      value: 'compliance',
+    },
+    {
+      label: 'General',
+      description: 'Show only general tags',
+      value: 'general',
+    },
   ];
 
   // Mark current selection
@@ -3452,7 +3641,11 @@ async function cmdFilterTagType() {
   });
 
   if (selected) {
-    await config.update('tagTypeFilter', selected.value, vscode.ConfigurationTarget.Workspace);
+    await config.update(
+      'tagTypeFilter',
+      selected.value,
+      vscode.ConfigurationTarget.Workspace
+    );
     vscode.window.showInformationMessage(
       `SENTRIFLOW: Tag filter set to "${selected.value}"`
     );
@@ -3471,7 +3664,10 @@ async function cmdFilterByCategory() {
 
   const items: CategoryPickItem[] = [
     {
-      label: categoryFilter === undefined ? '$(check) All Categories' : 'All Categories',
+      label:
+        categoryFilter === undefined
+          ? '$(check) All Categories'
+          : 'All Categories',
       description: 'Show diagnostics from all categories',
       value: undefined,
     },
@@ -3874,18 +4070,26 @@ function updateStatusBar(
 
       // Add disabled rules info if any
       if (disabledRulesCount > 0) {
-        tooltip.appendMarkdown(`$(circle-slash) **Disabled Rules:** ${disabledRulesCount}\n\n`);
+        tooltip.appendMarkdown(
+          `$(circle-slash) **Disabled Rules:** ${disabledRulesCount}\n\n`
+        );
       }
 
       // Add vendor info
       if (currentVendor) {
-        tooltip.appendMarkdown(`$(server) **Vendor:** ${currentVendor.name}\n\n`);
+        tooltip.appendMarkdown(
+          `$(server) **Vendor:** ${currentVendor.name}\n\n`
+        );
       }
 
       tooltip.appendMarkdown('---\n\n');
       tooltip.appendMarkdown('[$(search) Scan](command:sentriflow.scan) · ');
-      tooltip.appendMarkdown('[$(list-tree) Rules](command:sentriflow.focusRulesView) · ');
-      tooltip.appendMarkdown('[$(circle-slash) Disabled](command:sentriflow.showDisabled)');
+      tooltip.appendMarkdown(
+        '[$(list-tree) Rules](command:sentriflow.focusRulesView) · '
+      );
+      tooltip.appendMarkdown(
+        '[$(circle-slash) Disabled](command:sentriflow.showDisabled)'
+      );
 
       statusBarItem.tooltip = tooltip;
       break;
@@ -3922,7 +4126,9 @@ function updateVendorStatusBar() {
       // Auto mode, no detection yet
       vendorStatusBarItem.text = '$(server) Auto';
       tooltip.appendMarkdown('**Vendor:** Auto-detect\n\n');
-      tooltip.appendMarkdown('$(info) *Open a config file to detect vendor*\n\n');
+      tooltip.appendMarkdown(
+        '$(info) *Open a config file to detect vendor*\n\n'
+      );
     }
   } else {
     // Manual vendor selection
@@ -3933,7 +4139,9 @@ function updateVendorStatusBar() {
   }
 
   tooltip.appendMarkdown('---\n\n');
-  tooltip.appendMarkdown('[$(server) Change Vendor](command:sentriflow.selectVendor)');
+  tooltip.appendMarkdown(
+    '[$(server) Change Vendor](command:sentriflow.selectVendor)'
+  );
 
   vendorStatusBarItem.tooltip = tooltip;
 }
