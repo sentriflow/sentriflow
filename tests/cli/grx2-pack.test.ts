@@ -24,8 +24,11 @@ import { getMachineId } from '@sentriflow/core';
 // Test Constants
 // =============================================================================
 
-const PROJECT_ROOT = '/mnt/c/Devel/ts-gecko/sentriflow';
-const CLI_PATH = join(PROJECT_ROOT, 'sentriflow.exe');
+const PROJECT_ROOT = process.cwd();
+// Use .exe if it exists (Windows/WSL), otherwise use plain binary (Linux/macOS CI)
+const CLI_PATH = existsSync(join(PROJECT_ROOT, 'sentriflow.exe'))
+  ? join(PROJECT_ROOT, 'sentriflow.exe')
+  : join(PROJECT_ROOT, 'sentriflow');
 const TEMP_DIR = join(PROJECT_ROOT, '.tmp', 'test-cli-grx2');
 
 // Machine ID will be populated in beforeAll
