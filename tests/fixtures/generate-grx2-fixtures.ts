@@ -41,6 +41,7 @@ const PACK_HASH_SIZE = 16;
 const GRX2_MAGIC = Buffer.from('GRX2', 'ascii');
 const GRX2_EXTENDED_VERSION = 3;
 const GRX2_EXTENDED_FLAG = 0x01;
+const GRX2_PORTABLE_FLAG = 0x02;
 const GRX2_ALGORITHM_AES_256_GCM = 1;
 const GRX2_KDF_PBKDF2 = 1;
 const GRX2_KEY_TYPE_TMK = 1;
@@ -117,7 +118,8 @@ export function buildExtendedGRX2Pack(
   licenseKey: string,
   machineId: string,
   tierId: number,
-  tmkVersion: number
+  tmkVersion: number,
+  portable: boolean = false
 ): Buffer {
   // Generate TMK
   const tmk = generateTMK();
@@ -182,8 +184,9 @@ export function buildExtendedGRX2Pack(
   // Pack Hash (78-93)
   hash.copy(header, 78);
 
-  // Reserved (94-95) - set extended flag
-  header.writeUInt8(GRX2_EXTENDED_FLAG, 94);
+  // Reserved (94-95) - set extended flag, and portable flag if applicable
+  const reservedFlags = GRX2_EXTENDED_FLAG | (portable ? GRX2_PORTABLE_FLAG : 0);
+  header.writeUInt8(reservedFlags, 94);
 
   // Build wrapped TMK length prefix (4 bytes)
   const lengthPrefix = Buffer.alloc(4);
@@ -272,8 +275,8 @@ export function generatePortablePack(): Buffer {
   };
 
   const content = Buffer.from(JSON.stringify(rulePack), 'utf8');
-  // Empty machineId for portable packs
-  return buildExtendedGRX2Pack(content, TEST_LICENSE_KEY, '', 1, 1);
+  // Portable packs use empty machineId and set the portable flag
+  return buildExtendedGRX2Pack(content, TEST_LICENSE_KEY, '', 1, 1, true);
 }
 
 export function generateInvalidJsonPack(): Buffer {

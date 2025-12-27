@@ -99,6 +99,9 @@ export interface GRX2ExtendedHeader {
   /** Indicates extended format */
   isExtended: true;
 
+  /** Indicates portable pack (no machine binding required) */
+  isPortable: boolean;
+
   /** Wrapped TMK embedded in pack */
   wrappedTMK: WrappedTMK;
 
@@ -249,8 +252,11 @@ export const GRX2_HEADER_SIZE = 96;
 /** Extended format version */
 export const GRX2_EXTENDED_VERSION = 3;
 
-/** Extended format flag in reserved byte */
+/** Extended format flag in reserved byte (bit 0) */
 export const GRX2_EXTENDED_FLAG = 0x01;
+
+/** Portable pack flag in reserved byte (bit 1) - no machine binding */
+export const GRX2_PORTABLE_FLAG = 0x02;
 
 /** AES-256-GCM algorithm ID */
 export const GRX2_ALGORITHM_AES_256_GCM = 1;

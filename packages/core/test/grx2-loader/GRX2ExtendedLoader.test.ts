@@ -323,12 +323,16 @@ describe('T027: GRX2ExtendedLoader - Portable Packs', () => {
     expect(pack.rules[0]?.id).toBe('PORT-001');
   });
 
-  test('portable pack fails with wrong machine ID', async () => {
-    // Since portable pack was encrypted with empty machineId,
-    // it will fail if decrypted with non-empty machineId
-    await expect(
-      loadExtendedPack(PORTABLE_PACK_PATH, TEST_LICENSE_KEY, TEST_MACHINE_ID)
-    ).rejects.toThrow(EncryptedPackError);
+  test('portable pack works with any machine ID', async () => {
+    // Portable packs have the portable flag set, so they work with ANY machine ID
+    // The loader detects the flag and ignores the passed machineId
+    const pack = await loadExtendedPack(PORTABLE_PACK_PATH, TEST_LICENSE_KEY, TEST_MACHINE_ID);
+    expect(pack.name).toBe('portable-pack');
+    expect(pack.rules[0]?.id).toBe('PORT-001');
+
+    // Also works with a completely different machine ID
+    const pack2 = await loadExtendedPack(PORTABLE_PACK_PATH, TEST_LICENSE_KEY, 'completely-different-machine-id');
+    expect(pack2.name).toBe('portable-pack');
   });
 
   test('creating portable packs with multiple machine IDs', async () => {

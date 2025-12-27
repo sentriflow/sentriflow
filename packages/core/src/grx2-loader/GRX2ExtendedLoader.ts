@@ -34,6 +34,7 @@ import {
   GRX2_HEADER_SIZE,
   GRX2_EXTENDED_VERSION,
   GRX2_EXTENDED_FLAG,
+  GRX2_PORTABLE_FLAG,
   GRX2_ALGORITHM_AES_256_GCM,
   GRX2_KDF_PBKDF2,
 } from './types';
@@ -282,6 +283,10 @@ function parseExtendedHeader(data: Buffer): {
     ldkSalt: Buffer.from(serialized.s, 'base64'),
   };
 
+  // Check portable flag (bit 1 of reserved byte 94)
+  const reservedByte = data.readUInt8(94);
+  const isPortable = (reservedByte & GRX2_PORTABLE_FLAG) !== 0;
+
   const header: GRX2ExtendedHeader = {
     magic: Buffer.from(magic),
     version,
@@ -297,6 +302,7 @@ function parseExtendedHeader(data: Buffer): {
     packHash: packHashBytes,
     reserved,
     isExtended: true,
+    isPortable,
     wrappedTMK,
     totalHeaderSize,
   };
@@ -334,14 +340,20 @@ export async function loadExtendedPack(
 
   // Parse extended header
   const { header, payloadOffset } = parseExtendedHeader(data);
-  debug?.(`[GRX2Loader] Header parsed - version: ${header.version}, keyType: ${header.keyType}, tmkVersion: ${header.tmkVersion}`);
-  debug?.(`[GRX2Loader] Wrapped TMK - ldkSalt: ${header.wrappedTMK.ldkSalt.toString('hex').substring(0, 16)}...`);
+  debug?.(`[GRX2Loader] Header parsed - version: ${header.version}, keyType: ${header.keyType}, tmkVersion: ${header.tmkVersion}, isPortable: ${header.isPortable}`);
+
+  // For portable packs, use empty machineId regardless of what was passed
+  // This allows portable packs to work on any machine
+  const effectiveMachineId = header.isPortable ? '' : machineId;
+  if (header.isPortable) {
+    debug?.(`[GRX2Loader] Portable pack detected - ignoring machineId for decryption`);
+  }
 
   // Derive LDK from license key, random salt, and machine ID
   // SECURITY: Salt is cryptographically random (stored in wrapped TMK)
   // MachineId provides device binding but is NOT the primary entropy source
-  const ldk = deriveLDK(licenseKey, header.wrappedTMK.ldkSalt, machineId);
-  debug?.(`[GRX2Loader] LDK derived (first 8 bytes): ${ldk.subarray(0, 8).toString('hex')}`);
+  const ldk = deriveLDK(licenseKey, header.wrappedTMK.ldkSalt, effectiveMachineId);
+  debug?.(`[GRX2Loader] LDK derived successfully`);
 
   // Unwrap TMK using LDK
   let tmk: Buffer;
