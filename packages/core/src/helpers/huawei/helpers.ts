@@ -12,15 +12,16 @@ export { hasChildCommand, getChildCommand, getChildCommands } from '../common/he
  * In Huawei, interfaces are shutdown by default; 'undo shutdown' enables them
  */
 export const isShutdown = (node: ConfigNode): boolean => {
+  if (!node?.children) return true; // Default to shutdown if no children
   // Check if there's a 'shutdown' command
   const hasShutdown = node.children.some((child) => {
-    const id = child.id.toLowerCase().trim();
+    const id = child?.id?.toLowerCase().trim();
     return id === 'shutdown';
   });
 
   // Check if there's an 'undo shutdown' command
   const hasUndoShutdown = node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'undo shutdown';
   });
 
@@ -32,8 +33,9 @@ export const isShutdown = (node: ConfigNode): boolean => {
  * Check if interface is explicitly enabled (has 'undo shutdown')
  */
 export const isEnabled = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'undo shutdown';
   });
 };
@@ -79,8 +81,9 @@ export const isEthTrunk = (interfaceName: string): boolean => {
  * Check if interface is configured as trunk port
  */
 export const isTrunkPort = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText?.includes('port link-type trunk') ?? false;
   });
 };
@@ -89,8 +92,9 @@ export const isTrunkPort = (node: ConfigNode): boolean => {
  * Check if interface is configured as access port
  */
 export const isAccessPort = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText?.includes('port link-type access') ?? false;
   });
 };
@@ -99,8 +103,9 @@ export const isAccessPort = (node: ConfigNode): boolean => {
  * Check if interface is configured as hybrid port
  */
 export const isHybridPort = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText?.includes('port link-type hybrid') ?? false;
   });
 };
@@ -109,8 +114,9 @@ export const isHybridPort = (node: ConfigNode): boolean => {
  * Get the default VLAN for an access port
  */
 export const getDefaultVlan = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   const vlanCmd = node.children.find((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText?.startsWith('port default vlan') ?? false;
   });
 
@@ -128,8 +134,9 @@ export const getDefaultVlan = (node: ConfigNode): string | undefined => {
  * Get allowed VLANs for trunk port
  */
 export const getTrunkAllowedVlans = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   const vlanCmd = node.children.find((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText?.startsWith('port trunk allow-pass vlan') ?? false;
   });
 
@@ -169,8 +176,9 @@ export const getDescription = (node: ConfigNode): string | undefined => {
  * Check if STP edge port is enabled (stp edged-port enable)
  */
 export const hasStpEdgedPort = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText?.includes('stp edged-port enable') ?? false;
   });
 };
@@ -179,8 +187,9 @@ export const hasStpEdgedPort = (node: ConfigNode): boolean => {
  * Check if port security is enabled
  */
 export const hasPortSecurity = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText?.includes('port-security enable') ?? false;
   });
 };
@@ -189,8 +198,9 @@ export const hasPortSecurity = (node: ConfigNode): boolean => {
  * Check if BPDU protection is enabled
  */
 export const hasBpduProtection = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     if (!rawText) {
       return false;
     }
@@ -202,8 +212,9 @@ export const hasBpduProtection = (node: ConfigNode): boolean => {
  * Get child command value for 'set <key> <value>' style commands
  */
 export const getCommandValue = (node: ConfigNode, command: string): string | undefined => {
+  if (!node?.children) return undefined;
   const cmd = node.children.find((child) => {
-    const text = child.rawText?.toLowerCase().trim();
+    const text = child?.rawText?.toLowerCase().trim();
     return text?.startsWith(command.toLowerCase()) ?? false;
   });
 
@@ -218,9 +229,10 @@ export const getCommandValue = (node: ConfigNode, command: string): string | und
  * Check if SSH is enabled
  */
 export const isSshEnabled = (node: ConfigNode): boolean => {
+  if (!node?.id || !node?.children) return false;
   if (node.id.toLowerCase().includes('user-interface')) {
     return node.children.some((child) => {
-      const rawText = child.rawText?.toLowerCase().trim();
+      const rawText = child?.rawText?.toLowerCase().trim();
       return rawText?.includes('protocol inbound ssh') || rawText === 'protocol inbound all';
     });
   }
@@ -231,9 +243,11 @@ export const isSshEnabled = (node: ConfigNode): boolean => {
  * Check if Telnet is enabled (security concern)
  */
 export const isTelnetEnabled = (node: ConfigNode): boolean => {
+  if (!node?.id || !node?.children) return false;
   if (node.id.toLowerCase().includes('user-interface')) {
     return node.children.some((child) => {
-      const rawText = child.rawText.toLowerCase().trim();
+      const rawText = child?.rawText?.toLowerCase().trim();
+      if (!rawText) return false;
       return (
         rawText.includes('protocol inbound telnet') ||
         rawText === 'protocol inbound all' ||
@@ -249,9 +263,10 @@ export const isTelnetEnabled = (node: ConfigNode): boolean => {
  * Check if authentication mode AAA is configured
  */
 export const hasAaaAuthentication = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.includes('authentication-mode aaa');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.includes('authentication-mode aaa') ?? false;
   });
 };
 
@@ -259,9 +274,10 @@ export const hasAaaAuthentication = (node: ConfigNode): boolean => {
  * Check if password authentication is configured (less secure)
  */
 export const hasPasswordAuthentication = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.includes('authentication-mode password');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.includes('authentication-mode password') ?? false;
   });
 };
 
@@ -291,9 +307,10 @@ export const getIdleTimeout = (node: ConfigNode): number | undefined => {
  * Check if ACL is applied inbound on user-interface
  */
 export const hasAclInbound = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.match(/acl\s+\d+\s+inbound/);
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.match(/acl\s+\d+\s+inbound/) ?? false;
   });
 };
 
@@ -301,9 +318,11 @@ export const hasAclInbound = (node: ConfigNode): boolean => {
  * Find a stanza by name in the configuration tree
  */
 export const findStanza = (node: ConfigNode, stanzaName: string): ConfigNode | undefined => {
+  if (!node?.id) return undefined;
   if (node.id.toLowerCase().startsWith(stanzaName.toLowerCase())) {
     return node;
   }
+  if (!node?.children) return undefined;
   for (const child of node.children) {
     const found = findStanza(child, stanzaName);
     if (found) return found;
@@ -316,9 +335,11 @@ export const findStanza = (node: ConfigNode, stanzaName: string): ConfigNode | u
  */
 export const findStanzas = (node: ConfigNode, stanzaName: string): ConfigNode[] => {
   const results: ConfigNode[] = [];
+  if (!node?.id) return results;
   if (node.id.toLowerCase().startsWith(stanzaName.toLowerCase())) {
     results.push(node);
   }
+  if (!node?.children) return results;
   for (const child of node.children) {
     results.push(...findStanzas(child, stanzaName));
   }
@@ -329,8 +350,10 @@ export const findStanzas = (node: ConfigNode, stanzaName: string): ConfigNode[] 
  * Check if local-user has password configured with cipher (encrypted)
  */
 export const hasEncryptedPassword = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
+    if (!rawText) return false;
     return (
       rawText.includes('password cipher') ||
       rawText.includes('password irreversible-cipher')
@@ -342,9 +365,10 @@ export const hasEncryptedPassword = (node: ConfigNode): boolean => {
  * Check if local-user has plaintext password (security concern)
  */
 export const hasPlaintextPassword = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.includes('password simple');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.includes('password simple') ?? false;
   });
 };
 
@@ -352,9 +376,10 @@ export const hasPlaintextPassword = (node: ConfigNode): boolean => {
  * Get privilege level for local-user
  */
 export const getPrivilegeLevel = (node: ConfigNode): number | undefined => {
+  if (!node?.children) return undefined;
   const privCmd = node.children.find((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('privilege level');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('privilege level') ?? false;
   });
 
   if (privCmd?.rawText) {
@@ -375,8 +400,9 @@ export const getPrivilegeLevel = (node: ConfigNode): number | undefined => {
  * Check if BGP peer has password authentication configured
  */
 export const hasBgpPeerPassword = (node: ConfigNode, peerIp: string): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
+    const rawText = child?.rawText?.toLowerCase();
     return rawText?.includes(`peer ${peerIp.toLowerCase()}`) && rawText?.includes('password');
   });
 };
@@ -385,8 +411,9 @@ export const hasBgpPeerPassword = (node: ConfigNode, peerIp: string): boolean =>
  * Check if BGP peer has keychain authentication configured
  */
 export const hasBgpPeerKeychain = (node: ConfigNode, peerIp: string): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
+    const rawText = child?.rawText?.toLowerCase();
     return rawText?.includes(`peer ${peerIp.toLowerCase()}`) && rawText?.includes('keychain');
   });
 };
@@ -395,8 +422,9 @@ export const hasBgpPeerKeychain = (node: ConfigNode, peerIp: string): boolean =>
  * Check if BGP peer has GTSM (valid-ttl-hops) configured
  */
 export const hasBgpPeerGtsm = (node: ConfigNode, peerIp: string): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
+    const rawText = child?.rawText?.toLowerCase();
     return rawText?.includes(`peer ${peerIp.toLowerCase()}`) && rawText?.includes('valid-ttl-hops');
   });
 };
@@ -405,8 +433,9 @@ export const hasBgpPeerGtsm = (node: ConfigNode, peerIp: string): boolean => {
  * Check if BGP peer has route-limit (maximum prefix) configured
  */
 export const hasBgpPeerRouteLimit = (node: ConfigNode, peerIp: string): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
+    const rawText = child?.rawText?.toLowerCase();
     return rawText?.includes(`peer ${peerIp.toLowerCase()}`) && rawText?.includes('route-limit');
   });
 };
@@ -415,8 +444,9 @@ export const hasBgpPeerRouteLimit = (node: ConfigNode, peerIp: string): boolean 
  * Check if BGP peer has prefix filtering configured (ip-prefix or route-policy)
  */
 export const hasBgpPeerPrefixFilter = (node: ConfigNode, peerIp: string): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
+    const rawText = child?.rawText?.toLowerCase();
     return (
       rawText?.includes(`peer ${peerIp.toLowerCase()}`) &&
       (rawText?.includes('ip-prefix') || rawText?.includes('route-policy') || rawText?.includes('filter-policy'))
@@ -429,8 +459,9 @@ export const hasBgpPeerPrefixFilter = (node: ConfigNode, peerIp: string): boolea
  */
 export const getBgpPeers = (node: ConfigNode): string[] => {
   const peers: string[] = [];
+  if (!node?.children) return peers;
   for (const child of node.children) {
-    if (child.rawText) {
+    if (child?.rawText) {
       const match = child.rawText.match(/peer\s+([\d.]+)\s+as-number/i);
       if (match?.[1]) {
         peers.push(match[1]);
@@ -444,8 +475,9 @@ export const getBgpPeers = (node: ConfigNode): string[] => {
  * Check if BGP has graceful-restart enabled
  */
 export const hasBgpGracefulRestart = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'graceful-restart' || rawText?.startsWith('graceful-restart ');
   });
 };
@@ -458,9 +490,10 @@ export const hasBgpGracefulRestart = (node: ConfigNode): boolean => {
  * Check if OSPF area has authentication configured
  */
 export const hasOspfAreaAuthentication = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('authentication-mode');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('authentication-mode') ?? false;
   });
 };
 
@@ -468,9 +501,10 @@ export const hasOspfAreaAuthentication = (node: ConfigNode): boolean => {
  * Check if interface has OSPF authentication configured
  */
 export const hasInterfaceOspfAuth = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('ospf authentication-mode');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('ospf authentication-mode') ?? false;
   });
 };
 
@@ -478,9 +512,10 @@ export const hasInterfaceOspfAuth = (node: ConfigNode): boolean => {
  * Check if IS-IS has area authentication configured
  */
 export const hasIsisAreaAuth = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('area-authentication-mode');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('area-authentication-mode') ?? false;
   });
 };
 
@@ -488,9 +523,10 @@ export const hasIsisAreaAuth = (node: ConfigNode): boolean => {
  * Check if IS-IS has domain authentication configured
  */
 export const hasIsisDomainAuth = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('domain-authentication-mode');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('domain-authentication-mode') ?? false;
   });
 };
 
@@ -498,9 +534,10 @@ export const hasIsisDomainAuth = (node: ConfigNode): boolean => {
  * Check if interface has IS-IS authentication configured
  */
 export const hasInterfaceIsisAuth = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('isis authentication-mode');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('isis authentication-mode') ?? false;
   });
 };
 
@@ -512,9 +549,10 @@ export const hasInterfaceIsisAuth = (node: ConfigNode): boolean => {
  * Check if interface has VRRP configured
  */
 export const hasVrrp = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('vrrp vrid');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('vrrp vrid') ?? false;
   });
 };
 
@@ -523,8 +561,9 @@ export const hasVrrp = (node: ConfigNode): boolean => {
  * In Huawei VRP, authentication can be on a single line: "vrrp vrid 1 authentication-mode md5 <key>"
  */
 export const hasVrrpAuthentication = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
+    const rawText = child?.rawText?.toLowerCase();
     // Check if line contains both vrrp vrid and authentication-mode
     return rawText?.includes('vrrp vrid') && rawText?.includes('authentication-mode');
   });
@@ -534,8 +573,9 @@ export const hasVrrpAuthentication = (node: ConfigNode): boolean => {
  * Get VRRP VRID from interface
  */
 export const getVrrpVrid = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   const vrrpCmd = node.children.find((child) => {
-    return child.rawText?.toLowerCase().includes('vrrp vrid');
+    return child?.rawText?.toLowerCase().includes('vrrp vrid') ?? false;
   });
 
   if (vrrpCmd?.rawText) {
@@ -555,8 +595,9 @@ export const getVrrpVrid = (node: ConfigNode): string | undefined => {
  * Check if ICMP redirect is disabled on interface
  */
 export const hasIcmpRedirectDisabled = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'undo icmp redirect send';
   });
 };
@@ -565,8 +606,9 @@ export const hasIcmpRedirectDisabled = (node: ConfigNode): boolean => {
  * Check if directed broadcast is disabled on interface
  */
 export const hasDirectedBroadcastDisabled = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'undo ip directed-broadcast enable' || rawText === 'undo ip directed-broadcast';
   });
 };
@@ -575,8 +617,9 @@ export const hasDirectedBroadcastDisabled = (node: ConfigNode): boolean => {
  * Check if ARP proxy is disabled on interface
  */
 export const hasArpProxyDisabled = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'undo arp proxy enable' || rawText === 'undo proxy-arp';
   });
 };
@@ -585,8 +628,9 @@ export const hasArpProxyDisabled = (node: ConfigNode): boolean => {
  * Check if uRPF is enabled on interface
  */
 export const hasUrpf = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
+    const rawText = child?.rawText?.toLowerCase();
     return rawText?.includes('urpf strict') || rawText?.includes('urpf loose');
   });
 };
@@ -595,9 +639,10 @@ export const hasUrpf = (node: ConfigNode): boolean => {
  * Get uRPF mode (strict or loose)
  */
 export const getUrpfMode = (node: ConfigNode): 'strict' | 'loose' | undefined => {
+  if (!node?.children) return undefined;
   const urpfCmd = node.children.find((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('urpf');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('urpf') ?? false;
   });
 
   if (urpfCmd?.rawText) {
@@ -612,8 +657,9 @@ export const getUrpfMode = (node: ConfigNode): 'strict' | 'loose' | undefined =>
  * Check if LLDP is disabled on interface
  */
 export const hasLldpDisabled = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'undo lldp enable';
   });
 };
@@ -626,8 +672,9 @@ export const hasLldpDisabled = (node: ConfigNode): boolean => {
  * Check if NTP authentication is enabled
  */
 export const hasNtpAuthentication = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'authentication enable';
   });
 };
@@ -636,9 +683,10 @@ export const hasNtpAuthentication = (node: ConfigNode): boolean => {
  * Check if NTP has authentication key configured
  */
 export const hasNtpAuthKey = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('authentication-keyid');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('authentication-keyid') ?? false;
   });
 };
 
@@ -709,8 +757,9 @@ export const hasCpuDefendPolicy = (node: ConfigNode): boolean => {
  * Check if CPU-defend policy has auto-defend enabled
  */
 export const hasCpuDefendAutoDefend = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'auto-defend enable';
   });
 };
@@ -773,9 +822,10 @@ export const isIpSourceRouteDisabled = (rawText: string): boolean => {
  * Check if HWTACACS server template has shared-key configured
  */
 export const hasHwtacacsSharedKey = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('shared-key cipher');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('shared-key cipher') ?? false;
   });
 };
 
@@ -783,8 +833,9 @@ export const hasHwtacacsSharedKey = (node: ConfigNode): boolean => {
  * Check if HWTACACS has secondary server configured
  */
 export const hasHwtacacsSecondary = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase();
-    return rawText?.includes('secondary');
+    const rawText = child?.rawText?.toLowerCase();
+    return rawText?.includes('secondary') ?? false;
   });
 };

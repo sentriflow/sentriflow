@@ -95,21 +95,22 @@ export const getWeakSshCiphers = (ast: ConfigNode[]): string[] => {
  * @returns true if telnet is properly disabled
  */
 export const isTelnetDisabled = (ast: ConfigNode[]): boolean => {
+  if (!ast) return true;
   // Check for 'no management telnet' or management telnet with shutdown
   const noMgmtTelnet = ast.some((node) =>
-    /^no\s+management\s+telnet/i.test(node.id)
+    node?.id && /^no\s+management\s+telnet/i.test(node.id)
   );
 
   if (noMgmtTelnet) return true;
 
   // Check if management telnet section exists and is shutdown
   const mgmtTelnet = ast.find((node) =>
-    /^management\s+telnet/i.test(node.id)
+    node?.id && /^management\s+telnet/i.test(node.id)
   );
 
-  if (mgmtTelnet) {
+  if (mgmtTelnet?.children) {
     return mgmtTelnet.children.some((child) =>
-      equalsIgnoreCase(child.id, 'shutdown')
+      child?.id && equalsIgnoreCase(child.id, 'shutdown')
     );
   }
 
@@ -263,10 +264,12 @@ export const getBannerInfoDisclosure = (ast: ConfigNode[]): string[] => {
  * @returns The timeout value in minutes, or undefined if not set
  */
 export const getConsoleIdleTimeout = (ast: ConfigNode[]): number | undefined => {
+  if (!ast) return undefined;
   for (const node of ast) {
-    if (/^management\s+console/i.test(node.id)) {
+    if (node?.id && /^management\s+console/i.test(node.id)) {
+      if (!node?.children) continue;
       for (const child of node.children) {
-        const match = child.id.match(/idle-timeout\s+(\d+)/i);
+        const match = child?.id?.match(/idle-timeout\s+(\d+)/i);
         if (match?.[1]) {
           return parseInteger(match[1]) ?? undefined;
         }
@@ -320,8 +323,9 @@ export const hasCoppPolicy = (ast: ConfigNode[]): boolean => {
  * @returns true if ip redirects are disabled
  */
 export const hasNoIpRedirects = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^no\s+ip\s+redirects/i.test(child.id)
+    child?.id && /^no\s+ip\s+redirects/i.test(child.id)
   );
 };
 
@@ -331,8 +335,9 @@ export const hasNoIpRedirects = (interfaceNode: ConfigNode): boolean => {
  * @returns true if ip unreachables are disabled
  */
 export const hasNoIpUnreachables = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^no\s+ip\s+unreachables/i.test(child.id)
+    child?.id && /^no\s+ip\s+unreachables/i.test(child.id)
   );
 };
 
@@ -342,17 +347,18 @@ export const hasNoIpUnreachables = (interfaceNode: ConfigNode): boolean => {
  * @returns true if authentication is configured
  */
 export const hasRoutingProtocolAuth = (routerNode: ConfigNode): boolean => {
+  if (!routerNode?.id || !routerNode?.children) return false;
   // Check for OSPF authentication
   if (/^router\s+ospf/i.test(routerNode.id)) {
     return routerNode.children.some((child) =>
-      /authentication/i.test(child.id)
+      child?.id && /authentication/i.test(child.id)
     );
   }
 
   // Check for IS-IS authentication
   if (/^router\s+isis/i.test(routerNode.id)) {
     return routerNode.children.some((child) =>
-      /authentication/i.test(child.id)
+      child?.id && /authentication/i.test(child.id)
     );
   }
 
@@ -380,15 +386,16 @@ export const hasBfd = (ast: ConfigNode[]): boolean => {
  * @returns Object with storm control status for each type
  */
 export const getStormControlStatus = (interfaceNode: ConfigNode): { broadcast: boolean; multicast: boolean; unicast: boolean } => {
+  if (!interfaceNode?.children) return { broadcast: false, multicast: false, unicast: false };
   return {
     broadcast: interfaceNode.children.some((child) =>
-      /^storm-control\s+broadcast/i.test(child.id)
+      child?.id && /^storm-control\s+broadcast/i.test(child.id)
     ),
     multicast: interfaceNode.children.some((child) =>
-      /^storm-control\s+multicast/i.test(child.id)
+      child?.id && /^storm-control\s+multicast/i.test(child.id)
     ),
     unicast: interfaceNode.children.some((child) =>
-      /^storm-control\s+unknown-unicast/i.test(child.id)
+      child?.id && /^storm-control\s+unknown-unicast/i.test(child.id)
     ),
   };
 };
@@ -410,8 +417,9 @@ export const hasDhcpSnooping = (ast: ConfigNode[]): boolean => {
  * @returns true if interface is DHCP snooping trusted
  */
 export const isDhcpSnoopingTrust = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^ip\s+dhcp\s+snooping\s+trust/i.test(child.id)
+    child?.id && /^ip\s+dhcp\s+snooping\s+trust/i.test(child.id)
   );
 };
 
@@ -432,8 +440,9 @@ export const hasDynamicArpInspection = (ast: ConfigNode[]): boolean => {
  * @returns true if interface is ARP inspection trusted
  */
 export const isArpInspectionTrust = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^ip\s+arp\s+inspection\s+trust/i.test(child.id)
+    child?.id && /^ip\s+arp\s+inspection\s+trust/i.test(child.id)
   );
 };
 
@@ -443,8 +452,9 @@ export const isArpInspectionTrust = (interfaceNode: ConfigNode): boolean => {
  * @returns true if IP verify source is configured
  */
 export const hasIpSourceGuard = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^ip\s+verify\s+source/i.test(child.id)
+    child?.id && /^ip\s+verify\s+source/i.test(child.id)
   );
 };
 
@@ -454,8 +464,9 @@ export const hasIpSourceGuard = (interfaceNode: ConfigNode): boolean => {
  * @returns true if port security is configured
  */
 export const hasPortSecurity = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^switchport\s+port-security/i.test(child.id)
+    child?.id && /^switchport\s+port-security/i.test(child.id)
   );
 };
 
@@ -471,17 +482,18 @@ export const hasPortSecurity = (interfaceNode: ConfigNode): boolean => {
  */
 export const getBgpNeighborsWithoutAuth = (routerBgpNode: ConfigNode, neighborIp?: string): string[] => {
   const neighborsWithoutAuth: string[] = [];
+  if (!routerBgpNode?.children) return neighborsWithoutAuth;
   const neighborConfigs = new Map<string, { hasPassword: boolean }>();
 
   for (const child of routerBgpNode.children) {
-    const neighborMatch = child.id.match(/^neighbor\s+(\S+)/i);
+    const neighborMatch = child?.id?.match(/^neighbor\s+(\S+)/i);
     if (neighborMatch?.[1]) {
       const ip = neighborMatch[1];
       if (!neighborConfigs.has(ip)) {
         neighborConfigs.set(ip, { hasPassword: false });
       }
 
-      if (/password/i.test(child.id)) {
+      if (child?.id && /password/i.test(child.id)) {
         const config = neighborConfigs.get(ip);
         if (config) {
           config.hasPassword = true;
@@ -508,11 +520,12 @@ export const getBgpNeighborsWithoutAuth = (routerBgpNode: ConfigNode, neighborIp
  */
 export const getBgpNeighborsWithoutTtlSecurity = (routerBgpNode: ConfigNode): string[] => {
   const neighborsWithoutTtl: string[] = [];
+  if (!routerBgpNode?.children) return neighborsWithoutTtl;
   const neighborConfigs = new Map<string, { hasTtl: boolean; isEbgp: boolean }>();
-  const localAs = routerBgpNode.id.match(/router\s+bgp\s+(\d+)/i)?.[1];
+  const localAs = routerBgpNode?.id?.match(/router\s+bgp\s+(\d+)/i)?.[1];
 
   for (const child of routerBgpNode.children) {
-    const neighborMatch = child.id.match(/^neighbor\s+(\S+)\s+remote-as\s+(\d+)/i);
+    const neighborMatch = child?.id?.match(/^neighbor\s+(\S+)\s+remote-as\s+(\d+)/i);
     if (neighborMatch?.[1] && neighborMatch?.[2]) {
       const ip = neighborMatch[1];
       const remoteAs = neighborMatch[2];
@@ -522,7 +535,7 @@ export const getBgpNeighborsWithoutTtlSecurity = (routerBgpNode: ConfigNode): st
       });
     }
 
-    const ttlMatch = child.id.match(/^neighbor\s+(\S+)\s+ttl\s+maximum-hops/i);
+    const ttlMatch = child?.id?.match(/^neighbor\s+(\S+)\s+ttl\s+maximum-hops/i);
     if (ttlMatch?.[1]) {
       const config = neighborConfigs.get(ttlMatch[1]);
       if (config) {
@@ -547,15 +560,16 @@ export const getBgpNeighborsWithoutTtlSecurity = (routerBgpNode: ConfigNode): st
  */
 export const getBgpNeighborsWithoutMaxRoutes = (routerBgpNode: ConfigNode): string[] => {
   const neighborsWithoutMax: string[] = [];
+  if (!routerBgpNode?.children) return neighborsWithoutMax;
   const neighborConfigs = new Map<string, boolean>();
 
   for (const child of routerBgpNode.children) {
-    const neighborMatch = child.id.match(/^neighbor\s+(\S+)\s+remote-as/i);
+    const neighborMatch = child?.id?.match(/^neighbor\s+(\S+)\s+remote-as/i);
     if (neighborMatch?.[1]) {
       neighborConfigs.set(neighborMatch[1], false);
     }
 
-    const maxMatch = child.id.match(/^neighbor\s+(\S+)\s+maximum-routes/i);
+    const maxMatch = child?.id?.match(/^neighbor\s+(\S+)\s+maximum-routes/i);
     if (maxMatch?.[1]) {
       neighborConfigs.set(maxMatch[1], true);
     }
@@ -576,8 +590,9 @@ export const getBgpNeighborsWithoutMaxRoutes = (routerBgpNode: ConfigNode): stri
  * @returns true if graceful restart is configured
  */
 export const hasBgpGracefulRestart = (routerBgpNode: ConfigNode): boolean => {
+  if (!routerBgpNode?.children) return false;
   return routerBgpNode.children.some((child) =>
-    /^bgp\s+graceful-restart/i.test(child.id)
+    child?.id && /^bgp\s+graceful-restart/i.test(child.id)
   );
 };
 
@@ -587,8 +602,9 @@ export const hasBgpGracefulRestart = (routerBgpNode: ConfigNode): boolean => {
  * @returns true if log-neighbor-changes is configured
  */
 export const hasBgpLogNeighborChanges = (routerBgpNode: ConfigNode): boolean => {
+  if (!routerBgpNode?.children) return false;
   return routerBgpNode.children.some((child) =>
-    /^bgp\s+log-neighbor-changes/i.test(child.id)
+    child?.id && /^bgp\s+log-neighbor-changes/i.test(child.id)
   );
 };
 
@@ -602,8 +618,9 @@ export const hasBgpLogNeighborChanges = (routerBgpNode: ConfigNode): boolean => 
  * @returns true if RPKI cache is configured
  */
 export const hasRpkiConfiguration = (routerBgpNode: ConfigNode): boolean => {
+  if (!routerBgpNode?.children) return false;
   return routerBgpNode.children.some((child) =>
-    /^rpki\s+cache/i.test(child.id)
+    child?.id && /^rpki\s+cache/i.test(child.id)
   );
 };
 
@@ -613,8 +630,9 @@ export const hasRpkiConfiguration = (routerBgpNode: ConfigNode): boolean => {
  * @returns true if origin validation is configured
  */
 export const hasRpkiOriginValidation = (routerBgpNode: ConfigNode): boolean => {
+  if (!routerBgpNode?.children) return false;
   return routerBgpNode.children.some((child) =>
-    /^rpki\s+origin-validation/i.test(child.id)
+    child?.id && /^rpki\s+origin-validation/i.test(child.id)
   );
 };
 
@@ -628,11 +646,12 @@ export const hasRpkiOriginValidation = (routerBgpNode: ConfigNode): boolean => {
  * @returns Object with uRPF mode if configured
  */
 export const getUrpfMode = (interfaceNode: ConfigNode): { enabled: boolean; mode?: 'strict' | 'loose' } => {
+  if (!interfaceNode?.children) return { enabled: false };
   for (const child of interfaceNode.children) {
-    if (/^ip\s+verify\s+unicast\s+source\s+reachable-via\s+rx/i.test(child.id)) {
+    if (child?.id && /^ip\s+verify\s+unicast\s+source\s+reachable-via\s+rx/i.test(child.id)) {
       return { enabled: true, mode: 'strict' };
     }
-    if (/^ip\s+verify\s+unicast\s+source\s+reachable-via\s+any/i.test(child.id)) {
+    if (child?.id && /^ip\s+verify\s+unicast\s+source\s+reachable-via\s+any/i.test(child.id)) {
       return { enabled: true, mode: 'loose' };
     }
   }
@@ -674,14 +693,16 @@ export const getMlagReloadDelays = (mlagNode: ConfigNode): { mlag: boolean; nonM
  * @returns true if EVPN peer group has password
  */
 export const hasEvpnPeerAuth = (routerBgpNode: ConfigNode): boolean => {
+  if (!routerBgpNode?.children) return false;
   // Look for EVPN peer group with password
   let evpnPeerGroup: string | undefined;
 
   for (const child of routerBgpNode.children) {
     // Find EVPN address family activation
-    if (/^address-family\s+evpn/i.test(child.id)) {
+    if (child?.id && /^address-family\s+evpn/i.test(child.id)) {
+      if (!child?.children) continue;
       for (const subchild of child.children) {
-        const match = subchild.id.match(/neighbor\s+(\S+)\s+activate/i);
+        const match = subchild?.id?.match(/neighbor\s+(\S+)\s+activate/i);
         if (match?.[1]) {
           evpnPeerGroup = match[1];
         }
@@ -693,7 +714,7 @@ export const hasEvpnPeerAuth = (routerBgpNode: ConfigNode): boolean => {
 
   // Check if peer group has password
   return routerBgpNode.children.some((child) =>
-    includesIgnoreCase(child.id, `neighbor ${evpnPeerGroup}`) &&
+    child?.id && includesIgnoreCase(child.id, `neighbor ${evpnPeerGroup}`) &&
     includesIgnoreCase(child.id, 'password')
   );
 };
@@ -756,8 +777,9 @@ export const hasEventMonitor = (ast: ConfigNode[]): boolean => {
  * @returns true if VRRP authentication is configured
  */
 export const hasVrrpAuthentication = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^vrrp\s+\d+\s+authentication/i.test(child.id)
+    child?.id && /^vrrp\s+\d+\s+authentication/i.test(child.id)
   );
 };
 
@@ -783,11 +805,12 @@ export const hasVirtualRouterMac = (ast: ConfigNode[]): boolean => {
  * @returns true if interface appears to be external facing
  */
 export const isExternalInterface = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   const description = interfaceNode.children.find((child) =>
-    startsWithIgnoreCase(child.id, 'description ')
+    child?.id && startsWithIgnoreCase(child.id, 'description ')
   );
 
-  if (description) {
+  if (description?.id) {
     return (
       includesIgnoreCase(description.id, 'wan') ||
       includesIgnoreCase(description.id, 'internet') ||
@@ -807,8 +830,9 @@ export const isExternalInterface = (interfaceNode: ConfigNode): boolean => {
  * @returns true if interface is configured as access port
  */
 export const isAccessPort = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^switchport\s+mode\s+access/i.test(child.id)
+    child?.id && /^switchport\s+mode\s+access/i.test(child.id)
   );
 };
 
@@ -818,8 +842,9 @@ export const isAccessPort = (interfaceNode: ConfigNode): boolean => {
  * @returns true if interface is configured as trunk port
  */
 export const isTrunkPort = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^switchport\s+mode\s+trunk/i.test(child.id)
+    child?.id && /^switchport\s+mode\s+trunk/i.test(child.id)
   );
 };
 
@@ -891,12 +916,13 @@ export const getManagementApiNodes = (ast: ConfigNode[]): ConfigNode[] => {
  * @returns true if HTTPS transport is configured
  */
 export const hasHttpsTransport = (apiNode: ConfigNode): boolean => {
+  if (!apiNode?.children) return false;
   // Check for "protocol https" or "no shutdown" with https
   const hasProtocolHttps = apiNode.children.some((child) =>
-    includesIgnoreCase(child.id, 'protocol https')
+    child?.id && includesIgnoreCase(child.id, 'protocol https')
   );
   const hasTransportHttps = apiNode.children.some((child) =>
-    includesIgnoreCase(child.id, 'transport https')
+    child?.id && includesIgnoreCase(child.id, 'transport https')
   );
   return hasProtocolHttps || hasTransportHttps;
 };
@@ -942,9 +968,10 @@ export const getVxlanVniMappings = (
   vxlanNode: ConfigNode
 ): { vni: string; vlan?: string }[] => {
   const mappings: { vni: string; vlan?: string }[] = [];
+  if (!vxlanNode?.children) return mappings;
 
   for (const child of vxlanNode.children) {
-    const vniMatch = child.id.match(/vxlan\s+vni\s+(\d+)\s+vlan\s+(\d+)/i);
+    const vniMatch = child?.id?.match(/vxlan\s+vni\s+(\d+)\s+vlan\s+(\d+)/i);
     if (vniMatch) {
       const vni = vniMatch[1];
       if (!vni) {
@@ -955,7 +982,7 @@ export const getVxlanVniMappings = (
       continue;
     }
 
-    const simpleMatch = child.id.match(/vxlan\s+vni\s+(\d+)/i);
+    const simpleMatch = child?.id?.match(/vxlan\s+vni\s+(\d+)/i);
     if (simpleMatch) {
       const vni = simpleMatch[1];
       if (!vni) {
@@ -983,8 +1010,9 @@ export const hasVxlanSourceInterface = (vxlanNode: ConfigNode): boolean => {
  * @returns The MLAG ID if configured, undefined otherwise
  */
 export const getMlagId = (interfaceNode: ConfigNode): string | undefined => {
+  if (!interfaceNode?.children) return undefined;
   const mlagCmd = interfaceNode.children.find((child) =>
-    /^mlag\s+\d+/i.test(child.id)
+    child?.id && /^mlag\s+\d+/i.test(child.id)
   );
   if (!mlagCmd) return undefined;
 
@@ -1078,8 +1106,9 @@ export const getVrfInstances = (ast: ConfigNode[]): ConfigNode[] => {
  * @returns The VRF name if configured, undefined otherwise
  */
 export const getInterfaceVrf = (interfaceNode: ConfigNode): string | undefined => {
+  if (!interfaceNode?.children) return undefined;
   const vrfCmd = interfaceNode.children.find((child) =>
-    /^vrf\s+\S+/i.test(child.id)
+    child?.id && /^vrf\s+\S+/i.test(child.id)
   );
   if (!vrfCmd) return undefined;
 
@@ -1093,8 +1122,9 @@ export const getInterfaceVrf = (interfaceNode: ConfigNode): string | undefined =
  * @returns true if EVPN address-family is configured
  */
 export const hasEvpnAddressFamily = (routerBgpNode: ConfigNode): boolean => {
+  if (!routerBgpNode?.children) return false;
   return routerBgpNode.children.some((child) =>
-    /^address-family\s+evpn/i.test(child.id)
+    child?.id && /^address-family\s+evpn/i.test(child.id)
   );
 };
 
@@ -1104,8 +1134,9 @@ export const hasEvpnAddressFamily = (routerBgpNode: ConfigNode): boolean => {
  * @returns true if ip virtual-router address is configured
  */
 export const hasVirtualRouterAddress = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^ip\s+virtual-router\s+address/i.test(child.id)
+    child?.id && /^ip\s+virtual-router\s+address/i.test(child.id)
   );
 };
 
@@ -1115,8 +1146,9 @@ export const hasVirtualRouterAddress = (interfaceNode: ConfigNode): boolean => {
  * @returns true if ip address is configured
  */
 export const hasIpAddress = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   return interfaceNode.children.some((child) =>
-    /^ip\s+address\s+\d+\.\d+\.\d+\.\d+/i.test(child.id)
+    child?.id && /^ip\s+address\s+\d+\.\d+\.\d+\.\d+/i.test(child.id)
   );
 };
 
@@ -1126,11 +1158,12 @@ export const hasIpAddress = (interfaceNode: ConfigNode): boolean => {
  * @returns true if interface is shutdown
  */
 export const isShutdown = (interfaceNode: ConfigNode): boolean => {
+  if (!interfaceNode?.children) return false;
   const hasShutdown = interfaceNode.children.some((child) =>
-    equalsIgnoreCase(child.id, 'shutdown')
+    child?.id && equalsIgnoreCase(child.id, 'shutdown')
   );
   const hasNoShutdown = interfaceNode.children.some((child) =>
-    equalsIgnoreCase(child.id, 'no shutdown')
+    child?.id && equalsIgnoreCase(child.id, 'no shutdown')
   );
   return hasShutdown && !hasNoShutdown;
 };
@@ -1141,8 +1174,9 @@ export const isShutdown = (interfaceNode: ConfigNode): boolean => {
  * @returns The description if configured, undefined otherwise
  */
 export const getInterfaceDescription = (interfaceNode: ConfigNode): string | undefined => {
+  if (!interfaceNode?.children) return undefined;
   const descCmd = interfaceNode.children.find((child) =>
-    startsWithIgnoreCase(child.id, 'description ')
+    child?.id && startsWithIgnoreCase(child.id, 'description ')
   );
   if (!descCmd) return undefined;
 

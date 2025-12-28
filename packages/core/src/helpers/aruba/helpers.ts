@@ -10,6 +10,7 @@ import { hasChildCommand, getChildCommand, getChildCommands } from '../common/he
  * @returns The interface identifier without the leading keyword
  */
 export const getInterfaceName = (node: ConfigNode): string | undefined => {
+  if (!node?.id) return undefined;
   const match = node.id.match(/interface\s+(.+)/i);
   const ifName = match?.[1]?.trim();
   return ifName && ifName.length > 0 ? ifName : undefined;
@@ -356,7 +357,8 @@ export const getAosSwitchVlanName = (node: ConfigNode): string | undefined => {
  * @returns true if manager password is configured
  */
 export const hasManagerPassword = (nodes: ConfigNode[]): boolean => {
-  return nodes.some((n) => n.id.toLowerCase().startsWith('password manager'));
+  if (!nodes) return false;
+  return nodes.some((n) => n?.id?.toLowerCase().startsWith('password manager') ?? false);
 };
 
 /**
@@ -365,7 +367,8 @@ export const hasManagerPassword = (nodes: ConfigNode[]): boolean => {
  * @returns true if operator password is configured
  */
 export const hasOperatorPassword = (nodes: ConfigNode[]): boolean => {
-  return nodes.some((n) => n.id.toLowerCase().startsWith('password operator'));
+  if (!nodes) return false;
+  return nodes.some((n) => n?.id?.toLowerCase().startsWith('password operator') ?? false);
 };
 
 // =============================================================================
@@ -451,9 +454,10 @@ export const getVapSsidProfile = (node: ConfigNode): string | undefined => {
  * @returns Array of virtual-AP names
  */
 export const getApGroupVirtualAps = (node: ConfigNode): string[] => {
+  if (!node?.children) return [];
   const vaps: string[] = [];
   for (const child of node.children) {
-    const match = child.id.match(/virtual-ap\s+["']?([^"'\n]+)["']?/i);
+    const match = child?.id?.match(/virtual-ap\s+["']?([^"'\n]+)["']?/i);
     const vapName = match?.[1];
     if (vapName) {
       vaps.push(vapName);
@@ -599,8 +603,9 @@ export const findStanza = (
   node: ConfigNode,
   stanzaName: string
 ): ConfigNode | undefined => {
+  if (!node?.children) return undefined;
   return node.children.find(
-    (child) => child.id.toLowerCase() === stanzaName.toLowerCase()
+    (child) => child?.id?.toLowerCase() === stanzaName.toLowerCase()
   );
 };
 
@@ -611,7 +616,8 @@ export const findStanza = (
  * @returns Array of matching child nodes
  */
 export const findStanzas = (node: ConfigNode, pattern: RegExp): ConfigNode[] => {
-  return node.children.filter((child) => pattern.test(child.id.toLowerCase()));
+  if (!node?.children) return [];
+  return node.children.filter((child) => child?.id && pattern.test(child.id.toLowerCase()));
 };
 
 /**

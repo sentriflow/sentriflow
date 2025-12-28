@@ -174,6 +174,7 @@ export const isSetCommand = (nodeOrCommand: ConfigNode | string): boolean => {
  * Get all 'add' commands from a node's children
  */
 export const getAddCommands = (node: ConfigNode): ConfigNode[] => {
+  if (!node?.children) return [];
   return node.children.filter((child) => isAddCommand(child));
 };
 
@@ -181,6 +182,7 @@ export const getAddCommands = (node: ConfigNode): ConfigNode[] => {
  * Get all 'set' commands from a node's children
  */
 export const getSetCommands = (node: ConfigNode): ConfigNode[] => {
+  if (!node?.children) return [];
   return node.children.filter((child) => isSetCommand(child));
 };
 
@@ -198,8 +200,9 @@ export const isPathBlock = (node: ConfigNode, path: string): boolean => {
  * Find a child node that matches a path pattern
  */
 export const findPathBlock = (node: ConfigNode, pathPrefix: string): ConfigNode | undefined => {
+  if (!node?.children) return undefined;
   return node.children.find((child) =>
-    child.id.toLowerCase().trim().startsWith(pathPrefix.toLowerCase())
+    child?.id?.toLowerCase().trim().startsWith(pathPrefix.toLowerCase())
   );
 };
 
@@ -207,8 +210,9 @@ export const findPathBlock = (node: ConfigNode, pathPrefix: string): ConfigNode 
  * Find all child nodes that match a path pattern
  */
 export const findPathBlocks = (node: ConfigNode, pathPrefix: string): ConfigNode[] => {
+  if (!node?.children) return [];
   return node.children.filter((child) =>
-    child.id.toLowerCase().trim().startsWith(pathPrefix.toLowerCase())
+    child?.id?.toLowerCase().trim().startsWith(pathPrefix.toLowerCase())
   );
 };
 
@@ -288,6 +292,7 @@ export const isServiceDisabled = (nodeOrCommand: ConfigNode | string): boolean =
  * Get all firewall rules from a firewall path block
  */
 export const getFirewallRules = (firewallNode: ConfigNode): ConfigNode[] => {
+  if (!firewallNode?.children) return [];
   return firewallNode.children.filter((child) => isAddCommand(child));
 };
 
@@ -319,6 +324,7 @@ export const getInInterface = (nodeOrCommand: ConfigNode | string): string | und
  * Check if identity (hostname) is configured in a system identity block
  */
 export const getSystemIdentity = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   // Look for "set name=..." in /system identity
   for (const child of node.children) {
     if (isSetCommand(child)) {
@@ -342,10 +348,11 @@ export const isNtpEnabled = (nodeOrCommand: ConfigNode | string): boolean => {
  * Get NTP servers from /system ntp client servers block
  */
 export const getNtpServers = (ntpNode: ConfigNode): string[] => {
+  if (!ntpNode?.children) return [];
   const servers: string[] = [];
   for (const child of ntpNode.children) {
     if (isAddCommand(child)) {
-      const address = parseProperty(child.id, 'address');
+      const address = parseProperty(child?.id, 'address');
       if (address) servers.push(address);
     }
   }

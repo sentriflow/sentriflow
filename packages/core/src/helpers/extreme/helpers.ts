@@ -307,11 +307,12 @@ export const getVossMltId = (node: ConfigNode): number | undefined => {
  * @returns true if interface is shutdown
  */
 export const isVossShutdown = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   const hasShutdown = node.children.some((child) =>
-    child.id.toLowerCase() === 'shutdown'
+    child?.id?.toLowerCase() === 'shutdown'
   );
   const hasNoShutdown = node.children.some((child) =>
-    child.id.toLowerCase() === 'no shutdown'
+    child?.id?.toLowerCase() === 'no shutdown'
   );
   return hasShutdown && !hasNoShutdown;
 };
@@ -379,8 +380,9 @@ export const hasVossSsh = (ast: ConfigNode[]): boolean => {
  * @returns true if LACP is configured
  */
 export const hasVossLacp = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) =>
-    /^lacp\s+(enable|key)/i.test(child.id)
+    child?.id && /^lacp\s+(enable|key)/i.test(child.id)
   );
 };
 
@@ -412,10 +414,11 @@ export const hasVossCfm = (ast: ConfigNode[]): boolean => {
  * @returns The default VLAN ID or undefined
  */
 export const getVossDefaultVlan = (node: ConfigNode): number | undefined => {
+  if (!node?.children) return undefined;
   const defaultVlan = node.children.find((child) =>
-    /^default-vlan-id\s+\d+/i.test(child.id)
+    child?.id && /^default-vlan-id\s+\d+/i.test(child.id)
   );
-  if (!defaultVlan) return undefined;
+  if (!defaultVlan?.id) return undefined;
   const match = defaultVlan.id.match(/default-vlan-id\s+(\d+)/i);
   const vlanId = match?.[1];
   return vlanId ? parseInt(vlanId, 10) : undefined;

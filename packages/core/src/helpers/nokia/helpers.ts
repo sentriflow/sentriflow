@@ -12,15 +12,16 @@ export { hasChildCommand, getChildCommand, getChildCommands } from '../common/he
  * Nokia SR OS uses admin-state for enabling/disabling most components
  */
 export const isAdminStateEnabled = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   // Check direct children first (more common case)
   const directCheck = node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'admin-state enable' || rawText === 'admin-state up';
   });
   if (directCheck) return true;
 
   // Also check if admin-state is in the node's own rawText (for compact configs)
-  const nodeText = node.rawText.toLowerCase();
+  const nodeText = node?.rawText?.toLowerCase() ?? '';
   return nodeText.includes('admin-state enable') || nodeText.includes('admin-state up');
 };
 
@@ -28,23 +29,25 @@ export const isAdminStateEnabled = (node: ConfigNode): boolean => {
  * Check if admin-state is disabled (admin-state disable or no admin-state command)
  */
 export const isAdminStateDisabled = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   // Check direct children first
   const directCheck = node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'admin-state disable';
   });
   if (directCheck) return true;
 
   // Also check node's own rawText
-  return node.rawText.toLowerCase().includes('admin-state disable');
+  return node?.rawText?.toLowerCase().includes('admin-state disable') ?? false;
 };
 
 /**
  * Check if component is shutdown (has shutdown command)
  */
 export const isShutdown = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText === 'shutdown';
   });
 };
@@ -93,18 +96,19 @@ export const isSystemInterface = (interfaceName: string): boolean => {
  * Get port mode (network or access)
  */
 export const getPortMode = (node: ConfigNode): 'network' | 'access' | undefined => {
+  if (!node?.children) return undefined;
   // Look for ethernet mode configuration
   const ethernetNode = node.children.find((child) =>
-    child.id.toLowerCase() === 'ethernet'
+    child?.id?.toLowerCase() === 'ethernet'
   );
 
-  if (ethernetNode) {
+  if (ethernetNode?.children) {
     const modeCmd = ethernetNode.children.find((child) => {
-      const rawText = child.rawText.toLowerCase().trim();
-      return rawText.startsWith('mode');
+      const rawText = child?.rawText?.toLowerCase().trim();
+      return rawText?.startsWith('mode');
     });
 
-    if (modeCmd) {
+    if (modeCmd?.rawText) {
       if (modeCmd.rawText.toLowerCase().includes('network')) {
         return 'network';
       }
@@ -142,7 +146,7 @@ export const hasDescription = (node: ConfigNode): boolean => {
  */
 export const getDescription = (node: ConfigNode): string | undefined => {
   const descCmd = getChildCommand(node, 'description');
-  if (descCmd) {
+  if (descCmd?.rawText) {
     // Nokia descriptions are often quoted
     const match = descCmd.rawText.match(/description\s+"([^"]+)"|description\s+(\S+)/i);
     if (match) {
@@ -156,11 +160,12 @@ export const getDescription = (node: ConfigNode): string | undefined => {
  * Get system name from system block
  */
 export const getSystemName = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   const nameCmd = node.children.find((child) => {
-    return child.id.toLowerCase().startsWith('name');
+    return child?.id?.toLowerCase().startsWith('name');
   });
 
-  if (nameCmd) {
+  if (nameCmd?.rawText) {
     // Nokia system name is quoted: name "Router-Name"
     const match = nameCmd.rawText.match(/name\s+"([^"]+)"/i);
     if (match) {
@@ -174,9 +179,10 @@ export const getSystemName = (node: ConfigNode): string | undefined => {
  * Check if interface has IP address configured
  */
 export const hasIpAddress = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.startsWith('address');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.startsWith('address') ?? false;
   });
 };
 
@@ -184,12 +190,13 @@ export const hasIpAddress = (node: ConfigNode): boolean => {
  * Get interface IP address
  */
 export const getIpAddress = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   const addrCmd = node.children.find((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.startsWith('address');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.startsWith('address') ?? false;
   });
 
-  if (addrCmd) {
+  if (addrCmd?.rawText) {
     // Match IPv4 or IPv6 address with optional prefix
     const match = addrCmd.rawText.match(/address\s+([\d./:a-fA-F]+)/i);
     if (match) {
@@ -203,9 +210,10 @@ export const getIpAddress = (node: ConfigNode): string | undefined => {
  * Check if port is assigned to interface
  */
 export const hasPortAssignment = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.startsWith('port');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.startsWith('port') ?? false;
   });
 };
 
@@ -213,12 +221,13 @@ export const hasPortAssignment = (node: ConfigNode): boolean => {
  * Get port assignment
  */
 export const getPortAssignment = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   const portCmd = node.children.find((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.startsWith('port');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.startsWith('port') ?? false;
   });
 
-  if (portCmd) {
+  if (portCmd?.rawText) {
     const match = portCmd.rawText.match(/port\s+([\d/]+)/i);
     if (match) {
       return match[1];
@@ -239,7 +248,7 @@ export const hasBgpRouterId = (node: ConfigNode): boolean => {
  */
 export const getBgpRouterId = (node: ConfigNode): string | undefined => {
   const routerIdCmd = getChildCommand(node, 'router-id');
-  if (routerIdCmd) {
+  if (routerIdCmd?.rawText) {
     const match = routerIdCmd.rawText.match(/router-id\s+([\d.]+)/i);
     if (match) {
       return match[1];
@@ -252,9 +261,10 @@ export const getBgpRouterId = (node: ConfigNode): string | undefined => {
  * Find a stanza by name in the configuration tree
  */
 export const findStanza = (node: ConfigNode, stanzaName: string): ConfigNode | undefined => {
-  if (node.id.toLowerCase().startsWith(stanzaName.toLowerCase())) {
+  if (node?.id?.toLowerCase().startsWith(stanzaName.toLowerCase())) {
     return node;
   }
+  if (!node?.children) return undefined;
   for (const child of node.children) {
     const found = findStanza(child, stanzaName);
     if (found) return found;
@@ -267,9 +277,10 @@ export const findStanza = (node: ConfigNode, stanzaName: string): ConfigNode | u
  */
 export const findStanzas = (node: ConfigNode, stanzaName: string): ConfigNode[] => {
   const results: ConfigNode[] = [];
-  if (node.id.toLowerCase().startsWith(stanzaName.toLowerCase())) {
+  if (node?.id?.toLowerCase().startsWith(stanzaName.toLowerCase())) {
     results.push(node);
   }
+  if (!node?.children) return results;
   for (const child of node.children) {
     results.push(...findStanzas(child, stanzaName));
   }
@@ -280,9 +291,10 @@ export const findStanzas = (node: ConfigNode, stanzaName: string): ConfigNode[] 
  * Check if SAP (Service Access Point) is configured
  */
 export const hasSap = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.startsWith('sap');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.startsWith('sap') ?? false;
   });
 };
 
@@ -290,12 +302,13 @@ export const hasSap = (node: ConfigNode): boolean => {
  * Get SAP identifier
  */
 export const getSapId = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   const sapCmd = node.children.find((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.startsWith('sap');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.startsWith('sap') ?? false;
   });
 
-  if (sapCmd) {
+  if (sapCmd?.rawText) {
     // SAP format: sap port:vlan (e.g., sap 1/1/1:100)
     const match = sapCmd.rawText.match(/sap\s+([\d/:]+)/i);
     if (match) {
@@ -309,6 +322,7 @@ export const getSapId = (node: ConfigNode): string | undefined => {
  * Check if SNMP is configured (snmp block with admin-state)
  */
 export const isSnmpEnabled = (node: ConfigNode): boolean => {
+  if (!node?.id) return false;
   if (node.id.toLowerCase() === 'snmp') {
     return isAdminStateEnabled(node);
   }
@@ -319,8 +333,9 @@ export const isSnmpEnabled = (node: ConfigNode): boolean => {
  * Check if NTP is configured
  */
 export const hasNtpServer = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim() ?? '';
     return rawText.includes('ntp-server') || rawText.includes('server');
   });
 };
@@ -329,9 +344,10 @@ export const hasNtpServer = (node: ConfigNode): boolean => {
  * Check if SSH is enabled in security settings
  */
 export const isSshEnabled = (node: ConfigNode): boolean => {
+  if (!node?.id || !node?.children) return false;
   if (node.id.toLowerCase().includes('security') || node.id.toLowerCase().includes('management-interface')) {
     return node.children.some((child) => {
-      const rawText = child.rawText.toLowerCase().trim();
+      const rawText = child?.rawText?.toLowerCase().trim() ?? '';
       return rawText.includes('ssh') && !rawText.includes('no ssh');
     });
   }
@@ -342,9 +358,10 @@ export const isSshEnabled = (node: ConfigNode): boolean => {
  * Check if Telnet is enabled (security concern)
  */
 export const isTelnetEnabled = (node: ConfigNode): boolean => {
+  if (!node?.id || !node?.children) return false;
   if (node.id.toLowerCase().includes('security') || node.id.toLowerCase().includes('management-interface')) {
     return node.children.some((child) => {
-      const rawText = child.rawText.toLowerCase().trim();
+      const rawText = child?.rawText?.toLowerCase().trim() ?? '';
       return rawText.includes('telnet') && !rawText.includes('no telnet');
     });
   }
@@ -355,8 +372,9 @@ export const isTelnetEnabled = (node: ConfigNode): boolean => {
  * Check if authentication is configured
  */
 export const hasAuthentication = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     if (!rawText) {
       return false;
     }
@@ -373,6 +391,7 @@ export const hasAuthentication = (node: ConfigNode): boolean => {
  * Nokia uses: interface "name" or interface name
  */
 export const getInterfaceName = (node: ConfigNode): string => {
+  if (!node?.id) return '';
   const match = node.id.match(/interface\s+"([^"]+)"|interface\s+(\S+)/i);
   const quoted = match?.[1];
   const unquoted = match?.[2];
@@ -386,6 +405,7 @@ export const getInterfaceName = (node: ConfigNode): string => {
  * Nokia uses: router "Base" or router vprn-name
  */
 export const getRouterName = (node: ConfigNode): string => {
+  if (!node?.id) return 'Base';
   const match = node.id.match(/router\s+"([^"]+)"|router\s+(\S+)/i);
   const quoted = match?.[1];
   const unquoted = match?.[2];
@@ -405,6 +425,7 @@ export const hasPeerDescription = (node: ConfigNode): boolean => {
  * Get service type from service block
  */
 export const getServiceType = (node: ConfigNode): 'vpls' | 'vprn' | 'epipe' | 'ies' | undefined => {
+  if (!node?.id) return undefined;
   const id = node.id.toLowerCase();
   if (id.includes('vpls')) return 'vpls';
   if (id.includes('vprn')) return 'vprn';
@@ -417,6 +438,7 @@ export const getServiceType = (node: ConfigNode): 'vpls' | 'vprn' | 'epipe' | 'i
  * Get service ID from service block
  */
 export const getServiceId = (node: ConfigNode): string | undefined => {
+  if (!node?.id) return undefined;
   const match = node.id.match(/(vpls|vprn|epipe|ies)\s+(\d+)/i);
   const serviceId = match?.[2];
   if (serviceId) {
@@ -429,8 +451,9 @@ export const getServiceId = (node: ConfigNode): string | undefined => {
  * Check if customer is assigned to service
  */
 export const hasCustomer = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const rawText = child.rawText?.toLowerCase().trim();
+    const rawText = child?.rawText?.toLowerCase().trim();
     return rawText?.startsWith('customer') ?? false;
   });
 };
@@ -439,12 +462,13 @@ export const hasCustomer = (node: ConfigNode): boolean => {
  * Get customer ID
  */
 export const getCustomerId = (node: ConfigNode): string | undefined => {
+  if (!node?.children) return undefined;
   const customerCmd = node.children.find((child) => {
-    const rawText = child.rawText.toLowerCase().trim();
-    return rawText.startsWith('customer');
+    const rawText = child?.rawText?.toLowerCase().trim();
+    return rawText?.startsWith('customer') ?? false;
   });
 
-  if (customerCmd) {
+  if (customerCmd?.rawText) {
     const match = customerCmd.rawText.match(/customer\s+(\d+)/i);
     if (match) {
       return match[1];
@@ -464,10 +488,11 @@ const searchNodeRecursively = (
   node: ConfigNode,
   predicate: (rawText: string) => boolean
 ): boolean => {
-  const rawText = node.rawText.toLowerCase().trim();
+  const rawText = node?.rawText?.toLowerCase().trim() ?? '';
   if (predicate(rawText)) {
     return true;
   }
+  if (!node?.children) return false;
   return node.children.some((child) => searchNodeRecursively(child, predicate));
 };
 
@@ -708,7 +733,7 @@ export const getUrpfMode = (node: ConfigNode): 'strict' | 'loose' | undefined =>
   // Search recursively for urpf-check and mode
   let mode: 'strict' | 'loose' | undefined;
   const findMode = (n: ConfigNode): void => {
-    const rawText = n.rawText.toLowerCase();
+    const rawText = n?.rawText?.toLowerCase() ?? '';
     if (rawText.includes('urpf-check')) {
       if (rawText.includes('strict')) {
         mode = 'strict';
@@ -721,7 +746,9 @@ export const getUrpfMode = (node: ConfigNode): 'strict' | 'loose' | undefined =>
     } else if (rawText.includes('mode loose')) {
       mode = 'loose';
     }
-    n.children.forEach(findMode);
+    if (n?.children) {
+      n.children.forEach(findMode);
+    }
   };
   findMode(node);
   return mode;
@@ -837,6 +864,7 @@ export const hasGrtLeaking = (node: ConfigNode): boolean => {
  * Get BGP neighbor IP address from neighbor node
  */
 export const getBgpNeighborIp = (node: ConfigNode): string => {
+  if (!node?.id) return '';
   const match = node.id.match(/neighbor\s+"?([^"]+)"?|neighbor\s+([\d.:a-fA-F]+)/i);
   if (match) {
     return match[1] ?? match[2] ?? node.id.replace(/^neighbor\s+/i, '').trim();
@@ -848,6 +876,7 @@ export const getBgpNeighborIp = (node: ConfigNode): string => {
  * Get BGP group name from group node
  */
 export const getBgpGroupName = (node: ConfigNode): string => {
+  if (!node?.id) return '';
   const match = node.id.match(/group\s+"([^"]+)"/i);
   if (match?.[1]) {
     return match[1];

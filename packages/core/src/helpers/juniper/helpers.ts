@@ -22,7 +22,8 @@ export { hasChildCommand, getChildCommand, getChildCommands, parseIp } from '../
  * Check if a JunOS interface is disabled (has "disable" statement)
  */
 export const isDisabled = (node: ConfigNode): boolean => {
-  return node.children.some((child) => equalsIgnoreCase(child.id.trim(), 'disable'));
+  if (!node?.children) return false;
+  return node.children.some((child) => child?.id && equalsIgnoreCase(child.id.trim(), 'disable'));
 };
 
 /**
@@ -93,8 +94,9 @@ export const findStanza = (
   node: ConfigNode,
   stanzaName: string
 ): ConfigNode | undefined => {
+  if (!node?.children) return undefined;
   return node.children.find(
-    (child) => equalsIgnoreCase(child.id, stanzaName)
+    (child) => child?.id && equalsIgnoreCase(child.id, stanzaName)
   );
 };
 
@@ -105,8 +107,9 @@ export const findStanza = (
  * @returns Array of matching child nodes
  */
 export const findStanzas = (node: ConfigNode, pattern: RegExp): ConfigNode[] => {
+  if (!node?.children) return [];
   // Note: Pattern is expected to have 'i' flag for case-insensitive matching
-  return node.children.filter((child) => pattern.test(child.id));
+  return node.children.filter((child) => child?.id && pattern.test(child.id));
 };
 
 /**
@@ -115,8 +118,9 @@ export const findStanzas = (node: ConfigNode, pattern: RegExp): ConfigNode[] => 
  * @returns Array of unit nodes
  */
 export const getInterfaceUnits = (interfaceNode: ConfigNode): ConfigNode[] => {
+  if (!interfaceNode?.children) return [];
   return interfaceNode.children.filter((child) =>
-    startsWithIgnoreCase(child.id, 'unit')
+    child?.id && startsWithIgnoreCase(child.id, 'unit')
   );
 };
 
@@ -128,9 +132,11 @@ export const getInterfaceUnits = (interfaceNode: ConfigNode): ConfigNode[] => {
 export const getTermAction = (
   termNode: ConfigNode
 ): 'accept' | 'reject' | 'next' | undefined => {
+  if (!termNode?.children) return undefined;
   // First check for inline "then action" commands (e.g., "then reject;")
   for (const child of termNode.children) {
-    const id = child.id.trim();
+    const id = child?.id?.trim();
+    if (!id) continue;
     if (equalsIgnoreCase(id, 'then accept') || equalsIgnoreCase(id, 'then accept;')) return 'accept';
     if (equalsIgnoreCase(id, 'then reject') || equalsIgnoreCase(id, 'then reject;')) return 'reject';
     if (startsWithIgnoreCase(id, 'then next')) return 'next';
@@ -138,10 +144,11 @@ export const getTermAction = (
 
   // Then check for nested "then" stanza with children
   const thenStanza = findStanza(termNode, 'then');
-  if (!thenStanza) return undefined;
+  if (!thenStanza?.children) return undefined;
 
   for (const child of thenStanza.children) {
-    const id = child.id.trim();
+    const id = child?.id?.trim();
+    if (!id) continue;
     if (equalsIgnoreCase(id, 'accept') || equalsIgnoreCase(id, 'accept;')) return 'accept';
     if (equalsIgnoreCase(id, 'reject') || equalsIgnoreCase(id, 'reject;')) return 'reject';
     if (startsWithIgnoreCase(id, 'next')) return 'next';
@@ -156,9 +163,11 @@ export const getTermAction = (
  * @returns true if the term discards/rejects traffic
  */
 export const isFilterTermDrop = (termNode: ConfigNode): boolean => {
+  if (!termNode?.children) return false;
   // First check for inline "then action" commands (e.g., "then discard;")
   for (const child of termNode.children) {
-    const id = child.id.trim();
+    const id = child?.id?.trim();
+    if (!id) continue;
     if (
       equalsIgnoreCase(id, 'then discard') ||
       equalsIgnoreCase(id, 'then discard;') ||
@@ -171,10 +180,11 @@ export const isFilterTermDrop = (termNode: ConfigNode): boolean => {
 
   // Then check for nested "then" stanza with children
   const thenStanza = findStanza(termNode, 'then');
-  if (!thenStanza) return false;
+  if (!thenStanza?.children) return false;
 
   for (const child of thenStanza.children) {
-    const id = child.id.trim();
+    const id = child?.id?.trim();
+    if (!id) continue;
     if (equalsIgnoreCase(id, 'discard') || equalsIgnoreCase(id, 'discard;') || equalsIgnoreCase(id, 'reject') || equalsIgnoreCase(id, 'reject;')) {
       return true;
     }
@@ -193,10 +203,10 @@ export const isFilterTermDrop = (termNode: ConfigNode): boolean => {
  */
 export const isSshV2Only = (servicesNode: ConfigNode): boolean => {
   const ssh = findStanza(servicesNode, 'ssh');
-  if (!ssh) return false;
+  if (!ssh?.children) return false;
 
   for (const child of ssh.children) {
-    if (includesIgnoreCase(child.id, 'protocol-version') && includesIgnoreCase(child.id, 'v2') && !includesIgnoreCase(child.id, 'v1')) {
+    if (child?.id && includesIgnoreCase(child.id, 'protocol-version') && includesIgnoreCase(child.id, 'v2') && !includesIgnoreCase(child.id, 'v1')) {
       return true;
     }
   }
@@ -209,10 +219,10 @@ export const isSshV2Only = (servicesNode: ConfigNode): boolean => {
  */
 export const isSshRootLoginDenied = (servicesNode: ConfigNode): boolean => {
   const ssh = findStanza(servicesNode, 'ssh');
-  if (!ssh) return false;
+  if (!ssh?.children) return false;
 
   for (const child of ssh.children) {
-    if (includesIgnoreCase(child.id, 'root-login') && includesIgnoreCase(child.id, 'deny')) {
+    if (child?.id && includesIgnoreCase(child.id, 'root-login') && includesIgnoreCase(child.id, 'deny')) {
       return true;
     }
   }
@@ -471,17 +481,20 @@ export const hasBgpTtlSecurity = (groupNode: ConfigNode): boolean => {
  * JUNOS-BGP-003: Maximum prefix limits
  */
 export const hasBgpPrefixLimit = (groupNode: ConfigNode): boolean => {
+  if (!groupNode?.children) return false;
   // Check under family inet unicast
   const family = findStanza(groupNode, 'family');
   if (!family) {
     // Also check direct children for "family inet"
     for (const child of groupNode.children) {
-      if (startsWithIgnoreCase(child.id, 'family')) {
+      if (child?.id && startsWithIgnoreCase(child.id, 'family')) {
         const hasLimit = hasChildCommand(child, 'prefix-limit');
         if (hasLimit) return true;
         // Check nested unicast
-        for (const nested of child.children) {
-          if (hasChildCommand(nested, 'prefix-limit')) return true;
+        if (child?.children) {
+          for (const nested of child.children) {
+            if (hasChildCommand(nested, 'prefix-limit')) return true;
+          }
         }
       }
     }
@@ -502,7 +515,8 @@ export const hasBgpPolicies = (groupNode: ConfigNode): boolean => {
  * Check if BGP group type is external (eBGP)
  */
 export const isBgpGroupExternal = (groupNode: ConfigNode): boolean => {
-  return groupNode.children.some((child) => includesIgnoreCase(child.id, 'type external'));
+  if (!groupNode?.children) return false;
+  return groupNode.children.some((child) => child?.id && includesIgnoreCase(child.id, 'type external'));
 };
 
 /**
@@ -597,8 +611,9 @@ export const hasPolicyLogging = (policyNode: ConfigNode): boolean => {
  * JUNOS-VPN-001: Use strong DH groups
  */
 export const hasStrongDhGroup = (proposalNode: ConfigNode): boolean => {
+  if (!proposalNode?.children) return false;
   for (const child of proposalNode.children) {
-    if (includesIgnoreCase(child.id, 'dh-group')) {
+    if (child?.id && includesIgnoreCase(child.id, 'dh-group')) {
       // Weak groups: group1, group2, group5
       if (includesIgnoreCase(child.id, 'group1') && !includesIgnoreCase(child.id, 'group14')) return false;
       if (includesIgnoreCase(child.id, 'group2') && !includesIgnoreCase(child.id, 'group21')) return false;
@@ -624,8 +639,9 @@ export const hasStrongDhGroup = (proposalNode: ConfigNode): boolean => {
  * JUNOS-VPN-001: Use strong encryption
  */
 export const hasStrongEncryption = (proposalNode: ConfigNode): boolean => {
+  if (!proposalNode?.children) return false;
   for (const child of proposalNode.children) {
-    if (includesIgnoreCase(child.id, 'encryption-algorithm')) {
+    if (child?.id && includesIgnoreCase(child.id, 'encryption-algorithm')) {
       if (includesIgnoreCase(child.id, 'aes-256') || includesIgnoreCase(child.id, 'aes-gcm-256')) {
         return true;
       }

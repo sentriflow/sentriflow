@@ -11,7 +11,8 @@ export { hasChildCommand, getChildCommand, getChildCommands, parseIp } from '../
  * Check if a VyOS interface is disabled (has "disable" statement)
  */
 export const isDisabled = (node: ConfigNode): boolean => {
-  return node.children.some((child) => child.id.toLowerCase().trim() === 'disable');
+  if (!node?.children) return false;
+  return node.children.some((child) => child?.id?.toLowerCase().trim() === 'disable');
 };
 
 /**
@@ -114,8 +115,9 @@ export const findStanza = (
   node: ConfigNode,
   stanzaName: string
 ): ConfigNode | undefined => {
+  if (!node?.children) return undefined;
   return node.children.find(
-    (child) => child.id.toLowerCase() === stanzaName.toLowerCase()
+    (child) => child?.id?.toLowerCase() === stanzaName.toLowerCase()
   );
 };
 
@@ -129,8 +131,9 @@ export const findStanzaByPrefix = (
   node: ConfigNode,
   prefix: string
 ): ConfigNode | undefined => {
+  if (!node?.children) return undefined;
   return node.children.find((child) =>
-    child.id.toLowerCase().startsWith(prefix.toLowerCase())
+    child?.id?.toLowerCase().startsWith(prefix.toLowerCase())
   );
 };
 
@@ -141,7 +144,8 @@ export const findStanzaByPrefix = (
  * @returns Array of matching child nodes
  */
 export const findStanzas = (node: ConfigNode, pattern: RegExp): ConfigNode[] => {
-  return node.children.filter((child) => pattern.test(child.id.toLowerCase()));
+  if (!node?.children) return [];
+  return node.children.filter((child) => child?.id && pattern.test(child.id.toLowerCase()));
 };
 
 /**
@@ -151,8 +155,9 @@ export const findStanzas = (node: ConfigNode, pattern: RegExp): ConfigNode[] => 
  * @returns Array of matching child nodes
  */
 export const findStanzasByPrefix = (node: ConfigNode, prefix: string): ConfigNode[] => {
+  if (!node?.children) return [];
   return node.children.filter((child) =>
-    child.id.toLowerCase().startsWith(prefix.toLowerCase())
+    child?.id?.toLowerCase().startsWith(prefix.toLowerCase())
   );
 };
 
@@ -162,8 +167,9 @@ export const findStanzasByPrefix = (node: ConfigNode, prefix: string): ConfigNod
  * @returns Array of ethernet interface nodes
  */
 export const getEthernetInterfaces = (interfacesNode: ConfigNode): ConfigNode[] => {
+  if (!interfacesNode?.children) return [];
   return interfacesNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('ethernet eth')
+    child?.id?.toLowerCase().startsWith('ethernet eth')
   );
 };
 
@@ -173,8 +179,9 @@ export const getEthernetInterfaces = (interfacesNode: ConfigNode): ConfigNode[] 
  * @returns Array of vif nodes
  */
 export const getVifInterfaces = (interfaceNode: ConfigNode): ConfigNode[] => {
+  if (!interfaceNode?.children) return [];
   return interfaceNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('vif')
+    child?.id?.toLowerCase().startsWith('vif')
   );
 };
 
@@ -186,8 +193,10 @@ export const getVifInterfaces = (interfaceNode: ConfigNode): ConfigNode[] => {
 export const getFirewallDefaultAction = (
   rulesetNode: ConfigNode
 ): 'drop' | 'accept' | 'reject' | undefined => {
+  if (!rulesetNode?.children) return undefined;
   for (const child of rulesetNode.children) {
-    const id = child.id.toLowerCase().trim();
+    const id = child?.id?.toLowerCase().trim();
+    if (!id) continue;
     if (id.startsWith('default-action')) {
       if (id.includes('drop')) return 'drop';
       if (id.includes('accept')) return 'accept';
@@ -203,8 +212,9 @@ export const getFirewallDefaultAction = (
  * @returns Array of rule nodes
  */
 export const getFirewallRules = (rulesetNode: ConfigNode): ConfigNode[] => {
+  if (!rulesetNode?.children) return [];
   return rulesetNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('rule')
+    child?.id?.toLowerCase().startsWith('rule')
   );
 };
 
@@ -216,8 +226,10 @@ export const getFirewallRules = (rulesetNode: ConfigNode): ConfigNode[] => {
 export const getFirewallRuleAction = (
   ruleNode: ConfigNode
 ): 'drop' | 'accept' | 'reject' | undefined => {
+  if (!ruleNode?.children) return undefined;
   for (const child of ruleNode.children) {
-    const id = child.id.toLowerCase().trim();
+    const id = child?.id?.toLowerCase().trim();
+    if (!id) continue;
     if (id.startsWith('action')) {
       if (id.includes('drop')) return 'drop';
       if (id.includes('accept')) return 'accept';
@@ -233,8 +245,9 @@ export const getFirewallRuleAction = (
  * @returns true if translation is configured
  */
 export const hasNatTranslation = (ruleNode: ConfigNode): boolean => {
+  if (!ruleNode?.children) return false;
   return ruleNode.children.some((child) =>
-    child.id.toLowerCase().startsWith('translation')
+    child?.id?.toLowerCase().startsWith('translation')
   );
 };
 
@@ -244,8 +257,9 @@ export const hasNatTranslation = (ruleNode: ConfigNode): boolean => {
  * @returns true if SSH is configured
  */
 export const hasSshService = (serviceNode: ConfigNode): boolean => {
+  if (!serviceNode?.children) return false;
   return serviceNode.children.some((child) =>
-    child.id.toLowerCase().startsWith('ssh')
+    child?.id?.toLowerCase().startsWith('ssh')
   );
 };
 
@@ -255,8 +269,9 @@ export const hasSshService = (serviceNode: ConfigNode): boolean => {
  * @returns The SSH configuration node, or undefined
  */
 export const getSshConfig = (serviceNode: ConfigNode): ConfigNode | undefined => {
+  if (!serviceNode?.children) return undefined;
   return serviceNode.children.find((child) =>
-    child.id.toLowerCase().startsWith('ssh')
+    child?.id?.toLowerCase().startsWith('ssh')
   );
 };
 
@@ -266,8 +281,9 @@ export const getSshConfig = (serviceNode: ConfigNode): ConfigNode | undefined =>
  * @returns true if DHCP server is configured
  */
 export const hasDhcpServer = (serviceNode: ConfigNode): boolean => {
+  if (!serviceNode?.children) return false;
   return serviceNode.children.some((child) =>
-    child.id.toLowerCase().startsWith('dhcp-server')
+    child?.id?.toLowerCase().startsWith('dhcp-server')
   );
 };
 
@@ -277,8 +293,9 @@ export const hasDhcpServer = (serviceNode: ConfigNode): boolean => {
  * @returns The DNS configuration node, or undefined
  */
 export const getDnsConfig = (serviceNode: ConfigNode): ConfigNode | undefined => {
+  if (!serviceNode?.children) return undefined;
   return serviceNode.children.find((child) =>
-    child.id.toLowerCase().startsWith('dns')
+    child?.id?.toLowerCase().startsWith('dns')
   );
 };
 
@@ -288,8 +305,9 @@ export const getDnsConfig = (serviceNode: ConfigNode): ConfigNode | undefined =>
  * @returns true if NTP is configured
  */
 export const hasNtpConfig = (systemNode: ConfigNode): boolean => {
+  if (!systemNode?.children) return false;
   return systemNode.children.some((child) =>
-    child.id.toLowerCase().startsWith('ntp')
+    child?.id?.toLowerCase().startsWith('ntp')
   );
 };
 
@@ -299,8 +317,9 @@ export const hasNtpConfig = (systemNode: ConfigNode): boolean => {
  * @returns true if syslog is configured
  */
 export const hasSyslogConfig = (systemNode: ConfigNode): boolean => {
+  if (!systemNode?.children) return false;
   return systemNode.children.some((child) =>
-    child.id.toLowerCase().startsWith('syslog')
+    child?.id?.toLowerCase().startsWith('syslog')
   );
 };
 
@@ -310,8 +329,9 @@ export const hasSyslogConfig = (systemNode: ConfigNode): boolean => {
  * @returns The login configuration node, or undefined
  */
 export const getLoginConfig = (systemNode: ConfigNode): ConfigNode | undefined => {
+  if (!systemNode?.children) return undefined;
   return systemNode.children.find((child) =>
-    child.id.toLowerCase().startsWith('login')
+    child?.id?.toLowerCase().startsWith('login')
   );
 };
 
@@ -321,8 +341,9 @@ export const getLoginConfig = (systemNode: ConfigNode): ConfigNode | undefined =
  * @returns Array of user nodes
  */
 export const getUserConfigs = (loginNode: ConfigNode): ConfigNode[] => {
+  if (!loginNode?.children) return [];
   return loginNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('user')
+    child?.id?.toLowerCase().startsWith('user')
   );
 };
 
@@ -334,22 +355,24 @@ export const getUserConfigs = (loginNode: ConfigNode): ConfigNode[] => {
  */
 export const getSwitchPortMembers = (interfacesNode: ConfigNode): Set<string> => {
   const members = new Set<string>();
+  if (!interfacesNode?.children) return members;
 
   // Find all switch interfaces (switch switchX)
   const switches = interfacesNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('switch ')
+    child?.id?.toLowerCase().startsWith('switch ')
   );
 
   for (const switchNode of switches) {
+    if (!switchNode?.children) continue;
     // Find switch-port section
     const switchPort = switchNode.children.find((child) =>
-      child.id.toLowerCase() === 'switch-port'
+      child?.id?.toLowerCase() === 'switch-port'
     );
 
-    if (switchPort) {
+    if (switchPort?.children) {
       // Find all interface members (interface ethX)
       for (const child of switchPort.children) {
-        const match = child.id.toLowerCase().match(/^interface\s+(eth\d+)$/);
+        const match = child?.id?.toLowerCase().match(/^interface\s+(eth\d+)$/);
         if (match?.[1]) {
           members.add(match[1]);
         }
@@ -368,22 +391,24 @@ export const getSwitchPortMembers = (interfacesNode: ConfigNode): Set<string> =>
  */
 export const getBridgeMembers = (interfacesNode: ConfigNode): Set<string> => {
   const members = new Set<string>();
+  if (!interfacesNode?.children) return members;
 
   // Find all bridge interfaces (bridge brX)
   const bridges = interfacesNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('bridge ')
+    child?.id?.toLowerCase().startsWith('bridge ')
   );
 
   for (const bridgeNode of bridges) {
+    if (!bridgeNode?.children) continue;
     // Find member section
     const memberSection = bridgeNode.children.find((child) =>
-      child.id.toLowerCase() === 'member'
+      child?.id?.toLowerCase() === 'member'
     );
 
-    if (memberSection) {
+    if (memberSection?.children) {
       // Find all interface members within the member section
       for (const child of memberSection.children) {
-        const match = child.id.toLowerCase().match(/^interface\s+(\S+)$/);
+        const match = child?.id?.toLowerCase().match(/^interface\s+(\S+)$/);
         if (match?.[1]) {
           members.add(match[1]);
         }
@@ -402,22 +427,24 @@ export const getBridgeMembers = (interfacesNode: ConfigNode): Set<string> => {
  */
 export const getBondingMembers = (interfacesNode: ConfigNode): Set<string> => {
   const members = new Set<string>();
+  if (!interfacesNode?.children) return members;
 
   // Find all bonding interfaces (bonding bondX)
   const bonds = interfacesNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('bonding ')
+    child?.id?.toLowerCase().startsWith('bonding ')
   );
 
   for (const bondNode of bonds) {
+    if (!bondNode?.children) continue;
     // Find member section
     const memberSection = bondNode.children.find((child) =>
-      child.id.toLowerCase() === 'member'
+      child?.id?.toLowerCase() === 'member'
     );
 
-    if (memberSection) {
+    if (memberSection?.children) {
       // Find all interface members within the member section
       for (const child of memberSection.children) {
-        const match = child.id.toLowerCase().match(/^interface\s+(\S+)$/);
+        const match = child?.id?.toLowerCase().match(/^interface\s+(\S+)$/);
         if (match?.[1]) {
           members.add(match[1]);
         }

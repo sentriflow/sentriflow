@@ -15,9 +15,11 @@ export const findConfigSection = (
   node: ConfigNode,
   sectionName: string
 ): ConfigNode | undefined => {
+  if (!node?.children) return undefined;
   const normalizedName = sectionName.toLowerCase();
   return node.children.find((child) => {
-    const childId = child.id.toLowerCase();
+    const childId = child?.id?.toLowerCase();
+    if (!childId) return false;
     // Match "config <sectionName>" or just "<sectionName>"
     return (
       childId === `config ${normalizedName}` ||
@@ -35,7 +37,8 @@ export const findConfigSection = (
  * @returns Array of matching child nodes
  */
 export const findConfigSections = (node: ConfigNode, pattern: RegExp): ConfigNode[] => {
-  return node.children.filter((child) => pattern.test(child.id.toLowerCase()));
+  if (!node?.children) return [];
+  return node.children.filter((child) => child?.id && pattern.test(child.id.toLowerCase()));
 };
 
 /**
@@ -49,9 +52,11 @@ export const findEditEntry = (
   configSection: ConfigNode,
   entryName: string
 ): ConfigNode | undefined => {
+  if (!configSection?.children) return undefined;
   const normalizedName = entryName.toLowerCase().replace(/^["']|["']$/g, '');
   return configSection.children.find((child) => {
-    const childId = child.id.toLowerCase();
+    const childId = child?.id?.toLowerCase();
+    if (!childId) return false;
     // Match "edit <name>" with or without quotes
     const editMatch = childId.match(/^edit\s+["']?([^"']+)["']?$/i);
     const editName = editMatch?.[1];
@@ -68,8 +73,9 @@ export const findEditEntry = (
  * @returns Array of edit entry nodes
  */
 export const getEditEntries = (configSection: ConfigNode): ConfigNode[] => {
+  if (!configSection?.children) return [];
   return configSection.children.filter((child) =>
-    child.id.toLowerCase().startsWith('edit ')
+    child?.id?.toLowerCase().startsWith('edit ')
   );
 };
 
@@ -93,9 +99,11 @@ export const getEditEntryName = (editEntry: ConfigNode): string => {
  * @returns The value, or undefined
  */
 export const getSetValue = (node: ConfigNode, paramName: string): string | undefined => {
+  if (!node?.children) return undefined;
   const normalizedParam = paramName.toLowerCase();
   for (const child of node.children) {
-    const childId = child.id.toLowerCase();
+    const childId = child?.id?.toLowerCase();
+    if (!childId) continue;
     const match = childId.match(new RegExp(`^set\\s+${normalizedParam}\\s+(.+)$`, 'i'));
     const value = match?.[1];
     if (value) {
@@ -124,10 +132,12 @@ export const hasSetValue = (node: ConfigNode, paramName: string): boolean => {
  * @returns Array of values
  */
 export const getSetValues = (node: ConfigNode, paramName: string): string[] => {
+  if (!node?.children) return [];
   const normalizedParam = paramName.toLowerCase();
   const values: string[] = [];
   for (const child of node.children) {
-    const childId = child.id.toLowerCase();
+    const childId = child?.id?.toLowerCase();
+    if (!childId) continue;
     const match = childId.match(new RegExp(`^set\\s+${normalizedParam}\\s+(.+)$`, 'i'));
     const matchValue = match?.[1];
     if (matchValue) {

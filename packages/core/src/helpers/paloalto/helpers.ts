@@ -14,8 +14,9 @@ export const findStanza = (
   node: ConfigNode,
   stanzaName: string
 ): ConfigNode | undefined => {
+  if (!node?.children) return undefined;
   return node.children.find(
-    (child) => child.id.toLowerCase() === stanzaName.toLowerCase()
+    (child) => child?.id?.toLowerCase() === stanzaName.toLowerCase()
   );
 };
 
@@ -26,7 +27,8 @@ export const findStanza = (
  * @returns Array of matching child nodes
  */
 export const findStanzas = (node: ConfigNode, pattern: RegExp): ConfigNode[] => {
-  return node.children.filter((child) => pattern.test(child.id.toLowerCase()));
+  if (!node?.children) return [];
+  return node.children.filter((child) => child?.id && pattern.test(child.id.toLowerCase()));
 };
 
 /**
@@ -102,8 +104,8 @@ export const isDenyRule = (ruleNode: ConfigNode): boolean => {
  */
 export const getSourceZones = (ruleNode: ConfigNode): string[] => {
   const from = findStanza(ruleNode, 'from');
-  if (!from) return [];
-  return from.children.map((child) => child.id.trim());
+  if (!from?.children) return [];
+  return from.children.map((child) => child?.id?.trim() ?? '').filter(Boolean);
 };
 
 /**
@@ -113,8 +115,8 @@ export const getSourceZones = (ruleNode: ConfigNode): string[] => {
  */
 export const getDestinationZones = (ruleNode: ConfigNode): string[] => {
   const to = findStanza(ruleNode, 'to');
-  if (!to) return [];
-  return to.children.map((child) => child.id.trim());
+  if (!to?.children) return [];
+  return to.children.map((child) => child?.id?.trim() ?? '').filter(Boolean);
 };
 
 /**
@@ -123,21 +125,22 @@ export const getDestinationZones = (ruleNode: ConfigNode): string[] => {
  * @returns Array of application names
  */
 export const getApplications = (ruleNode: ConfigNode): string[] => {
+  if (!ruleNode?.children) return [];
   // Check for "application" stanza with children
   const application = findStanza(ruleNode, 'application');
-  if (application && application.children.length > 0) {
-    return application.children.map((child) => child.id.trim());
+  if (application?.children && application.children.length > 0) {
+    return application.children.map((child) => child?.id?.trim() ?? '').filter(Boolean);
   }
 
   // Also check for inline "application <value>" commands
   const appCommands = ruleNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('application ')
+    child?.id?.toLowerCase().startsWith('application ')
   );
   if (appCommands.length > 0) {
     return appCommands.map((cmd) => {
-      const parts = cmd.id.split(/\s+/);
+      const parts = cmd?.id?.split(/\s+/) ?? [];
       return parts.slice(1).join(' ').replace(/;$/, '').trim();
-    });
+    }).filter(Boolean);
   }
 
   return [];
@@ -159,22 +162,23 @@ export const hasAnyApplication = (ruleNode: ConfigNode): boolean => {
  * @returns true if source is "any"
  */
 export const hasAnySource = (ruleNode: ConfigNode): boolean => {
+  if (!ruleNode?.children) return false;
   // Check for "source" stanza with children
   const source = findStanza(ruleNode, 'source');
-  if (source && source.children.length > 0) {
+  if (source?.children && source.children.length > 0) {
     return source.children.some((child) => {
-      const id = child.id.toLowerCase().trim().replace(/;$/, '');
+      const id = child?.id?.toLowerCase().trim().replace(/;$/, '');
       return id === 'any' || id === '0.0.0.0/0';
     });
   }
 
   // Also check for inline "source any" or "source <value>" commands
   const sourceCommands = ruleNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('source ')
+    child?.id?.toLowerCase().startsWith('source ')
   );
   if (sourceCommands.length > 0) {
     return sourceCommands.some((cmd) => {
-      const value = cmd.id.split(/\s+/).slice(1).join(' ').toLowerCase().replace(/;$/, '').trim();
+      const value = cmd?.id?.split(/\s+/).slice(1).join(' ').toLowerCase().replace(/;$/, '').trim();
       return value === 'any' || value === '0.0.0.0/0';
     });
   }
@@ -188,22 +192,23 @@ export const hasAnySource = (ruleNode: ConfigNode): boolean => {
  * @returns true if destination is "any"
  */
 export const hasAnyDestination = (ruleNode: ConfigNode): boolean => {
+  if (!ruleNode?.children) return false;
   // Check for "destination" stanza with children
   const destination = findStanza(ruleNode, 'destination');
-  if (destination && destination.children.length > 0) {
+  if (destination?.children && destination.children.length > 0) {
     return destination.children.some((child) => {
-      const id = child.id.toLowerCase().trim().replace(/;$/, '');
+      const id = child?.id?.toLowerCase().trim().replace(/;$/, '');
       return id === 'any' || id === '0.0.0.0/0';
     });
   }
 
   // Also check for inline "destination any" or "destination <value>" commands
   const destCommands = ruleNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('destination ')
+    child?.id?.toLowerCase().startsWith('destination ')
   );
   if (destCommands.length > 0) {
     return destCommands.some((cmd) => {
-      const value = cmd.id.split(/\s+/).slice(1).join(' ').toLowerCase().replace(/;$/, '').trim();
+      const value = cmd?.id?.split(/\s+/).slice(1).join(' ').toLowerCase().replace(/;$/, '').trim();
       return value === 'any' || value === '0.0.0.0/0';
     });
   }
@@ -217,22 +222,23 @@ export const hasAnyDestination = (ruleNode: ConfigNode): boolean => {
  * @returns true if service is "any"
  */
 export const hasAnyService = (ruleNode: ConfigNode): boolean => {
+  if (!ruleNode?.children) return false;
   // Check for "service" stanza with children
   const service = findStanza(ruleNode, 'service');
-  if (service && service.children.length > 0) {
+  if (service?.children && service.children.length > 0) {
     return service.children.some((child) => {
-      const id = child.id.toLowerCase().trim().replace(/;$/, '');
+      const id = child?.id?.toLowerCase().trim().replace(/;$/, '');
       return id === 'any';
     });
   }
 
   // Also check for inline "service any" or "service <value>" commands
   const serviceCommands = ruleNode.children.filter((child) =>
-    child.id.toLowerCase().startsWith('service ')
+    child?.id?.toLowerCase().startsWith('service ')
   );
   if (serviceCommands.length > 0) {
     return serviceCommands.some((cmd) => {
-      const value = cmd.id.split(/\s+/).slice(1).join(' ').toLowerCase().replace(/;$/, '').trim();
+      const value = cmd?.id?.split(/\s+/).slice(1).join(' ').toLowerCase().replace(/;$/, '').trim();
       return value === 'any';
     });
   }
@@ -261,7 +267,7 @@ export const getSecurityRules = (rulebaseNode: ConfigNode): ConfigNode[] => {
   if (!security) return [];
 
   const rules = findStanza(security, 'rules');
-  if (!rules) return [];
+  if (!rules?.children) return [];
 
   return rules.children;
 };
@@ -276,7 +282,7 @@ export const getNatRules = (rulebaseNode: ConfigNode): ConfigNode[] => {
   if (!nat) return [];
 
   const rules = findStanza(nat, 'rules');
-  if (!rules) return [];
+  if (!rules?.children) return [];
 
   return rules.children;
 };
@@ -288,7 +294,7 @@ export const getNatRules = (rulebaseNode: ConfigNode): ConfigNode[] => {
  */
 export const isHAConfigured = (deviceconfigNode: ConfigNode): boolean => {
   const ha = findStanza(deviceconfigNode, 'high-availability');
-  if (!ha) return false;
+  if (!ha?.children) return false;
   return ha.children.length > 0;
 };
 
@@ -420,7 +426,7 @@ export const parsePanosAddress = (
  */
 export const hasWildfireProfile = (profilesNode: ConfigNode): boolean => {
   const wildfire = findStanza(profilesNode, 'wildfire-analysis');
-  return wildfire !== undefined && wildfire.children.length > 0;
+  return wildfire !== undefined && (wildfire?.children?.length ?? 0) > 0;
 };
 
 /**
@@ -430,7 +436,7 @@ export const hasWildfireProfile = (profilesNode: ConfigNode): boolean => {
  */
 export const hasUrlFilteringProfile = (profilesNode: ConfigNode): boolean => {
   const urlFiltering = findStanza(profilesNode, 'url-filtering');
-  return urlFiltering !== undefined && urlFiltering.children.length > 0;
+  return urlFiltering !== undefined && (urlFiltering?.children?.length ?? 0) > 0;
 };
 
 /**
@@ -440,7 +446,7 @@ export const hasUrlFilteringProfile = (profilesNode: ConfigNode): boolean => {
  */
 export const hasAntiVirusProfile = (profilesNode: ConfigNode): boolean => {
   const virus = findStanza(profilesNode, 'virus');
-  return virus !== undefined && virus.children.length > 0;
+  return virus !== undefined && (virus?.children?.length ?? 0) > 0;
 };
 
 /**
@@ -450,7 +456,7 @@ export const hasAntiVirusProfile = (profilesNode: ConfigNode): boolean => {
  */
 export const hasAntiSpywareProfile = (profilesNode: ConfigNode): boolean => {
   const spyware = findStanza(profilesNode, 'spyware');
-  return spyware !== undefined && spyware.children.length > 0;
+  return spyware !== undefined && (spyware?.children?.length ?? 0) > 0;
 };
 
 /**
@@ -460,7 +466,7 @@ export const hasAntiSpywareProfile = (profilesNode: ConfigNode): boolean => {
  */
 export const hasVulnerabilityProfile = (profilesNode: ConfigNode): boolean => {
   const vuln = findStanza(profilesNode, 'vulnerability');
-  return vuln !== undefined && vuln.children.length > 0;
+  return vuln !== undefined && (vuln?.children?.length ?? 0) > 0;
 };
 
 /**
@@ -470,7 +476,7 @@ export const hasVulnerabilityProfile = (profilesNode: ConfigNode): boolean => {
  */
 export const hasFileBlockingProfile = (profilesNode: ConfigNode): boolean => {
   const fileBlocking = findStanza(profilesNode, 'file-blocking');
-  return fileBlocking !== undefined && fileBlocking.children.length > 0;
+  return fileBlocking !== undefined && (fileBlocking?.children?.length ?? 0) > 0;
 };
 
 /**
@@ -811,7 +817,7 @@ export const getLogForwardingStatus = (
   logSettingsNode: ConfigNode
 ): { hasSyslog: boolean; hasPanorama: boolean; hasEmail: boolean } => {
   const profiles = findStanza(logSettingsNode, 'profiles');
-  if (!profiles) {
+  if (!profiles?.children) {
     return { hasSyslog: false, hasPanorama: false, hasEmail: false };
   }
 
@@ -822,12 +828,12 @@ export const getLogForwardingStatus = (
   // Check each profile for forwarding destinations
   for (const profile of profiles.children) {
     const matchList = findStanza(profile, 'match-list');
-    if (matchList) {
+    if (matchList?.children) {
       for (const match of matchList.children) {
         if (findStanza(match, 'send-syslog')) hasSyslog = true;
         if (hasChildCommand(match, 'send-to-panorama')) {
           const cmd = getChildCommand(match, 'send-to-panorama');
-          if (cmd?.id.toLowerCase().includes('yes')) hasPanorama = true;
+          if (cmd?.id?.toLowerCase().includes('yes')) hasPanorama = true;
         }
         if (findStanza(match, 'send-email')) hasEmail = true;
       }
@@ -868,9 +874,9 @@ export const getUpdateScheduleStatus = (
   }
 
   return {
-    hasThreats: threats !== undefined && threats.children.length > 0,
-    hasAntivirus: antivirus !== undefined && antivirus.children.length > 0,
-    hasWildfire: wildfire !== undefined && wildfire.children.length > 0,
+    hasThreats: threats !== undefined && (threats?.children?.length ?? 0) > 0,
+    hasAntivirus: antivirus !== undefined && (antivirus?.children?.length ?? 0) > 0,
+    hasWildfire: wildfire !== undefined && (wildfire?.children?.length ?? 0) > 0,
     wildfireRealtime,
   };
 };
@@ -885,7 +891,7 @@ export const getDecryptionRules = (rulebaseNode: ConfigNode): ConfigNode[] => {
   if (!decryption) return [];
 
   const rules = findStanza(decryption, 'rules');
-  if (!rules) return [];
+  if (!rules?.children) return [];
 
   return rules.children;
 };
@@ -916,15 +922,19 @@ export const getInterfaceManagementServices = (
   ping: boolean;
   snmp: boolean;
 } => {
+  if (!profileNode?.children) {
+    return { https: false, http: false, ssh: false, telnet: false, ping: false, snmp: false };
+  }
   // Use exact matching with word boundary to avoid "https" matching "http"
   const isServiceEnabled = (serviceName: string): boolean => {
     // Look for exact service name followed by space/end (e.g., "http yes" not "https yes")
     const cmd = profileNode.children.find((child) => {
-      const lowerId = child.id.toLowerCase();
+      const lowerId = child?.id?.toLowerCase();
+      if (!lowerId) return false;
       // Match exact service name: "http yes", "http no", etc.
       return lowerId === serviceName || lowerId.startsWith(serviceName + ' ');
     });
-    if (!cmd) return false;
+    if (!cmd?.id) return false;
     return cmd.id.toLowerCase().includes('yes');
   };
 
