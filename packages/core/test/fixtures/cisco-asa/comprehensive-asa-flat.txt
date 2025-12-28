@@ -1,0 +1,126 @@
+!
+! Cisco ASA Comprehensive Configuration
+! Covers: interfaces, access-lists, object-groups, NAT, crypto
+!
+hostname ASA-FW-01
+!
+interface GigabitEthernet0/0
+description Outside Interface
+nameif outside
+security-level 0
+ip address 203.0.113.1 255.255.255.0
+!
+interface GigabitEthernet0/1
+description Inside Interface
+nameif inside
+security-level 100
+ip address 10.0.0.1 255.255.255.0
+!
+interface GigabitEthernet0/2
+description DMZ Interface
+nameif dmz
+security-level 50
+ip address 172.16.0.1 255.255.255.0
+!
+interface GigabitEthernet0/3
+description Management Interface
+nameif management
+security-level 100
+ip address 192.168.1.1 255.255.255.0
+management-only
+!
+object network OBJ-INSIDE-NET
+subnet 10.0.0.0 255.255.255.0
+!
+object network OBJ-DMZ-NET
+subnet 172.16.0.0 255.255.255.0
+!
+object network OBJ-WEB-SERVER
+host 172.16.0.10
+!
+object network OBJ-MAIL-SERVER
+host 172.16.0.20
+!
+object network OBJ-DNS-SERVER
+host 172.16.0.30
+!
+object service OBJ-HTTPS
+service tcp destination eq 443
+!
+object service OBJ-SMTP
+service tcp destination eq 25
+!
+object-group network GRP-INTERNAL
+network-object object OBJ-INSIDE-NET
+network-object object OBJ-DMZ-NET
+!
+object-group network GRP-MGMT-HOSTS
+network-object host 10.0.0.100
+network-object host 10.0.0.101
+!
+object-group service GRP-WEB-SERVICES tcp
+port-object eq 80
+port-object eq 443
+port-object eq 8080
+!
+object-group service GRP-MAIL-SERVICES tcp
+port-object eq 25
+port-object eq 587
+port-object eq 993
+!
+access-list ACL-OUTSIDE-IN extended permit tcp any object OBJ-WEB-SERVER object-group GRP-WEB-SERVICES
+access-list ACL-OUTSIDE-IN extended permit tcp any object OBJ-MAIL-SERVER object-group GRP-MAIL-SERVICES
+access-list ACL-OUTSIDE-IN extended permit udp any object OBJ-DNS-SERVER eq 53
+access-list ACL-OUTSIDE-IN extended deny ip any any log
+!
+access-list ACL-INSIDE-OUT extended permit ip object-group GRP-INTERNAL any
+access-list ACL-INSIDE-OUT extended deny ip any any log
+!
+access-list ACL-DMZ-OUT extended permit tcp object OBJ-DMZ-NET any eq 80
+access-list ACL-DMZ-OUT extended permit tcp object OBJ-DMZ-NET any eq 443
+access-list ACL-DMZ-OUT extended permit udp object OBJ-DMZ-NET any eq 53
+access-list ACL-DMZ-OUT extended deny ip any any log
+!
+access-group ACL-OUTSIDE-IN in interface outside
+access-group ACL-INSIDE-OUT in interface inside
+access-group ACL-DMZ-OUT in interface dmz
+!
+object network OBJ-INSIDE-NET
+nat (inside,outside) dynamic interface
+!
+object network OBJ-WEB-SERVER
+nat (dmz,outside) static 203.0.113.10
+!
+object network OBJ-MAIL-SERVER
+nat (dmz,outside) static 203.0.113.20
+!
+crypto ipsec ikev2 ipsec-proposal AES256
+protocol esp encryption aes-256
+protocol esp integrity sha-256
+!
+crypto ipsec security-association lifetime seconds 28800
+crypto ipsec security-association lifetime kilobytes unlimited
+!
+crypto ikev2 policy 10
+encryption aes-256
+integrity sha256
+group 14 19 20
+prf sha256
+lifetime seconds 86400
+!
+crypto ikev2 enable outside
+!
+tunnel-group 198.51.100.1 type ipsec-l2l
+tunnel-group 198.51.100.1 ipsec-attributes
+ikev2 remote-authentication pre-shared-key *****
+ikev2 local-authentication pre-shared-key *****
+!
+crypto map CRYPTO-MAP 10 match address VPN-TRAFFIC
+crypto map CRYPTO-MAP 10 set peer 198.51.100.1
+crypto map CRYPTO-MAP 10 set ikev2 ipsec-proposal AES256
+crypto map CRYPTO-MAP interface outside
+!
+route outside 0.0.0.0 0.0.0.0 203.0.113.254 1
+route inside 10.0.0.0 255.0.0.0 10.0.0.254 1
+!
+end

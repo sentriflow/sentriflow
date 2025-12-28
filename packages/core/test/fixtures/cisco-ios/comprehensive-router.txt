@@ -1,0 +1,120 @@
+!
+! Cisco IOS Comprehensive Router Configuration
+! Covers: BGP, OSPF, EIGRP, interfaces, VRF, HSRP, IP SLA, track
+!
+hostname CORE-RTR-01
+!
+vrf definition MGMT
+ rd 65000:100
+ address-family ipv4
+ exit-address-family
+!
+vrf definition CUSTOMER-A
+ rd 65000:200
+ route-target export 65000:200
+ route-target import 65000:200
+ address-family ipv4
+ exit-address-family
+!
+interface Loopback0
+ description Router-ID
+ ip address 192.168.255.1 255.255.255.255
+!
+interface GigabitEthernet0/0
+ description WAN Uplink to ISP
+ ip address 10.0.0.1 255.255.255.252
+ ip ospf 1 area 0
+ no shutdown
+!
+interface GigabitEthernet0/1
+ description LAN Gateway
+ ip address 192.168.1.1 255.255.255.0
+ ip helper-address 10.10.10.10
+ standby 1 ip 192.168.1.254
+ standby 1 priority 110
+ standby 1 preempt
+ standby 1 track 10 decrement 20
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description VRF CUSTOMER-A
+ vrf forwarding CUSTOMER-A
+ ip address 172.16.1.1 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Management
+ vrf forwarding MGMT
+ ip address 10.100.0.1 255.255.255.0
+ no shutdown
+!
+router ospf 1
+ router-id 192.168.255.1
+ log-adjacency-changes
+ passive-interface default
+ no passive-interface GigabitEthernet0/0
+ network 192.168.255.1 0.0.0.0 area 0
+ network 10.0.0.0 0.0.0.3 area 0
+!
+router eigrp 100
+ network 192.168.1.0 0.0.0.255
+ passive-interface default
+ no passive-interface GigabitEthernet0/1
+ eigrp router-id 192.168.255.1
+!
+router bgp 65000
+ bgp router-id 192.168.255.1
+ bgp log-neighbor-changes
+ neighbor 10.0.0.2 remote-as 65001
+ neighbor 10.0.0.2 description ISP-Primary
+ neighbor 192.168.255.2 remote-as 65000
+ neighbor 192.168.255.2 update-source Loopback0
+ neighbor 192.168.255.2 description iBGP-Peer
+ !
+ address-family ipv4 unicast
+  neighbor 10.0.0.2 activate
+  neighbor 10.0.0.2 soft-reconfiguration inbound
+  neighbor 10.0.0.2 route-map IMPORT-ISP in
+  neighbor 192.168.255.2 activate
+  neighbor 192.168.255.2 next-hop-self
+ exit-address-family
+ !
+ address-family ipv4 vrf CUSTOMER-A
+  redistribute connected
+  neighbor 172.16.1.2 remote-as 65100
+  neighbor 172.16.1.2 activate
+ exit-address-family
+!
+ip prefix-list BOGONS seq 10 deny 10.0.0.0/8 le 32
+ip prefix-list BOGONS seq 20 deny 172.16.0.0/12 le 32
+ip prefix-list BOGONS seq 30 deny 192.168.0.0/16 le 32
+ip prefix-list BOGONS seq 100 permit 0.0.0.0/0 le 24
+!
+route-map IMPORT-ISP permit 10
+ match ip address prefix-list BOGONS
+ set local-preference 100
+!
+route-map IMPORT-ISP permit 20
+!
+ip sla 1
+ icmp-echo 8.8.8.8 source-interface GigabitEthernet0/0
+ frequency 30
+!
+ip sla schedule 1 life forever start-time now
+!
+track 10 ip sla 1 reachability
+!
+redundancy
+ mode sso
+!
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext
+ exit
+!
+key chain EIGRP-KEY
+ key 1
+  key-string EIGRP-SECRET
+!
+end

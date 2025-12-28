@@ -1,0 +1,133 @@
+!
+! Cisco NX-OS vPC and FabricPath Configuration
+! Covers: vpc domain, fabricpath domain, port-channel interfaces
+!
+hostname NEXUS-LEAF-01
+!
+feature vpc
+feature lacp
+feature fabricpath
+feature interface-vlan
+feature lldp
+!
+fabricpath domain default
+root-priority 64
+!
+vpc domain 100
+role priority 100
+peer-switch
+peer-keepalive destination 10.0.0.2 source 10.0.0.1 vrf management
+peer-gateway
+layer3 peer-router
+ip arp synchronize
+ipv6 nd synchronize
+graceful consistency-check
+auto-recovery
+delay restore 120
+!
+vlan 10
+name FP-VLAN-10
+mode fabricpath
+!
+vlan 20
+name FP-VLAN-20
+mode fabricpath
+!
+vlan 100
+name CE-VLAN-100
+!
+vlan 200
+name CE-VLAN-200
+!
+interface port-channel1
+description vPC Peer-Link
+switchport mode fabricpath
+vpc peer-link
+!
+interface port-channel10
+description vPC to Server-1
+switchport mode trunk
+switchport trunk allowed vlan 100,200
+vpc 10
+!
+interface port-channel20
+description vPC to Server-2
+switchport mode trunk
+switchport trunk allowed vlan 100,200
+vpc 20
+!
+interface Ethernet1/1
+description Peer-Link Member
+switchport mode fabricpath
+channel-group 1 mode active
+no shutdown
+!
+interface Ethernet1/2
+description Peer-Link Member
+switchport mode fabricpath
+channel-group 1 mode active
+no shutdown
+!
+interface Ethernet1/3
+description FabricPath Uplink to Spine
+switchport mode fabricpath
+no shutdown
+!
+interface Ethernet1/4
+description FabricPath Uplink to Spine
+switchport mode fabricpath
+no shutdown
+!
+interface Ethernet1/10
+description Server-1 Port-1
+switchport mode trunk
+switchport trunk allowed vlan 100,200
+channel-group 10 mode active
+no shutdown
+!
+interface Ethernet1/11
+description Server-1 Port-2
+switchport mode trunk
+switchport trunk allowed vlan 100,200
+channel-group 10 mode active
+no shutdown
+!
+interface Ethernet1/20
+description Server-2 Port-1
+switchport mode trunk
+switchport trunk allowed vlan 100,200
+channel-group 20 mode active
+no shutdown
+!
+interface Ethernet1/21
+description Server-2 Port-2
+switchport mode trunk
+switchport trunk allowed vlan 100,200
+channel-group 20 mode active
+no shutdown
+!
+interface Vlan100
+description CE Gateway VLAN 100
+ip address 172.16.100.1/24
+hsrp 100
+ip 172.16.100.254
+priority 110
+preempt
+no shutdown
+!
+interface Vlan200
+description CE Gateway VLAN 200
+ip address 172.16.200.1/24
+hsrp 200
+ip 172.16.200.254
+priority 110
+preempt
+no shutdown
+!
+spanning-tree mode mst
+spanning-tree mst configuration
+name FP-MST-REGION
+revision 1
+instance 1 vlan 100,200
+!
+end

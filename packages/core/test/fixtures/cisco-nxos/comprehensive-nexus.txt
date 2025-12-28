@@ -1,0 +1,146 @@
+!
+! Cisco NX-OS Comprehensive Nexus Configuration
+! Covers: features, router bgp, vrf context, interfaces
+!
+hostname NEXUS-SPINE-01
+!
+feature bgp
+feature ospf
+feature eigrp
+feature interface-vlan
+feature lacp
+feature vpc
+feature lldp
+feature hsrp
+feature pim
+feature nv overlay
+feature vn-segment-vlan-based
+!
+vrf context management
+ ip route 0.0.0.0/0 10.0.0.254
+!
+vrf context TENANT-A
+ rd 65000:100
+ address-family ipv4 unicast
+  route-target import 65000:100
+  route-target export 65000:100
+!
+vrf context TENANT-B
+ rd 65000:200
+ address-family ipv4 unicast
+  route-target import 65000:200
+  route-target export 65000:200
+!
+interface mgmt0
+ description Management Interface
+ vrf member management
+ ip address 10.0.0.100/24
+!
+interface loopback0
+ description Router-ID
+ ip address 192.168.255.1/32
+ ip router ospf 1 area 0.0.0.0
+!
+interface loopback1
+ description VTEP Address
+ ip address 192.168.254.1/32
+ ip router ospf 1 area 0.0.0.0
+!
+interface Ethernet1/1
+ description Uplink to Leaf-1
+ no switchport
+ mtu 9216
+ ip address 10.1.1.1/30
+ ip ospf network point-to-point
+ ip router ospf 1 area 0.0.0.0
+ no shutdown
+!
+interface Ethernet1/2
+ description Uplink to Leaf-2
+ no switchport
+ mtu 9216
+ ip address 10.1.2.1/30
+ ip ospf network point-to-point
+ ip router ospf 1 area 0.0.0.0
+ no shutdown
+!
+interface Ethernet1/3
+ description Uplink to Leaf-3
+ no switchport
+ mtu 9216
+ ip address 10.1.3.1/30
+ ip ospf network point-to-point
+ ip router ospf 1 area 0.0.0.0
+ no shutdown
+!
+interface Ethernet1/4
+ description Uplink to Leaf-4
+ no switchport
+ mtu 9216
+ ip address 10.1.4.1/30
+ ip ospf network point-to-point
+ ip router ospf 1 area 0.0.0.0
+ no shutdown
+!
+interface Vlan100
+ description TENANT-A Gateway
+ vrf member TENANT-A
+ ip address 172.16.100.1/24
+ fabric forwarding mode anycast-gateway
+ no shutdown
+!
+interface Vlan200
+ description TENANT-B Gateway
+ vrf member TENANT-B
+ ip address 172.16.200.1/24
+ fabric forwarding mode anycast-gateway
+ no shutdown
+!
+router ospf 1
+ router-id 192.168.255.1
+ log-adjacency-changes
+!
+router bgp 65000
+ router-id 192.168.255.1
+ log-neighbor-changes
+ address-family ipv4 unicast
+ address-family l2vpn evpn
+  advertise-pip
+ neighbor 192.168.255.10 remote-as 65000
+  description Route Reflector 1
+  update-source loopback0
+  address-family ipv4 unicast
+   send-community
+   send-community extended
+  address-family l2vpn evpn
+   send-community
+   send-community extended
+ neighbor 192.168.255.11 remote-as 65000
+  description Route Reflector 2
+  update-source loopback0
+  address-family ipv4 unicast
+   send-community
+   send-community extended
+  address-family l2vpn evpn
+   send-community
+   send-community extended
+ vrf TENANT-A
+  address-family ipv4 unicast
+   advertise l2vpn evpn
+   redistribute direct route-map DIRECT-TO-BGP
+ vrf TENANT-B
+  address-family ipv4 unicast
+   advertise l2vpn evpn
+   redistribute direct route-map DIRECT-TO-BGP
+!
+route-map DIRECT-TO-BGP permit 10
+ match tag 100
+!
+route-map DIRECT-TO-BGP permit 20
+!
+ip prefix-list PL-LOOPBACKS seq 10 permit 192.168.255.0/24 le 32
+ip prefix-list PL-LOOPBACKS seq 20 permit 192.168.254.0/24 le 32
+!
+nv overlay evpn
+!
+end

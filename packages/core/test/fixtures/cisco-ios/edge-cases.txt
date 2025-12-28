@@ -1,0 +1,96 @@
+!
+! Cisco IOS Edge Cases Configuration
+! Covers: MOTD/login/exec banners, empty blocks, comments, dial-peer, telephony-service
+!
+hostname EDGE-CASES-RTR
+!
+! This is a comment line
+! Multiple comment lines in a row
+!
+banner motd ^
+*************************************************************
+*                                                           *
+*   AUTHORIZED ACCESS ONLY                                  *
+*                                                           *
+*   Unauthorized access to this device is prohibited.       *
+*   All activities are logged and monitored.                *
+*                                                           *
+*************************************************************
+^
+!
+banner login ^
+===========================================================
+           Login Banner - Authentication Required
+===========================================================
+^
+!
+banner exec ^
+Welcome to $(hostname)
+You are connected from $(line)
+^
+!
+interface GigabitEthernet0/0
+ description Empty block - no commands
+!
+interface GigabitEthernet0/1
+ ! Comment inside interface block
+ description Has inline comment
+ ip address 10.0.0.1 255.255.255.0
+!
+interface GigabitEthernet0/2
+ shutdown
+!
+telephony-service
+ max-ephones 100
+ max-dn 200
+ ip source-address 10.1.1.1 port 2000
+ create cnf-files version-stamp Jan 01 2024 00:00:00
+!
+ephone-dn 1
+ number 1001
+ name Extension 1001
+!
+ephone-dn 2
+ number 1002
+ name Extension 1002
+!
+ephone 1
+ mac-address 0011.2233.4455
+ type 7960
+ button 1:1 2:2
+!
+dial-peer voice 100 voip
+ description Outbound to PSTN
+ destination-pattern 9.........
+ session protocol sipv2
+ session target ipv4:10.1.2.1
+ codec g711ulaw
+!
+dial-peer voice 200 pots
+ description FXO Port 1
+ destination-pattern 8T
+ port 0/0/0
+!
+voice register global
+ mode cme
+ source-address 10.1.1.1 port 2000
+ max-dn 200
+ max-pool 100
+!
+voice register dn 1
+ number 2001
+ name SIP Phone 1
+!
+voice register pool 1
+ id mac 0011.2233.4466
+ number 1 dn 1
+ codec g711ulaw
+!
+controller T1 0/0/0
+ framing esf
+ linecode b8zs
+ cablelength short 110
+!
+! Final comment before end
+!
+end

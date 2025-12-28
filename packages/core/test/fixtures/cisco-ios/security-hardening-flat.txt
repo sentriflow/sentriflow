@@ -1,0 +1,132 @@
+!
+! Cisco IOS Security Hardening Configuration
+! Covers: CoPP, AAA, TACACS+, RADIUS, SNMPv3, VTY access-class
+!
+hostname SEC-RTR-01
+!
+aaa new-model
+aaa authentication login default group tacacs+ local
+aaa authentication enable default group tacacs+ enable
+aaa authorization exec default group tacacs+ local
+aaa authorization commands 15 default group tacacs+ local
+aaa accounting exec default start-stop group tacacs+
+aaa accounting commands 15 default start-stop group tacacs+
+!
+aaa group server tacacs+ TAC-SERVERS
+server name TAC-PRI
+server name TAC-SEC
+!
+aaa group server radius RAD-SERVERS
+server name RAD-PRI
+server name RAD-SEC
+!
+tacacs server TAC-PRI
+address ipv4 10.10.10.1
+key 7 TACACS-KEY-ENCRYPTED
+timeout 5
+!
+tacacs server TAC-SEC
+address ipv4 10.10.10.2
+key 7 TACACS-KEY-ENCRYPTED
+timeout 5
+!
+radius server RAD-PRI
+address ipv4 10.10.20.1 auth-port 1812 acct-port 1813
+key 7 RADIUS-KEY-ENCRYPTED
+timeout 5
+!
+radius server RAD-SEC
+address ipv4 10.10.20.2 auth-port 1812 acct-port 1813
+key 7 RADIUS-KEY-ENCRYPTED
+timeout 5
+!
+ip access-list extended ACL-VTY-IN
+permit tcp 10.0.0.0 0.255.255.255 any eq 22
+permit tcp 172.16.0.0 0.15.255.255 any eq 22
+deny ip any any log
+!
+ip access-list extended ACL-SNMP
+permit udp 10.10.30.0 0.0.0.255 any eq snmp
+deny ip any any
+!
+class-map match-all CM-CRITICAL
+match access-group name ACL-CRITICAL-TRAFFIC
+!
+class-map match-any CM-ICMP
+match protocol icmp
+!
+class-map match-any CM-UNDESIRABLE
+match access-group name ACL-DENY-IN
+!
+class-map match-all CM-ROUTING
+match protocol eigrp
+match protocol ospf
+!
+policy-map PM-COPP
+class CM-CRITICAL
+police rate 64000 bps burst 8000 bytes
+conform-action transmit
+exceed-action transmit
+class CM-ICMP
+police rate 8000 bps burst 1000 bytes
+conform-action transmit
+exceed-action drop
+class CM-ROUTING
+police rate 128000 bps burst 16000 bytes
+conform-action transmit
+exceed-action transmit
+class CM-UNDESIRABLE
+police rate 8000 bps burst 1000 bytes
+conform-action drop
+exceed-action drop
+class class-default
+police rate 32000 bps burst 4000 bytes
+conform-action transmit
+exceed-action drop
+!
+control-plane
+service-policy input PM-COPP
+!
+snmp-server view RESTRICTED iso included
+snmp-server view RESTRICTED internet included
+snmp-server group SNMPV3-RO v3 priv read RESTRICTED access ACL-SNMP
+snmp-server user snmpuser SNMPV3-RO v3 auth sha AuthPassword123 priv aes 256 PrivPassword123
+snmp-server host 10.10.30.10 version 3 priv snmpuser
+!
+line console 0
+exec-timeout 5 0
+logging synchronous
+login authentication default
+!
+line vty 0 4
+access-class ACL-VTY-IN in
+exec-timeout 10 0
+logging synchronous
+transport input ssh
+login authentication default
+!
+line vty 5 15
+access-class ACL-VTY-IN in
+exec-timeout 10 0
+logging synchronous
+transport input ssh
+login authentication default
+!
+ip ssh version 2
+ip ssh time-out 60
+ip ssh authentication-retries 3
+ip ssh source-interface Loopback0
+!
+service password-encryption
+service timestamps debug datetime msec localtime show-timezone
+service timestamps log datetime msec localtime show-timezone
+!
+no ip http server
+no ip http secure-server
+no cdp run
+no ip source-route
+no ip finger
+no service tcp-small-servers
+no service udp-small-servers
+!
+end

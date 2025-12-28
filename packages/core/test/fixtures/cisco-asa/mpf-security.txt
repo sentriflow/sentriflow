@@ -1,0 +1,115 @@
+!
+! Cisco ASA MPF Security Configuration
+! Covers: class-map, policy-map, object-group, service-policy
+!
+hostname ASA-MPF-01
+!
+object-group network GRP-TRUSTED-HOSTS
+ network-object host 10.0.0.10
+ network-object host 10.0.0.11
+ network-object host 10.0.0.12
+!
+object-group network GRP-SERVERS
+ network-object 172.16.0.0 255.255.255.0
+!
+object-group service GRP-ALLOWED-PORTS tcp
+ port-object eq 22
+ port-object eq 80
+ port-object eq 443
+!
+object-group service GRP-MGMT-PORTS tcp
+ port-object eq 22
+ port-object eq 23
+ port-object range 161 162
+!
+access-list ACL-MATCH-HTTP extended permit tcp any any eq 80
+access-list ACL-MATCH-HTTPS extended permit tcp any any eq 443
+access-list ACL-MATCH-FTP extended permit tcp any any eq 21
+access-list ACL-MATCH-SMTP extended permit tcp any any eq 25
+access-list ACL-MATCH-DNS extended permit udp any any eq 53
+access-list ACL-MATCH-ICMP extended permit icmp any any
+!
+class-map type inspect http CM-HTTP-INSPECT
+ match request header host length gt 256
+ match request method connect
+ match request method options
+!
+class-map type inspect ftp CM-FTP-INSPECT
+ match request-command appe
+ match request-command dele
+ match request-command get
+ match request-command put
+!
+class-map CM-HTTP
+ match access-list ACL-MATCH-HTTP
+!
+class-map CM-HTTPS
+ match access-list ACL-MATCH-HTTPS
+!
+class-map CM-FTP
+ match access-list ACL-MATCH-FTP
+!
+class-map CM-SMTP
+ match access-list ACL-MATCH-SMTP
+!
+class-map CM-DNS
+ match access-list ACL-MATCH-DNS
+!
+class-map CM-ICMP
+ match access-list ACL-MATCH-ICMP
+!
+class-map inspection_default
+ match default-inspection-traffic
+!
+policy-map type inspect http PM-HTTP-INSPECT
+ parameters
+  protocol-violation action drop-connection log
+ match request header host length gt 256
+  reset log
+ match request method connect
+  reset log
+!
+policy-map type inspect ftp PM-FTP-INSPECT
+ parameters
+  mask-banner
+  mask-syst-reply
+ match request-command appe
+  reset log
+!
+policy-map PM-OUTSIDE-IN
+ class CM-HTTP
+  inspect http PM-HTTP-INSPECT
+ class CM-HTTPS
+  set connection timeout embryonic 0:00:30
+  set connection timeout half-closed 0:05:00
+ class CM-FTP
+  inspect ftp PM-FTP-INSPECT
+ class CM-SMTP
+  inspect esmtp
+ class CM-DNS
+  inspect dns preset_dns_map
+ class CM-ICMP
+  inspect icmp
+!
+policy-map global_policy
+ class inspection_default
+  inspect dns preset_dns_map
+  inspect ftp
+  inspect h323 h225
+  inspect h323 ras
+  inspect rsh
+  inspect rtsp
+  inspect esmtp
+  inspect sqlnet
+  inspect skinny
+  inspect sunrpc
+  inspect xdmcp
+  inspect sip
+  inspect netbios
+  inspect tftp
+  inspect ip-options
+!
+service-policy PM-OUTSIDE-IN interface outside
+service-policy global_policy global
+!
+end

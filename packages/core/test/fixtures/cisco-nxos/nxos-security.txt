@@ -1,0 +1,110 @@
+!
+! Cisco NX-OS Security Configuration
+! Covers: ip/ipv6/mac access-list, class-map, policy-map, role name
+!
+hostname NEXUS-SEC-01
+!
+feature acl-logging
+!
+ip access-list ACL-MGMT-IN
+ 10 permit tcp 10.0.0.0/8 any eq 22
+ 20 permit tcp 172.16.0.0/12 any eq 22
+ 30 permit udp 10.10.30.0/24 any eq snmp
+ 40 deny ip any any log
+!
+ip access-list ACL-SERVER-IN
+ 10 permit tcp any any eq 80
+ 20 permit tcp any any eq 443
+ 30 permit tcp any any eq 22
+ 40 permit icmp any any
+ 100 deny ip any any log
+!
+ip access-list ACL-DENY-ALL
+ 10 deny ip any any log
+!
+ipv6 access-list ACLv6-MGMT-IN
+ 10 permit tcp 2001:db8::/32 any eq 22
+ 20 permit udp 2001:db8:ffff::/48 any eq snmp
+ 100 deny ipv6 any any log
+!
+mac access-list ACL-MAC-FILTER
+ 10 permit 0011.2233.4400 0000.0000.00ff any
+ 20 deny any any
+!
+class-map type qos match-all CM-VOIP
+ match dscp ef
+!
+class-map type qos match-all CM-VIDEO
+ match dscp af41
+!
+class-map type qos match-any CM-CRITICAL
+ match dscp cs6
+ match dscp cs7
+!
+class-map type qos match-any CM-SCAVENGER
+ match dscp cs1
+!
+class-map type control-plane match-any COPP-CRITICAL
+ match access-group name ACL-COPP-CRITICAL
+!
+class-map type control-plane match-any COPP-IMPORTANT
+ match access-group name ACL-COPP-IMPORTANT
+!
+class-map type control-plane match-any COPP-NORMAL
+ match access-group name ACL-COPP-NORMAL
+!
+policy-map type qos PM-QOS-INGRESS
+ class CM-VOIP
+  set dscp ef
+ class CM-VIDEO
+  set dscp af41
+ class CM-CRITICAL
+  set dscp cs6
+ class CM-SCAVENGER
+  set dscp cs1
+ class class-default
+  set dscp default
+!
+policy-map type control-plane COPP-POLICY
+ class COPP-CRITICAL
+  police cir 64000 kbps bc 250 ms conform transmit violate drop
+ class COPP-IMPORTANT
+  police cir 32000 kbps bc 250 ms conform transmit violate drop
+ class COPP-NORMAL
+  police cir 8000 kbps bc 250 ms conform transmit violate drop
+ class class-default
+  police cir 500 kbps bc 250 ms conform transmit violate drop
+!
+control-plane
+ service-policy input COPP-POLICY
+!
+role name network-operator
+ description Read-only access for network operators
+ rule 1 permit read
+ rule 2 deny command clear *
+ rule 3 deny command configure *
+!
+role name network-admin
+ description Full access for network administrators
+ rule 1 permit read-write
+!
+role name security-admin
+ description Security configuration access
+ rule 1 permit read
+ rule 2 permit command configure terminal
+ rule 3 permit command access-list *
+ rule 4 permit command class-map *
+ rule 5 permit command policy-map *
+!
+snmp-server user admin network-admin auth sha AdminAuth123 priv aes-128 AdminPriv123
+snmp-server user monitor network-operator auth sha MonitorAuth123 priv aes-128 MonitorPriv123
+!
+line console
+ exec-timeout 5
+!
+line vty
+ access-class ACL-MGMT-IN in
+ exec-timeout 10
+ session-limit 5
+!
+end

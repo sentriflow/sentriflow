@@ -1,0 +1,92 @@
+!
+! Cisco IOS Comprehensive Switch Configuration
+! Covers: VLANs, trunk ports, access ports, Port-Channel, spanning-tree
+!
+hostname DIST-SW-01
+!
+vtp mode transparent
+!
+vlan 10
+ name Users
+!
+vlan 20
+ name Servers
+!
+vlan 30
+ name Printers
+!
+vlan 100
+ name Management
+!
+vlan 999
+ name Native-Unused
+!
+interface Port-channel1
+ description Uplink to Core
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 999
+ switchport trunk allowed vlan 10,20,30,100
+ switchport mode trunk
+ switchport nonegotiate
+!
+interface GigabitEthernet0/1
+ description Uplink to Core - Member
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 999
+ switchport trunk allowed vlan 10,20,30,100
+ switchport mode trunk
+ switchport nonegotiate
+ channel-group 1 mode active
+!
+interface GigabitEthernet0/2
+ description Uplink to Core - Member
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 999
+ switchport trunk allowed vlan 10,20,30,100
+ switchport mode trunk
+ switchport nonegotiate
+ channel-group 1 mode active
+!
+interface GigabitEthernet0/3
+ description User Workstation
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 60
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no cdp enable
+!
+interface GigabitEthernet0/4
+ description Server Connection
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast trunk
+!
+interface GigabitEthernet0/5
+ description Printer
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+!
+interface GigabitEthernet0/6
+ description Unused - Shutdown
+ switchport mode access
+ switchport access vlan 999
+ shutdown
+!
+interface Vlan100
+ description Management SVI
+ ip address 10.100.1.1 255.255.255.0
+ no shutdown
+!
+spanning-tree mode rapid-pvst
+spanning-tree extend system-id
+spanning-tree vlan 10,20,30 priority 4096
+spanning-tree vlan 100 priority 8192
+!
+spanning-tree portfast bpduguard default
+!
+end
