@@ -533,9 +533,10 @@ export const hasVxlanId = (node: ConfigNode): boolean => {
  * Check if BGP authentication (password) is configured for a neighbor
  */
 export const hasBgpNeighborPassword = (node: ConfigNode, neighborAddr: string): boolean => {
+  if (!node?.children || !neighborAddr) return false;
   return node.children.some((child) => {
-    const id = child.id.toLowerCase();
-    return id.startsWith(`neighbor ${neighborAddr.toLowerCase()} password`);
+    const id = child?.id?.toLowerCase();
+    return id?.startsWith(`neighbor ${neighborAddr.toLowerCase()} password`) ?? false;
   });
 };
 
@@ -543,9 +544,10 @@ export const hasBgpNeighborPassword = (node: ConfigNode, neighborAddr: string): 
  * Check if BGP peer-group has password configured
  */
 export const hasBgpPeerGroupPassword = (node: ConfigNode, peerGroup: string): boolean => {
+  if (!node?.children || !peerGroup) return false;
   return node.children.some((child) => {
-    const id = child.id.toLowerCase();
-    return id.startsWith(`neighbor ${peerGroup.toLowerCase()} password`);
+    const id = child?.id?.toLowerCase();
+    return id?.startsWith(`neighbor ${peerGroup.toLowerCase()} password`) ?? false;
   });
 };
 
@@ -553,9 +555,10 @@ export const hasBgpPeerGroupPassword = (node: ConfigNode, peerGroup: string): bo
  * Check if BGP maximum-prefix is configured for neighbor
  */
 export const hasBgpMaximumPrefix = (node: ConfigNode, neighborAddr: string): boolean => {
+  if (!node?.children || !neighborAddr) return false;
   return node.children.some((child) => {
-    const id = child.id.toLowerCase();
-    return id.includes(`neighbor ${neighborAddr.toLowerCase()}`) && id.includes('maximum-prefix');
+    const id = child?.id?.toLowerCase();
+    return id?.includes(`neighbor ${neighborAddr.toLowerCase()}`) && id?.includes('maximum-prefix');
   });
 };
 
@@ -563,8 +566,9 @@ export const hasBgpMaximumPrefix = (node: ConfigNode, neighborAddr: string): boo
  * Check if BFD is enabled for BGP neighbor
  */
 export const hasBgpBfd = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) =>
-    child.id.toLowerCase().includes(' bfd')
+    child?.id?.toLowerCase().includes(' bfd') ?? false
   );
 };
 

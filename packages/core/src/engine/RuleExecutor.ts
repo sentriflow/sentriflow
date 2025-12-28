@@ -16,6 +16,8 @@ export interface ExecutionOptions {
   onTimeout?: (ruleId: string, nodeId: string, elapsedMs: number) => void;
   /** Callback when a rule is auto-disabled */
   onRuleDisabled?: (ruleId: string, reason: string) => void;
+  /** Callback when a rule throws an error during execution */
+  onError?: (ruleId: string, nodeId: string, error: unknown) => void;
 }
 
 /**
@@ -55,7 +57,7 @@ export class RuleExecutor {
   private timeoutCounts = new Map<string, number>();
   private executionTimes = new Map<string, { count: number; totalMs: number }>();
   private disabledRules = new Set<string>();
-  private options: Required<ExecutionOptions>;
+  private options: Required<Omit<ExecutionOptions, 'onError'>> & Pick<ExecutionOptions, 'onError'>;
 
   constructor(options: ExecutionOptions = {}) {
     this.options = {
@@ -63,6 +65,7 @@ export class RuleExecutor {
       maxTimeouts: options.maxTimeouts ?? 3,
       onTimeout: options.onTimeout ?? (() => {}),
       onRuleDisabled: options.onRuleDisabled ?? (() => {}),
+      onError: options.onError,
     };
   }
 
@@ -102,6 +105,9 @@ export class RuleExecutor {
     } catch (error) {
       const elapsed = performance.now() - startTime;
       this.trackExecutionTime(rule.id, elapsed);
+
+      // Call error callback if provided (for debugging)
+      this.options.onError?.(rule.id, node.id, error);
 
       // SEC-005: Sanitize error message to prevent information disclosure
       // Don't expose internal error details which could reveal file paths or sensitive data

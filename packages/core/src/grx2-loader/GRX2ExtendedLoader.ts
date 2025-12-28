@@ -23,7 +23,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
-import type { RulePack } from '../types/IRule';
+import type { RulePack, IRule, RuleMetadata, RuleVendor } from '../types/IRule';
+import { compileNativeCheckFunction } from '../pack-loader/PackLoader';
 import {
   type GRX2ExtendedHeader,
   type WrappedTMK,
@@ -63,6 +64,33 @@ const PACK_HASH_SIZE = 16;
 
 /** GRX2 magic bytes */
 const GRX2_MAGIC = Buffer.from('GRX2', 'ascii');
+
+/**
+ * Serialized rule structure in GRX2 packs.
+ * Rules are stored with checkSource (function source code) instead of check function.
+ */
+interface SerializedRule {
+  id: string;
+  selector?: string;
+  vendor?: RuleVendor | RuleVendor[];
+  category?: string | string[];
+  metadata: RuleMetadata;
+  checkSource: string; // Serialized function source
+}
+
+/**
+ * Serialized rule pack structure in GRX2 files.
+ */
+interface SerializedRulePack {
+  name: string;
+  version: string;
+  publisher: string;
+  description?: string;
+  license?: string;
+  homepage?: string;
+  priority: number;
+  rules: SerializedRule[];
+}
 
 /** Minimum wrapped TMK block size */
 const MIN_WRAPPED_TMK_SIZE = 64;
@@ -414,16 +442,42 @@ export async function loadExtendedPack(
     );
   }
 
-  // Parse JSON content
-  let pack: RulePack;
+  // Parse JSON content (contains serialized rules with checkSource)
+  let serializedPack: SerializedRulePack;
   try {
-    pack = JSON.parse(plaintext.toString('utf8'));
+    serializedPack = JSON.parse(plaintext.toString('utf8'));
   } catch {
     throw new EncryptedPackError(
       'Failed to parse pack JSON content',
       'PACK_CORRUPTED'
     );
   }
+
+  // Compile serialized check functions to native functions
+  // SECURITY: Same justification as in PackLoader.ts - the code is from
+  // authenticated encrypted pack, verified by GCM auth tag
+  const compiledRules: IRule[] = serializedPack.rules.map((ruleDef) => {
+    const checkFn = compileNativeCheckFunction(ruleDef.checkSource);
+    return {
+      id: ruleDef.id,
+      selector: ruleDef.selector,
+      vendor: ruleDef.vendor,
+      category: ruleDef.category,
+      metadata: ruleDef.metadata,
+      check: checkFn,
+    };
+  });
+
+  const pack: RulePack = {
+    name: serializedPack.name,
+    version: serializedPack.version,
+    publisher: serializedPack.publisher,
+    description: serializedPack.description,
+    license: serializedPack.license,
+    homepage: serializedPack.homepage,
+    priority: serializedPack.priority,
+    rules: compiledRules,
+  };
 
   return pack;
 }

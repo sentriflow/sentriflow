@@ -85,11 +85,12 @@ export const maskToPrefix = (mask: number): number => {
  * Check if a node has a specific child command (case-insensitive prefix match).
  * @param node The parent ConfigNode
  * @param prefix The command prefix to search for
- * @returns true if a matching child exists
+ * @returns true if a matching child exists, false if node/children is nullish
  */
 export const hasChildCommand = (node: ConfigNode, prefix: string): boolean => {
+  if (!node?.children || !prefix) return false;
   return node.children.some((child) =>
-    child.id.toLowerCase().startsWith(prefix.toLowerCase())
+    child?.id?.toLowerCase().startsWith(prefix.toLowerCase()) ?? false
   );
 };
 
@@ -97,14 +98,15 @@ export const hasChildCommand = (node: ConfigNode, prefix: string): boolean => {
  * Get a child command's node if it exists.
  * @param node The parent ConfigNode
  * @param prefix The command prefix to search for
- * @returns The matching child node, or undefined
+ * @returns The matching child node, or undefined if not found or node is nullish
  */
 export const getChildCommand = (
   node: ConfigNode,
   prefix: string
 ): ConfigNode | undefined => {
+  if (!node?.children || !prefix) return undefined;
   return node.children.find((child) =>
-    child.id.toLowerCase().startsWith(prefix.toLowerCase())
+    child?.id?.toLowerCase().startsWith(prefix.toLowerCase()) ?? false
   );
 };
 
@@ -112,14 +114,15 @@ export const getChildCommand = (
  * Get all child commands matching a prefix.
  * @param node The parent ConfigNode
  * @param prefix The command prefix to search for
- * @returns Array of matching child nodes
+ * @returns Array of matching child nodes, empty array if node is nullish
  */
 export const getChildCommands = (
   node: ConfigNode,
   prefix: string
 ): ConfigNode[] => {
+  if (!node?.children || !prefix) return [];
   return node.children.filter((child) =>
-    child.id.toLowerCase().startsWith(prefix.toLowerCase())
+    child?.id?.toLowerCase().startsWith(prefix.toLowerCase()) ?? false
   );
 };
 
@@ -189,11 +192,12 @@ export const getParamValue = (
  * Check if an interface is administratively shutdown.
  * Works for both Cisco ("shutdown") and Juniper ("disable") syntax.
  * @param node The interface ConfigNode
- * @returns true if the interface is shutdown/disabled
+ * @returns true if the interface is shutdown/disabled, false if node is nullish
  */
 export const isShutdown = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    const id = child.id.toLowerCase().trim();
+    const id = child?.id?.toLowerCase().trim();
     return id === 'shutdown' || id === 'disable';
   });
 };
@@ -208,9 +212,10 @@ export const isShutdown = (node: ConfigNode): boolean => {
  * - Generic references like "interface all"
  *
  * @param node The ConfigNode to check
- * @returns true if this is an actual interface definition
+ * @returns true if this is an actual interface definition, false if node is nullish
  */
 export const isInterfaceDefinition = (node: ConfigNode): boolean => {
+  if (!node?.id) return false;
   const id = node.id.toLowerCase();
 
   // Must be a section type (has children or is a block)
@@ -241,9 +246,10 @@ export const isInterfaceDefinition = (node: ConfigNode): boolean => {
   // References inside ospf/lldp/etc. typically have no children or just simple options
   // Check if this looks like a Juniper interface reference (inside protocols block)
   // These typically have 0-1 children with simple options like "passive" or "interface-type"
-  if (node.children.length <= 1) {
-    const hasOnlySimpleChild = node.children.every((child) => {
-      const childId = child.id.toLowerCase();
+  const childrenLength = node.children?.length ?? 0;
+  if (childrenLength <= 1) {
+    const hasOnlySimpleChild = (node.children ?? []).every((child) => {
+      const childId = child?.id?.toLowerCase() ?? '';
       return (
         childId === 'passive' ||
         childId.startsWith('interface-type') ||
@@ -256,7 +262,7 @@ export const isInterfaceDefinition = (node: ConfigNode): boolean => {
       );
     });
     // If only simple OSPF/routing options, this is likely a reference, not a definition
-    if (hasOnlySimpleChild && node.children.length > 0) {
+    if (hasOnlySimpleChild && childrenLength > 0) {
       return false;
     }
   }

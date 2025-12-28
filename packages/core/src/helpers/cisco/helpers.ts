@@ -19,8 +19,9 @@ export { hasChildCommand, getChildCommand, getChildCommands } from '../common/he
  * Check if interface is shutdown
  */
 export const isShutdown = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    return equalsIgnoreCase(child.id.trim(), 'shutdown');
+    return child?.id && equalsIgnoreCase(child.id.trim(), 'shutdown');
   });
 };
 
@@ -322,8 +323,9 @@ export const hasEigrpAuthentication = (node: ConfigNode): boolean => {
  * Check if BGP neighbor has password configured
  */
 export const hasBgpNeighborPassword = (neighborCommands: ConfigNode[]): boolean => {
+  if (!neighborCommands || !Array.isArray(neighborCommands)) return false;
   return neighborCommands.some((cmd) =>
-    includesIgnoreCase(cmd.id, 'password')
+    cmd?.id && includesIgnoreCase(cmd.id, 'password')
   );
 };
 
@@ -331,8 +333,9 @@ export const hasBgpNeighborPassword = (neighborCommands: ConfigNode[]): boolean 
  * Check if BGP neighbor has TTL security (GTSM) configured
  */
 export const hasBgpTtlSecurity = (neighborCommands: ConfigNode[]): boolean => {
+  if (!neighborCommands || !Array.isArray(neighborCommands)) return false;
   return neighborCommands.some((cmd) =>
-    includesIgnoreCase(cmd.id, 'ttl-security')
+    cmd?.id && includesIgnoreCase(cmd.id, 'ttl-security')
   );
 };
 
@@ -340,8 +343,9 @@ export const hasBgpTtlSecurity = (neighborCommands: ConfigNode[]): boolean => {
  * Check if BGP neighbor has maximum-prefix configured
  */
 export const hasBgpMaxPrefix = (neighborCommands: ConfigNode[]): boolean => {
+  if (!neighborCommands || !Array.isArray(neighborCommands)) return false;
   return neighborCommands.some((cmd) =>
-    includesIgnoreCase(cmd.id, 'maximum-prefix')
+    cmd?.id && includesIgnoreCase(cmd.id, 'maximum-prefix')
   );
 };
 
@@ -358,9 +362,11 @@ export const hasBgpLogNeighborChanges = (node: ConfigNode): boolean => {
 export const getBgpNeighbors = (node: ConfigNode): Map<string, ConfigNode[]> => {
   const neighbors = new Map<string, ConfigNode[]>();
 
+  if (!node?.children) return neighbors;
+
   for (const child of node.children) {
-    if (startsWithIgnoreCase(child.id, 'neighbor')) {
-      const neighborIp = child.params[1];
+    if (child?.id && startsWithIgnoreCase(child.id, 'neighbor')) {
+      const neighborIp = child.params?.[1];
       if (neighborIp) {
         const existing = neighbors.get(neighborIp) || [];
         existing.push(child);
@@ -376,8 +382,9 @@ export const getBgpNeighbors = (node: ConfigNode): Map<string, ConfigNode[]> => 
  * Check if HSRP has MD5 authentication
  */
 export const hasHsrpMd5Auth = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    return startsWithIgnoreCase(child.id, 'standby') && includesIgnoreCase(child.id, 'authentication md5');
+    return child?.id && startsWithIgnoreCase(child.id, 'standby') && includesIgnoreCase(child.id, 'authentication md5');
   });
 };
 
@@ -385,8 +392,9 @@ export const hasHsrpMd5Auth = (node: ConfigNode): boolean => {
  * Check if VRRP has authentication
  */
 export const hasVrrpAuthentication = (node: ConfigNode): boolean => {
+  if (!node?.children) return false;
   return node.children.some((child) => {
-    return startsWithIgnoreCase(child.id, 'vrrp') && includesIgnoreCase(child.id, 'authentication');
+    return child?.id && startsWithIgnoreCase(child.id, 'vrrp') && includesIgnoreCase(child.id, 'authentication');
   });
 };
 

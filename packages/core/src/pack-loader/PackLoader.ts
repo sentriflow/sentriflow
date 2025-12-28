@@ -35,12 +35,31 @@ import { getAllVendorModules } from '../helpers';
  * All rule helpers merged into a single object for injection.
  * This allows compiled check functions to access helpers by name.
  * Dynamically built from the helpers module.
+ *
+ * IMPORTANT: Vendor modules may have colliding helper names (e.g., both Cisco
+ * and Cumulus export `hasBgpNeighborPassword` with different signatures).
+ * To handle this:
+ * 1. Vendor namespaces are added (e.g., `cisco.hasBgpNeighborPassword`)
+ * 2. For flat/short names, FIRST vendor wins (no overwrites)
+ *
+ * Rules should use namespaced helpers for vendor-specific functions.
  */
 function buildAllHelpers(): Record<string, unknown> {
     const result: Record<string, unknown> = { ...helpers };
     const vendorModules = getAllVendorModules();
-    for (const [_name, module] of Object.entries(vendorModules)) {
-        Object.assign(result, module);
+
+    for (const [name, module] of Object.entries(vendorModules)) {
+        // Add the entire vendor module under its namespace
+        // e.g., result.cisco = { hasBgpNeighborPassword, getBgpNeighbors, ... }
+        result[name] = module;
+
+        // Add flat/short names ONLY if not already present (first vendor wins)
+        // This prevents Cumulus from overwriting Cisco's hasBgpNeighborPassword
+        for (const [key, value] of Object.entries(module as Record<string, unknown>)) {
+            if (!(key in result)) {
+                result[key] = value;
+            }
+        }
     }
     return result;
 }
@@ -215,9 +234,13 @@ export async function loadEncryptedPack(
 /**
  * Generate helper names list for destructuring.
  * Cached to avoid recomputing on every function compilation.
+ *
+ * Includes:
+ * - All function helpers (flat names)
+ * - All vendor namespace objects (e.g., cisco, cumulus)
  */
 const helperNames = Object.keys(allHelpers).filter(
-    key => typeof allHelpers[key] === 'function'
+    key => typeof allHelpers[key] === 'function' || typeof allHelpers[key] === 'object'
 );
 const helperDestructure = helperNames.join(', ');
 
@@ -229,8 +252,10 @@ const helperDestructure = helperNames.join(', ');
  *
  * The function is wrapped to inject all rule helpers into scope, allowing
  * serialized check functions to use helpers like hasChildCommand, findStanza, etc.
+ *
+ * @public Exported for use by GRX2ExtendedLoader
  */
-function compileNativeCheckFunction(
+export function compileNativeCheckFunction(
     source: string
 ): (node: ConfigNode, ctx: Context) => ReturnType<IRule['check']> {
     // The source is trusted (from authenticated encrypted pack)

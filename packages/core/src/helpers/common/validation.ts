@@ -11,28 +11,28 @@ import { parseIp, prefixToMask } from './helpers';
  * Case-insensitive string equality check.
  * @param a First string
  * @param b Second string
- * @returns true if strings are equal (case-insensitive)
+ * @returns true if strings are equal (case-insensitive), false if either is nullish
  */
 export const equalsIgnoreCase = (a: string, b: string): boolean =>
-  a.toLowerCase() === b.toLowerCase();
+  a != null && b != null && a.toLowerCase() === b.toLowerCase();
 
 /**
  * Case-insensitive substring check.
  * @param haystack String to search in
  * @param needle String to search for
- * @returns true if needle is found (case-insensitive)
+ * @returns true if needle is found (case-insensitive), false if either is nullish
  */
 export const includesIgnoreCase = (haystack: string, needle: string): boolean =>
-  haystack.toLowerCase().includes(needle.toLowerCase());
+  haystack != null && needle != null && haystack.toLowerCase().includes(needle.toLowerCase());
 
 /**
  * Case-insensitive prefix check.
  * @param str String to check
  * @param prefix Prefix to match
- * @returns true if str starts with prefix (case-insensitive)
+ * @returns true if str starts with prefix (case-insensitive), false if either is nullish
  */
 export const startsWithIgnoreCase = (str: string, prefix: string): boolean =>
-  str.toLowerCase().startsWith(prefix.toLowerCase());
+  str != null && prefix != null && str.toLowerCase().startsWith(prefix.toLowerCase());
 
 // ============================================================================
 // Numeric Validation Helpers
