@@ -695,6 +695,13 @@ const engine = new RuleEngine({
         `SENTRIFLOW: Rule ${ruleId} was auto-disabled due to slow performance`
       );
     },
+    onError: (ruleId: string, nodeId: string, error: unknown) => {
+      log(
+        `[ERROR] Rule ${ruleId} failed on ${nodeId}: ${
+          error instanceof Error ? error.stack ?? error.message : String(error)
+        }`
+      );
+    },
   },
 });
 

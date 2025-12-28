@@ -52,8 +52,9 @@ export const hasPlaintextPassword = (node: ConfigNode): boolean => {
  * @returns true if service password-encryption is configured
  */
 export const hasServicePasswordEncryption = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    equalsIgnoreCase(node.id, 'service password-encryption')
+    equalsIgnoreCase(node?.id ?? '', 'service password-encryption')
   );
 };
 
@@ -63,8 +64,9 @@ export const hasServicePasswordEncryption = (ast: ConfigNode[]): boolean => {
  * @returns true if SSH v2 is configured
  */
 export const hasSshVersion2 = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^ip\s+ssh\s+version\s+2/i.test(node.id)
+    /^ip\s+ssh\s+version\s+2/i.test(node?.id ?? '')
   );
 };
 
@@ -74,13 +76,14 @@ export const hasSshVersion2 = (ast: ConfigNode[]): boolean => {
  * @returns Array of weak ciphers found
  */
 export const getWeakSshCiphers = (ast: ConfigNode[]): string[] => {
+  if (!Array.isArray(ast)) return [];
   const weakCiphers = ['3des-cbc', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc', 'blowfish-cbc'];
   const found: string[] = [];
 
   for (const node of ast) {
-    if (/^ip\s+ssh\s+ciphers/i.test(node.id)) {
+    if (/^ip\s+ssh\s+ciphers/i.test(node?.id ?? '')) {
       for (const cipher of weakCiphers) {
-        if (includesIgnoreCase(node.id, cipher)) {
+        if (includesIgnoreCase(node?.id ?? '', cipher)) {
           found.push(cipher);
         }
       }
@@ -95,7 +98,7 @@ export const getWeakSshCiphers = (ast: ConfigNode[]): string[] => {
  * @returns true if telnet is properly disabled
  */
 export const isTelnetDisabled = (ast: ConfigNode[]): boolean => {
-  if (!ast) return true;
+  if (!Array.isArray(ast)) return true;
   // Check for 'no management telnet' or management telnet with shutdown
   const noMgmtTelnet = ast.some((node) =>
     node?.id && /^no\s+management\s+telnet/i.test(node.id)
@@ -124,11 +127,12 @@ export const isTelnetDisabled = (ast: ConfigNode[]): boolean => {
  * @returns true if HTTP server is disabled
  */
 export const isHttpServerDisabled = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return true;
   const hasNoHttp = ast.some((node) =>
-    /^no\s+ip\s+http\s+server/i.test(node.id)
+    /^no\s+ip\s+http\s+server/i.test(node?.id ?? '')
   );
   const hasHttp = ast.some((node) =>
-    /^ip\s+http\s+server/i.test(node.id) && !/^no\s+/i.test(node.id)
+    /^ip\s+http\s+server/i.test(node?.id ?? '') && !/^no\s+/i.test(node?.id ?? '')
   );
   return hasNoHttp || !hasHttp;
 };
@@ -139,12 +143,13 @@ export const isHttpServerDisabled = (ast: ConfigNode[]): boolean => {
  * @returns Array of insecure community configurations found
  */
 export const getInsecureSnmpCommunities = (ast: ConfigNode[]): string[] => {
+  if (!Array.isArray(ast)) return [];
   const insecure: string[] = [];
   const defaultCommunities = ['public', 'private', 'community'];
 
   for (const node of ast) {
-    if (/^snmp-server\s+community\s+/i.test(node.id)) {
-      const match = node.id.match(/snmp-server\s+community\s+(\S+)/i);
+    if (/^snmp-server\s+community\s+/i.test(node?.id ?? '')) {
+      const match = node?.id?.match(/snmp-server\s+community\s+(\S+)/i);
       if (match?.[1]) {
         const community = match[1];
         if (defaultCommunities.some((dc) => equalsIgnoreCase(community, dc))) {
@@ -164,9 +169,10 @@ export const getInsecureSnmpCommunities = (ast: ConfigNode[]): string[] => {
  * @returns true if SNMPv3 with priv mode is configured
  */
 export const hasSnmpV3AuthPriv = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^snmp-server\s+group\s+\S+\s+v3\s+priv/i.test(node.id) ||
-    /^snmp-server\s+user\s+\S+\s+\S+\s+v3\s+auth\s+\S+\s+\S+\s+priv/i.test(node.id)
+    /^snmp-server\s+group\s+\S+\s+v3\s+priv/i.test(node?.id ?? '') ||
+    /^snmp-server\s+user\s+\S+\s+\S+\s+v3\s+auth\s+\S+\s+\S+\s+priv/i.test(node?.id ?? '')
   );
 };
 
@@ -176,11 +182,13 @@ export const hasSnmpV3AuthPriv = (ast: ConfigNode[]): boolean => {
  * @returns true if NTP authentication is configured
  */
 export const hasNtpAuthentication = (ast: ConfigNode[]): boolean => {
+  // Guard against collision: other vendors pass single node, Arista expects array
+  if (!Array.isArray(ast)) return false;
   const hasAuthenticate = ast.some((node) =>
-    /^ntp\s+authenticate$/i.test(node.id)
+    /^ntp\s+authenticate$/i.test(node?.id ?? '')
   );
   const hasTrustedKey = ast.some((node) =>
-    /^ntp\s+trusted-key\s+/i.test(node.id)
+    /^ntp\s+trusted-key\s+/i.test(node?.id ?? '')
   );
   return hasAuthenticate && hasTrustedKey;
 };
@@ -191,8 +199,9 @@ export const hasNtpAuthentication = (ast: ConfigNode[]): boolean => {
  * @returns true if AAA authentication login is configured
  */
 export const hasAaaAuthenticationLogin = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^aaa\s+authentication\s+login\s+/i.test(node.id)
+    /^aaa\s+authentication\s+login\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -202,8 +211,9 @@ export const hasAaaAuthenticationLogin = (ast: ConfigNode[]): boolean => {
  * @returns true if TACACS+ server is configured
  */
 export const hasTacacsServer = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^tacacs-server\s+host\s+/i.test(node.id)
+    /^tacacs-server\s+host\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -213,8 +223,9 @@ export const hasTacacsServer = (ast: ConfigNode[]): boolean => {
  * @returns true if AAA accounting is configured
  */
 export const hasAaaAccounting = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^aaa\s+accounting\s+/i.test(node.id)
+    /^aaa\s+accounting\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -224,9 +235,10 @@ export const hasAaaAccounting = (ast: ConfigNode[]): boolean => {
  * @returns true if management VRF is properly configured
  */
 export const hasManagementVrf = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^vrf\s+instance\s+MGMT/i.test(node.id) ||
-    /^vrf\s+instance\s+management/i.test(node.id)
+    /^vrf\s+instance\s+MGMT/i.test(node?.id ?? '') ||
+    /^vrf\s+instance\s+management/i.test(node?.id ?? '')
   );
 };
 
@@ -236,6 +248,7 @@ export const hasManagementVrf = (ast: ConfigNode[]): boolean => {
  * @returns Array of information disclosure issues found
  */
 export const getBannerInfoDisclosure = (ast: ConfigNode[]): string[] => {
+  if (!Array.isArray(ast)) return [];
   const issues: string[] = [];
   const sensitivePatterns = [
     { pattern: /version\s+\d+/i, desc: 'software version' },
@@ -246,8 +259,8 @@ export const getBannerInfoDisclosure = (ast: ConfigNode[]): string[] => {
   ];
 
   for (const node of ast) {
-    if (/^banner\s+(login|motd)/i.test(node.id)) {
-      const bannerText = node.rawText || node.id;
+    if (/^banner\s+(login|motd)/i.test(node?.id ?? '')) {
+      const bannerText = node?.rawText ?? node?.id ?? '';
       for (const { pattern, desc } of sensitivePatterns) {
         if (pattern.test(bannerText)) {
           issues.push(`Banner contains ${desc}`);
@@ -264,7 +277,7 @@ export const getBannerInfoDisclosure = (ast: ConfigNode[]): string[] => {
  * @returns The timeout value in minutes, or undefined if not set
  */
 export const getConsoleIdleTimeout = (ast: ConfigNode[]): number | undefined => {
-  if (!ast) return undefined;
+  if (!Array.isArray(ast)) return undefined;
   for (const node of ast) {
     if (node?.id && /^management\s+console/i.test(node.id)) {
       if (!node?.children) continue;
@@ -285,9 +298,10 @@ export const getConsoleIdleTimeout = (ast: ConfigNode[]): number | undefined => 
  * @returns true if ZTP is disabled
  */
 export const isZtpDisabled = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^no\s+zerotouch\s+enable/i.test(node.id) ||
-    equalsIgnoreCase(node.id, 'zerotouch cancel')
+    /^no\s+zerotouch\s+enable/i.test(node?.id ?? '') ||
+    equalsIgnoreCase(node?.id ?? '', 'zerotouch cancel')
   );
 };
 
@@ -301,8 +315,9 @@ export const isZtpDisabled = (ast: ConfigNode[]): boolean => {
  * @returns true if system control-plane ACL is configured
  */
 export const hasControlPlaneAcl = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^system\s+control-plane/i.test(node.id)
+    /^system\s+control-plane/i.test(node?.id ?? '')
   );
 };
 
@@ -312,8 +327,9 @@ export const hasControlPlaneAcl = (ast: ConfigNode[]): boolean => {
  * @returns true if CoPP policy is customized
  */
 export const hasCoppPolicy = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^policy-map\s+type\s+copp/i.test(node.id)
+    /^policy-map\s+type\s+copp/i.test(node?.id ?? '')
   );
 };
 
@@ -371,8 +387,9 @@ export const hasRoutingProtocolAuth = (routerNode: ConfigNode): boolean => {
  * @returns true if BFD is configured
  */
 export const hasBfd = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^bfd\s+/i.test(node.id)
+    /^bfd\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -406,8 +423,9 @@ export const getStormControlStatus = (interfaceNode: ConfigNode): { broadcast: b
  * @returns true if DHCP snooping is configured
  */
 export const hasDhcpSnooping = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^ip\s+dhcp\s+snooping$/i.test(node.id)
+    /^ip\s+dhcp\s+snooping$/i.test(node?.id ?? '')
   );
 };
 
@@ -429,8 +447,9 @@ export const isDhcpSnoopingTrust = (interfaceNode: ConfigNode): boolean => {
  * @returns true if DAI is configured
  */
 export const hasDynamicArpInspection = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^ip\s+arp\s+inspection\s+vlan/i.test(node.id)
+    /^ip\s+arp\s+inspection\s+vlan/i.test(node?.id ?? '')
   );
 };
 
@@ -730,11 +749,12 @@ export const hasEvpnPeerAuth = (routerBgpNode: ConfigNode): boolean => {
  * @returns true if logging meets minimum level requirement
  */
 export const hasLoggingLevel = (ast: ConfigNode[], minLevel: string): boolean => {
+  if (!Array.isArray(ast)) return false;
   const levels = ['emergencies', 'alerts', 'critical', 'errors', 'warnings', 'notifications', 'informational', 'debugging'];
   const minIndex = levels.indexOf(minLevel.toLowerCase());
 
   for (const node of ast) {
-    const match = node.id.match(/^logging\s+(?:buffered|trap)\s+(\S+)/i);
+    const match = (node?.id ?? '').match(/^logging\s+(?:buffered|trap)\s+(\S+)/i);
     if (match?.[1]) {
       const configuredIndex = levels.indexOf(match[1].toLowerCase());
       if (configuredIndex >= minIndex) {
@@ -751,8 +771,9 @@ export const hasLoggingLevel = (ast: ConfigNode[], minLevel: string): boolean =>
  * @returns true if logging source-interface is configured
  */
 export const hasLoggingSourceInterface = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^logging\s+source-interface/i.test(node.id)
+    /^logging\s+source-interface/i.test(node?.id ?? '')
   );
 };
 
@@ -762,8 +783,9 @@ export const hasLoggingSourceInterface = (ast: ConfigNode[]): boolean => {
  * @returns true if event-monitor is configured
  */
 export const hasEventMonitor = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^event-monitor$/i.test(node.id)
+    /^event-monitor$/i.test(node?.id ?? '')
   );
 };
 
@@ -789,8 +811,9 @@ export const hasVrrpAuthentication = (interfaceNode: ConfigNode): boolean => {
  * @returns true if ip virtual-router mac-address is configured
  */
 export const hasVirtualRouterMac = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^ip\s+virtual-router\s+mac-address/i.test(node.id)
+    /^ip\s+virtual-router\s+mac-address/i.test(node?.id ?? '')
   );
 };
 
@@ -854,8 +877,9 @@ export const isTrunkPort = (interfaceNode: ConfigNode): boolean => {
  * @returns true if mlag configuration block exists
  */
 export const hasMlagConfiguration = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    startsWithIgnoreCase(node.id, 'mlag configuration')
+    startsWithIgnoreCase(node?.id ?? '', 'mlag configuration')
   );
 };
 
@@ -867,8 +891,9 @@ export const hasMlagConfiguration = (ast: ConfigNode[]): boolean => {
 export const getMlagConfiguration = (
   ast: ConfigNode[]
 ): ConfigNode | undefined => {
+  if (!Array.isArray(ast)) return undefined;
   return ast.find((node) =>
-    startsWithIgnoreCase(node.id, 'mlag configuration')
+    startsWithIgnoreCase(node?.id ?? '', 'mlag configuration')
   );
 };
 
@@ -894,8 +919,9 @@ export const checkMlagRequirements = (
  * @returns true if management api http-commands is configured
  */
 export const hasManagementApi = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    startsWithIgnoreCase(node.id, 'management api')
+    startsWithIgnoreCase(node?.id ?? '', 'management api')
   );
 };
 
@@ -905,8 +931,9 @@ export const hasManagementApi = (ast: ConfigNode[]): boolean => {
  * @returns Array of management API configuration nodes
  */
 export const getManagementApiNodes = (ast: ConfigNode[]): ConfigNode[] => {
+  if (!Array.isArray(ast)) return [];
   return ast.filter((node) =>
-    startsWithIgnoreCase(node.id, 'management api')
+    startsWithIgnoreCase(node?.id ?? '', 'management api')
   );
 };
 
@@ -1072,12 +1099,13 @@ export const isEthernetInterface = (node: ConfigNode): boolean => {
  * @returns true if daemon(s) are configured
  */
 export const hasDaemon = (ast: ConfigNode[], daemonName?: string): boolean => {
+  if (!Array.isArray(ast)) return false;
   if (daemonName) {
     return ast.some((node) =>
-      equalsIgnoreCase(node.id, `daemon ${daemonName}`)
+      equalsIgnoreCase(node?.id ?? '', `daemon ${daemonName}`)
     );
   }
-  return ast.some((node) => startsWithIgnoreCase(node.id, 'daemon '));
+  return ast.some((node) => startsWithIgnoreCase(node?.id ?? '', 'daemon '));
 };
 
 /**
@@ -1086,7 +1114,8 @@ export const hasDaemon = (ast: ConfigNode[], daemonName?: string): boolean => {
  * @returns true if event-handler(s) are configured
  */
 export const hasEventHandler = (ast: ConfigNode[]): boolean => {
-  return ast.some((node) => startsWithIgnoreCase(node.id, 'event-handler '));
+  if (!Array.isArray(ast)) return false;
+  return ast.some((node) => startsWithIgnoreCase(node?.id ?? '', 'event-handler '));
 };
 
 /**
@@ -1095,8 +1124,9 @@ export const hasEventHandler = (ast: ConfigNode[]): boolean => {
  * @returns Array of VRF instance nodes
  */
 export const getVrfInstances = (ast: ConfigNode[]): ConfigNode[] => {
+  if (!Array.isArray(ast)) return [];
   return ast.filter((node) =>
-    /^vrf\s+instance\s+\S+/i.test(node.id)
+    /^vrf\s+instance\s+\S+/i.test(node?.id ?? '')
   );
 };
 
@@ -1189,8 +1219,9 @@ export const getInterfaceDescription = (interfaceNode: ConfigNode): string | und
  * @returns true if NTP server(s) are configured
  */
 export const hasNtpServer = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^ntp\s+server\s+/i.test(node.id)
+    /^ntp\s+server\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -1200,8 +1231,9 @@ export const hasNtpServer = (ast: ConfigNode[]): boolean => {
  * @returns true if logging host is configured
  */
 export const hasLoggingHost = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^logging\s+host\s+/i.test(node.id)
+    /^logging\s+host\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -1211,8 +1243,9 @@ export const hasLoggingHost = (ast: ConfigNode[]): boolean => {
  * @returns true if SNMP is configured
  */
 export const hasSnmpServer = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^snmp-server\s+/i.test(node.id)
+    /^snmp-server\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -1222,8 +1255,9 @@ export const hasSnmpServer = (ast: ConfigNode[]): boolean => {
  * @returns true if AAA is configured
  */
 export const hasAaa = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^aaa\s+/i.test(node.id)
+    /^aaa\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -1233,8 +1267,9 @@ export const hasAaa = (ast: ConfigNode[]): boolean => {
  * @returns true if spanning-tree is configured
  */
 export const hasSpanningTree = (ast: ConfigNode[]): boolean => {
+  if (!Array.isArray(ast)) return false;
   return ast.some((node) =>
-    /^spanning-tree\s+/i.test(node.id)
+    /^spanning-tree\s+/i.test(node?.id ?? '')
   );
 };
 
@@ -1244,11 +1279,12 @@ export const hasSpanningTree = (ast: ConfigNode[]): boolean => {
  * @returns The spanning-tree mode (mstp, rapid-pvst, none, etc.)
  */
 export const getSpanningTreeMode = (ast: ConfigNode[]): string | undefined => {
+  if (!Array.isArray(ast)) return undefined;
   const stpNode = ast.find((node) =>
-    /^spanning-tree\s+mode\s+/i.test(node.id)
+    /^spanning-tree\s+mode\s+/i.test(node?.id ?? '')
   );
   if (!stpNode) return undefined;
 
-  const match = stpNode.id.match(/spanning-tree\s+mode\s+(\S+)/i);
+  const match = stpNode?.id?.match(/spanning-tree\s+mode\s+(\S+)/i);
   return match ? match[1] : undefined;
 };
