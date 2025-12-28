@@ -18,8 +18,13 @@ const PACKAGES_CORE = join(__dirname, '..');
 
 /**
  * Helper to load and parse a fixture file.
+ * Validates path to prevent directory traversal attacks.
  */
 function parseFixture(relativePath: string, vendorId: 'cisco-ios' | 'cisco-nxos'): ConfigNode[] {
+  // Security: Prevent path traversal by rejecting paths with ".."
+  if (relativePath.includes('..')) {
+    throw new Error(`Invalid path: path traversal not allowed: ${relativePath}`);
+  }
   const fullPath = join(PACKAGES_CORE, relativePath);
   if (!existsSync(fullPath)) {
     throw new Error(`Fixture file not found: ${fullPath}`);

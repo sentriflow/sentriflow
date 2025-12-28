@@ -90,13 +90,21 @@ export const CiscoNXOSSchema: VendorSchema = {
 
     { pattern: /^address-family\s+\S+/i, depth: 1 },
     { pattern: /^vrf\s+member\s+\S+/i, depth: 1 },
+    // VRF sub-context inside router bgp (e.g., "vrf TENANT-A")
+    // Uses negative lookahead (?!member\s) to avoid matching "vrf member X"
+    // This removes the ordering dependency with the vrf member pattern above
+    { pattern: /^vrf\s+(?!member\s)\S+/i, depth: 1 },
     { pattern: /^template\s+peer\s+\S+/i, depth: 1 },
     { pattern: /^neighbor\s+\S+/i, depth: 1 },
     { pattern: /^class\s+\S+/i, depth: 1 },
 
-    // ============ DEPTH 2: Inside address-family ============
+    // ============ DEPTH 2: Inside neighbor / address-family ============
 
-    // Note: NX-OS uses different VRF nesting than IOS
+    // address-family inside neighbor block
+    { pattern: /^address-family\s+\S+/i, depth: 2 },
+
+    // Inside policy-map class (QoS)
+    { pattern: /^police\s+/i, depth: 2 },
   ],
 
   blockEnders: [

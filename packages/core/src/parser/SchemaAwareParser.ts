@@ -328,6 +328,53 @@ export class SchemaAwareParser {
         }
       }
 
+      // FLAT-CONFIG-FIX: For flat configs (indent=0) with intentional multi-depth patterns,
+      // search up the parent stack to find the best valid ancestor.
+      // This enables correct nesting without relying on indentation.
+      // Only applies when the SAME pattern (identical regex) is defined at multiple depths.
+      if (isBlockStarter && currentLine.indent === 0) {
+        const multiDepthsForSamePattern =
+          this.getMultiDepthsForSamePattern(currentLine.sanitized);
+
+        if (multiDepthsForSamePattern.length > 1) {
+          // Cache block type extraction (first word) for sibling detection
+          // This avoids repeated regex splits on the same string
+          const currentBlockType = currentLine.sanitized.split(/\s+/)[0];
+
+          // Search stack from most recent to oldest for a valid parent
+          // Limited to MAX_NESTING_DEPTH to bound worst-case iteration
+          const maxSearch = Math.min(parentStack.length, MAX_NESTING_DEPTH);
+          for (let i = parentStack.length - 1; i >= parentStack.length - maxSearch; i--) {
+            const ancestor = parentStack[i];
+            if (
+              ancestor?.type === 'section' &&
+              ancestor.blockDepth !== undefined
+            ) {
+              // Sibling detection: Skip same block types - they should be siblings, not parent/child
+              // Example: address-family X and address-family Y should be siblings
+              // NOTE: Uses first word only, which works for most cases but may not handle
+              // commands like "router bgp" vs "router ospf" where both have "router" as first word.
+              // This is acceptable as those blocks typically don't nest.
+              const ancestorBlockType = ancestor.id.split(/\s+/)[0];
+              if (ancestorBlockType === currentBlockType) {
+                continue;
+              }
+
+              const ancestorDepth = ancestor.blockDepth;
+              // Find depths that would make us a valid child of this ancestor
+              const validChildDepths = multiDepthsForSamePattern.filter(
+                (d) => d > ancestorDepth
+              );
+              if (validChildDepths.length > 0) {
+                // Use the smallest valid depth (closest nesting level)
+                blockStarterDepth = Math.min(...validChildDepths);
+                break;
+              }
+            }
+          }
+        }
+      }
+
       const newNodeType: NodeType = isBlockStarter ? 'section' : 'command';
       const modifiedLine: ParsedLine = {
         ...currentLine,
@@ -427,6 +474,43 @@ export class SchemaAwareParser {
       }
     }
     return depths;
+  }
+
+  /**
+   * Returns depths only for patterns where the SAME regex pattern is defined
+   * at multiple depth levels. This is used for flat config parsing where we need
+   * to detect intentional multi-depth patterns (like address-family at depth 1 AND 2)
+   * vs accidental overlaps (like vrf definition matching both vrf\s+definition and vrf\s+\S+).
+   *
+   * Example: address-family\s+\S+ at depth 1 AND depth 2 → returns [1, 2]
+   * Example: vrf definition X matching vrf\s+definition (depth 0) AND vrf\s+\S+ (depth 2) → returns []
+   */
+  private getMultiDepthsForSamePattern(sanitizedLine: string): number[] {
+    const patternToDepths = new Map<string, number[]>();
+
+    for (const def of this.vendor.blockStarters) {
+      if (def.pattern.test(sanitizedLine)) {
+        // Include regex flags in key to properly distinguish patterns
+        // e.g., /pattern/i and /pattern/ are different patterns
+        const key = `${def.pattern.source}|${def.pattern.flags}`;
+        if (!patternToDepths.has(key)) {
+          patternToDepths.set(key, []);
+        }
+        patternToDepths.get(key)!.push(def.depth);
+      }
+    }
+
+    // Return depths for the FIRST pattern that appears at multiple depths.
+    // This enables multi-depth nesting (e.g., address-family at depth 1 AND 2).
+    // Note: If multiple different patterns have multi-depth definitions, only
+    // the first one found is returned. This is sufficient for current use cases
+    // where we just need to know IF multi-depth nesting applies.
+    for (const depths of patternToDepths.values()) {
+      if (depths.length > 1) {
+        return depths;
+      }
+    }
+    return [];
   }
 
   /**

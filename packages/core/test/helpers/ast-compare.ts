@@ -108,8 +108,12 @@ export function compareAstStructure(
 
 /**
  * Deep array equality check for params comparison.
+ * Handles null/undefined arrays safely.
  */
-function arraysEqual(a: string[], b: string[]): boolean {
+function arraysEqual(a: string[] | undefined, b: string[] | undefined): boolean {
+  // Handle null/undefined cases
+  if (!a && !b) return true;
+  if (!a || !b) return false;
   if (a.length !== b.length) return false;
   return a.every((val, idx) => val === b[idx]);
 }

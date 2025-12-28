@@ -84,18 +84,32 @@ export const CiscoIOSSchema: VendorSchema = {
     { pattern: /^control-plane/i, depth: 0 },
     { pattern: /^ip\s+ips\s+signature-category/i, depth: 0 },
 
-    // ============ DEPTH 1: Inside routing protocols ============
+    // ============ DEPTH 1: Inside routing protocols / policy-map ============
 
     { pattern: /^address-family\s+\S+/i, depth: 1 },
-    { pattern: /^af-interface\s+\S+/i, depth: 1 },
-    { pattern: /^topology\s+\S+/i, depth: 1 },
     { pattern: /^service-family\s+\S+/i, depth: 1 },
-    { pattern: /^class\s+\S+/i, depth: 1 },
     { pattern: /^category\s+\S+/i, depth: 1 },
 
-    // ============ DEPTH 2: Inside address-family ============
+    // Inside archive block
+    { pattern: /^log\s+config/i, depth: 1 },
 
+    // Inside key chain block
+    { pattern: /^key\s+\d+/i, depth: 1 },
+
+    // Inside policy-map (class block)
+    { pattern: /^class\s+\S+/i, depth: 1 },
+
+    // ============ DEPTH 2: Inside address-family / class ============
+
+    // Inside address-family (named EIGRP)
+    { pattern: /^af-interface\s+\S+/i, depth: 2 },
+    { pattern: /^topology\s+\S+/i, depth: 2 },
+
+    // Inside address-family (BGP vrf)
     { pattern: /^vrf\s+\S+/i, depth: 2 },
+
+    // Inside class (QoS policing)
+    { pattern: /^police\s+/i, depth: 2 },
   ],
 
   blockEnders: [
