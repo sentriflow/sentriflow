@@ -60,6 +60,9 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
         case 'enableRule':
           await this._enableRule(message.ruleId);
           break;
+        case 'browsePacksDirectory':
+          await this._browsePacksDirectory();
+          break;
       }
     });
 
@@ -88,10 +91,10 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       tagTypeFilter: config.get<string>('tagTypeFilter', 'all'),
       enableDefaultRules: config.get<boolean>('enableDefaultRules', true),
       blockedPacks: config.get<string[]>('blockedPacks', []),
-      encryptedPacksEnabled: config.get<boolean>('encryptedPacks.enabled', true),
-      encryptedPacksDirectory: config.get<string>('encryptedPacks.directory', '') || DEFAULT_PACKS_DIRECTORY,
-      encryptedPacksAutoUpdate: config.get<string>('encryptedPacks.autoUpdate', 'on-activation'),
-      encryptedPacksShowInTree: config.get<boolean>('encryptedPacks.showInTree', true),
+      externalPacksEnabled: config.get<boolean>('packs.enabled', true),
+      externalPacksDirectory: config.get<string>('packs.directory', '') || DEFAULT_PACKS_DIRECTORY,
+      externalPacksAutoUpdate: config.get<string>('packs.autoUpdate', 'on-activation'),
+      externalPacksShowInTree: config.get<boolean>('packs.showInTree', true),
       packVendorOverrides: config.get<Record<string, { disabledVendors?: string[] }>>(
         'packVendorOverrides',
         {}
@@ -214,6 +217,21 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
     await this._sendSettings();
   }
 
+  private async _browsePacksDirectory(): Promise<void> {
+    const result = await vscode.window.showOpenDialog({
+      canSelectFiles: false,
+      canSelectFolders: true,
+      canSelectMany: false,
+      openLabel: 'Select Packs Directory',
+      title: 'Select Directory for External Rule Packs',
+    });
+
+    if (result && result[0]) {
+      const selectedPath = result[0].fsPath;
+      await this._updateSetting('packs.directory', selectedPath);
+    }
+  }
+
   private _getHtmlContent(webview: vscode.Webview): string {
     const nonce = this._getNonce();
 
@@ -280,6 +298,28 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       width: 180px;
     }
     .setting-input:focus { outline: 1px solid var(--vscode-focusBorder); }
+    .input-with-button {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .input-with-button .setting-input {
+      flex: 1;
+      width: auto;
+    }
+    .browse-button {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      border: none;
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 2px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .browse-button:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
     .toggle {
       position: relative;
       width: 36px;
@@ -433,27 +473,30 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
     </select>
   </div>
 
-  <h3>Encrypted Packs</h3>
+  <h3>External Packs</h3>
   <div class="setting-row">
     <div class="setting-label">
-      Enable Encrypted Packs
-      <div class="setting-description">Load commercial encrypted rule packs (.grx2)</div>
+      Enable External Packs
+      <div class="setting-description">Load external rule packs (.grx2, .grpx files)</div>
     </div>
-    <div class="toggle" id="encryptedPacksEnabled"></div>
+    <div class="toggle" id="externalPacksEnabled"></div>
   </div>
   <div class="setting-row">
     <div class="setting-label">
       Packs Directory
-      <div class="setting-description">Directory to scan for .grx2 files</div>
+      <div class="setting-description">Directory to scan for pack files</div>
     </div>
-    <input type="text" id="encryptedPacksDirectory" class="setting-input" placeholder="~/.sentriflow/packs">
+    <div class="input-with-button">
+      <input type="text" id="externalPacksDirectory" class="setting-input" placeholder="~/.sentriflow/packs">
+      <button id="browsePacksDirectory" class="browse-button">Browse...</button>
+    </div>
   </div>
   <div class="setting-row">
     <div class="setting-label">
       Auto Update
       <div class="setting-description">When to check for pack updates</div>
     </div>
-    <select id="encryptedPacksAutoUpdate">
+    <select id="externalPacksAutoUpdate">
       <option value="disabled">Disabled</option>
       <option value="on-activation">On Activation</option>
       <option value="daily">Daily</option>
@@ -463,9 +506,16 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
   <div class="setting-row">
     <div class="setting-label">
       Show in Tree
-      <div class="setting-description">Show encrypted packs in rules tree</div>
+      <div class="setting-description">Show external packs in rules tree</div>
     </div>
-    <div class="toggle" id="encryptedPacksShowInTree"></div>
+    <div class="toggle" id="externalPacksShowInTree"></div>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      Blocked Packs
+      <div class="setting-description">Comma-separated list of pack names to block</div>
+    </div>
+    <input type="text" id="blockedPacksInput" class="setting-input" placeholder="pack-name-1, pack-name-2">
   </div>
 
   <h3>Rule Packs</h3>
@@ -485,10 +535,12 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
     const treeGroupingSelect = document.getElementById('treeGrouping');
     const showTagsSectionToggle = document.getElementById('showTagsSection');
     const tagTypeFilterSelect = document.getElementById('tagTypeFilter');
-    const encryptedPacksEnabledToggle = document.getElementById('encryptedPacksEnabled');
-    const encryptedPacksDirectoryInput = document.getElementById('encryptedPacksDirectory');
-    const encryptedPacksAutoUpdateSelect = document.getElementById('encryptedPacksAutoUpdate');
-    const encryptedPacksShowInTreeToggle = document.getElementById('encryptedPacksShowInTree');
+    const externalPacksEnabledToggle = document.getElementById('externalPacksEnabled');
+    const externalPacksDirectoryInput = document.getElementById('externalPacksDirectory');
+    const browsePacksDirectoryButton = document.getElementById('browsePacksDirectory');
+    const externalPacksAutoUpdateSelect = document.getElementById('externalPacksAutoUpdate');
+    const externalPacksShowInTreeToggle = document.getElementById('externalPacksShowInTree');
+    const blockedPacksInput = document.getElementById('blockedPacksInput');
     const packsContainer = document.getElementById('packsContainer');
     const disabledRulesContainer = document.getElementById('disabledRulesContainer');
     const disabledCountSpan = document.getElementById('disabledCount');
@@ -545,38 +597,55 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       });
     });
 
-    encryptedPacksEnabledToggle.addEventListener('click', () => {
-      const newValue = !encryptedPacksEnabledToggle.classList.contains('active');
+    externalPacksEnabledToggle.addEventListener('click', () => {
+      const newValue = !externalPacksEnabledToggle.classList.contains('active');
       vscode.postMessage({
         command: 'updateSetting',
-        key: 'encryptedPacks.enabled',
+        key: 'packs.enabled',
         value: newValue,
       });
     });
 
-    encryptedPacksDirectoryInput.addEventListener('change', () => {
+    externalPacksDirectoryInput.addEventListener('change', () => {
       vscode.postMessage({
         command: 'updateSetting',
-        key: 'encryptedPacks.directory',
-        value: encryptedPacksDirectoryInput.value,
+        key: 'packs.directory',
+        value: externalPacksDirectoryInput.value,
       });
     });
 
-    encryptedPacksAutoUpdateSelect.addEventListener('change', () => {
+    externalPacksAutoUpdateSelect.addEventListener('change', () => {
       vscode.postMessage({
         command: 'updateSetting',
-        key: 'encryptedPacks.autoUpdate',
-        value: encryptedPacksAutoUpdateSelect.value,
+        key: 'packs.autoUpdate',
+        value: externalPacksAutoUpdateSelect.value,
       });
     });
 
-    encryptedPacksShowInTreeToggle.addEventListener('click', () => {
-      const newValue = !encryptedPacksShowInTreeToggle.classList.contains('active');
+    externalPacksShowInTreeToggle.addEventListener('click', () => {
+      const newValue = !externalPacksShowInTreeToggle.classList.contains('active');
       vscode.postMessage({
         command: 'updateSetting',
-        key: 'encryptedPacks.showInTree',
+        key: 'packs.showInTree',
         value: newValue,
       });
+    });
+
+    blockedPacksInput.addEventListener('change', () => {
+      // Parse comma-separated list, trim whitespace, filter empty
+      const packsArray = blockedPacksInput.value
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+      vscode.postMessage({
+        command: 'updateSetting',
+        key: 'blockedPacks',
+        value: packsArray,
+      });
+    });
+
+    browsePacksDirectoryButton.addEventListener('click', () => {
+      vscode.postMessage({ command: 'browsePacksDirectory' });
     });
 
     function updateUI(data) {
@@ -600,11 +669,12 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       showTagsSectionToggle.classList.toggle('active', data.settings.showTagsSection !== false);
       tagTypeFilterSelect.value = data.settings.tagTypeFilter || 'all';
 
-      // Update encrypted packs settings
-      encryptedPacksEnabledToggle.classList.toggle('active', data.settings.encryptedPacksEnabled !== false);
-      encryptedPacksDirectoryInput.value = data.settings.encryptedPacksDirectory || '~/.sentriflow/packs';
-      encryptedPacksAutoUpdateSelect.value = data.settings.encryptedPacksAutoUpdate || 'on-activation';
-      encryptedPacksShowInTreeToggle.classList.toggle('active', data.settings.encryptedPacksShowInTree !== false);
+      // Update external packs settings
+      externalPacksEnabledToggle.classList.toggle('active', data.settings.externalPacksEnabled !== false);
+      externalPacksDirectoryInput.value = data.settings.externalPacksDirectory || '~/.sentriflow/packs';
+      externalPacksAutoUpdateSelect.value = data.settings.externalPacksAutoUpdate || 'on-activation';
+      externalPacksShowInTreeToggle.classList.toggle('active', data.settings.externalPacksShowInTree !== false);
+      blockedPacksInput.value = (data.settings.blockedPacks || []).join(', ');
 
       // Clear and rebuild packs using DOM APIs
       while (packsContainer.firstChild) {

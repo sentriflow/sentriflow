@@ -3612,11 +3612,13 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
   }
 
   if (event.affectsConfiguration('sentriflow.blockedPacks')) {
-    log(`Blocked packs setting changed`);
-    // Note: This only affects future registrations
-    // Already registered packs remain active until extension reload
-    rulesTreeProvider.refresh();
-    settingsWebviewProvider.refresh();
+    log(`Blocked packs setting changed - reloading packs`);
+    // Reload packs to apply blocked/unblocked changes immediately
+    loadPacks().then(() => {
+      rulesTreeProvider.refresh();
+      settingsWebviewProvider.refresh();
+      rescanActiveEditor();
+    });
   }
 
   if (event.affectsConfiguration('sentriflow.packVendorOverrides')) {
