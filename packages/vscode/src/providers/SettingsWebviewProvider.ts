@@ -89,6 +89,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       treeGrouping: config.get<string>('treeGrouping', 'vendor'),
       showTagsSection: config.get<boolean>('showTagsSection', true),
       tagTypeFilter: config.get<string>('tagTypeFilter', 'all'),
+      ipFilterSpecialRanges: config.get<boolean>('ipAddresses.filterSpecialRanges', false),
       enableDefaultRules: config.get<boolean>('enableDefaultRules', true),
       blockedPacks: config.get<string[]>('blockedPacks', []),
       externalPacksEnabled: config.get<boolean>('packs.enabled', true),
@@ -472,6 +473,13 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       <option value="general">General</option>
     </select>
   </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      Filter Special IP Ranges
+      <div class="setting-description">Hide 0.0.0.0, loopback, multicast, reserved IPs</div>
+    </div>
+    <div class="toggle" id="ipFilterSpecialRanges"></div>
+  </div>
 
   <h3>External Packs</h3>
   <div class="setting-row">
@@ -535,6 +543,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
     const treeGroupingSelect = document.getElementById('treeGrouping');
     const showTagsSectionToggle = document.getElementById('showTagsSection');
     const tagTypeFilterSelect = document.getElementById('tagTypeFilter');
+    const ipFilterSpecialRangesToggle = document.getElementById('ipFilterSpecialRanges');
     const externalPacksEnabledToggle = document.getElementById('externalPacksEnabled');
     const externalPacksDirectoryInput = document.getElementById('externalPacksDirectory');
     const browsePacksDirectoryButton = document.getElementById('browsePacksDirectory');
@@ -594,6 +603,15 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
         command: 'updateSetting',
         key: 'tagTypeFilter',
         value: tagTypeFilterSelect.value,
+      });
+    });
+
+    ipFilterSpecialRangesToggle.addEventListener('click', () => {
+      const newValue = !ipFilterSpecialRangesToggle.classList.contains('active');
+      vscode.postMessage({
+        command: 'updateSetting',
+        key: 'ipAddresses.filterSpecialRanges',
+        value: newValue,
       });
     });
 
@@ -668,6 +686,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       treeGroupingSelect.value = data.settings.treeGrouping || 'vendor';
       showTagsSectionToggle.classList.toggle('active', data.settings.showTagsSection !== false);
       tagTypeFilterSelect.value = data.settings.tagTypeFilter || 'all';
+      ipFilterSpecialRangesToggle.classList.toggle('active', data.settings.ipFilterSpecialRanges === true);
 
       // Update external packs settings
       externalPacksEnabledToggle.classList.toggle('active', data.settings.externalPacksEnabled !== false);

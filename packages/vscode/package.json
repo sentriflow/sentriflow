@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "license": "Apache-2.0",
   "qna": "marketplace",
   "privacy": {
@@ -564,6 +564,11 @@
           ],
           "default": "all",
           "description": "Filter tags by type in the 'By Tag' section. Choose 'all' to show all tags, or select a specific type."
+        },
+        "sentriflow.ipAddresses.filterSpecialRanges": {
+          "type": "boolean",
+          "default": false,
+          "description": "Filter out special IP ranges (0.0.0.0, loopback, multicast, reserved, broadcast) from the IP Addresses view. When enabled, only shows public and private IP addresses."
         },
         "sentriflow.packs.enabled": {
           "type": "boolean",

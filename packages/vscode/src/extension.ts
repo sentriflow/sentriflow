@@ -3639,6 +3639,13 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
     settingsWebviewProvider.refresh();
     rescanActiveEditor();
   }
+
+  if (event.affectsConfiguration('sentriflow.ipAddresses.filterSpecialRanges')) {
+    log(`IP filter setting changed`);
+    // Re-extract IPs with new filter setting
+    ipAddressesTreeProvider.updateFromDocument(vscode.window.activeTextEditor?.document);
+    settingsWebviewProvider.refresh();
+  }
 }
 
 // ============================================================================

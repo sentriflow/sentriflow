@@ -25,3 +25,19 @@ export type {
 } from './types';
 
 export { InputValidationError, DEFAULT_MAX_CONTENT_SIZE } from './types';
+
+// IP Classification and Filtering
+export {
+  classifyIPv4,
+  classifyIPv6,
+  classifyIPv4Subnet,
+  classifyIPv6Subnet,
+  filterIPv4Addresses,
+  filterIPv6Addresses,
+  filterIPv4Subnets,
+  filterIPv6Subnets,
+  filterIPSummary,
+  DEFAULT_FILTER_OPTIONS,
+} from './classifier';
+
+export type { IPClassification, IPFilterOptions } from './classifier';

@@ -86,6 +86,14 @@ export interface SentriflowConfig {
 
   /** Directory scanning options (FR-005) */
   directory?: DirectoryConfig;
+
+  /**
+   * Filter out special IP ranges from IP summaries.
+   * When enabled, filters out loopback, multicast, reserved, broadcast,
+   * and documentation addresses. Keeps only public, private, and CGNAT addresses.
+   * @default false
+   */
+  filterSpecialIps?: boolean;
 }
 
 /** Resolved configuration with final rule set */
@@ -203,6 +211,14 @@ function isValidSentriflowConfig(config: unknown): config is SentriflowConfig {
     if (!isValidDirectoryConfig(obj.directory)) {
       return false;
     }
+  }
+
+  // Validate optional 'filterSpecialIps' boolean
+  if (
+    obj.filterSpecialIps !== undefined &&
+    typeof obj.filterSpecialIps !== 'boolean'
+  ) {
+    return false;
   }
 
   return true;

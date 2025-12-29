@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { extractIPSummary, type IPSummary } from '@sentriflow/core';
+import { extractIPSummary, filterIPSummary, type IPSummary } from '@sentriflow/core';
 
 /**
  * Tree item types for IP addresses hierarchy
@@ -97,7 +97,27 @@ export class IPAddressesTreeProvider implements vscode.TreeDataProvider<IPTreeIt
     } else {
       const content = document.getText();
       // Include subnet network addresses in the addresses lists
-      this.currentSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+      let summary = extractIPSummary(content, { includeSubnetNetworks: true });
+
+      // Apply filtering if enabled
+      const config = vscode.workspace.getConfiguration('sentriflow');
+      const filterSpecialRanges = config.get<boolean>('ipAddresses.filterSpecialRanges', false);
+      if (filterSpecialRanges) {
+        summary = filterIPSummary(summary, {
+          keepPublic: true,
+          keepPrivate: true,
+          keepCgnat: true,
+          keepLoopback: false,
+          keepLinkLocal: false,
+          keepMulticast: false,
+          keepReserved: false,
+          keepUnspecified: false,
+          keepBroadcast: false,
+          keepDocumentation: false,
+        });
+      }
+
+      this.currentSummary = summary;
       this.currentFileName = document.fileName.split(/[/\\]/).pop() || 'Unknown';
     }
     this.refresh();

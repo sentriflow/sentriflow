@@ -10,6 +10,7 @@ import {
   getVendor,
   getAvailableVendors,
   extractIPSummary,
+  filterIPSummary,
   InputValidationError,
   // GRX2 Extended Pack Support
   getMachineId,
@@ -167,6 +168,10 @@ program
     (val) => parseInt(val, 10)
   )
   .option('--progress', 'Show progress during directory scanning')
+  .option(
+    '--filter-special-ips',
+    'Filter out special IP ranges (loopback, multicast, reserved, broadcast) from IP summary'
+  )
   .action(async (files: string[], options) => {
     try {
       // Show machine ID mode (for license binding support)
@@ -249,6 +254,23 @@ program
         cwd: configSearchDir,
         allowedBaseDirs, // SEC-011: Pass allowed base dirs for rule file validation
       });
+
+      // Load config file for additional options (filterSpecialIps)
+      // CLI option takes precedence over config file
+      let filterSpecialIps = options.filterSpecialIps ?? false;
+      if (!options.filterSpecialIps && options.config !== false) {
+        const configPath = options.config ?? findConfigFile(configSearchDir);
+        if (configPath) {
+          try {
+            const config = await loadConfigFile(configPath, allowedBaseDirs);
+            if (config.filterSpecialIps) {
+              filterSpecialIps = true;
+            }
+          } catch {
+            // Config loading may fail, already handled by resolveRules
+          }
+        }
+      }
 
       // List categories mode
       if (options.listCategories) {
@@ -562,7 +584,23 @@ program
             totalPassed += passed;
 
             // Extract IP summary for this file (include subnet network addresses)
-            const fileIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+            let fileIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+
+            // Apply IP filtering if enabled (via CLI option or config)
+            if (filterSpecialIps) {
+              fileIpSummary = filterIPSummary(fileIpSummary, {
+                keepPublic: true,
+                keepPrivate: true,
+                keepCgnat: true,
+                keepLoopback: false,
+                keepLinkLocal: false,
+                keepMulticast: false,
+                keepReserved: false,
+                keepUnspecified: false,
+                keepBroadcast: false,
+                keepDocumentation: false,
+              });
+            }
 
             allFileResults.push({
               filePath,
@@ -704,6 +742,22 @@ program
         let stdinIpSummary;
         try {
           stdinIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+
+          // Apply IP filtering if enabled (via CLI option or config)
+          if (filterSpecialIps) {
+            stdinIpSummary = filterIPSummary(stdinIpSummary, {
+              keepPublic: true,
+              keepPrivate: true,
+              keepCgnat: true,
+              keepLoopback: false,
+              keepLinkLocal: false,
+              keepMulticast: false,
+              keepReserved: false,
+              keepUnspecified: false,
+              keepBroadcast: false,
+              keepDocumentation: false,
+            });
+          }
         } catch (error) {
           if (error instanceof InputValidationError) {
             console.error(`Input validation error: ${error.message}`);
@@ -804,7 +858,23 @@ program
             totalPassed += passed;
 
             // Extract IP summary for this file (include subnet network addresses)
-            const fileIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+            let fileIpSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+
+            // Apply IP filtering if enabled (via CLI option or config)
+            if (filterSpecialIps) {
+              fileIpSummary = filterIPSummary(fileIpSummary, {
+                keepPublic: true,
+                keepPrivate: true,
+                keepCgnat: true,
+                keepLoopback: false,
+                keepLinkLocal: false,
+                keepMulticast: false,
+                keepReserved: false,
+                keepUnspecified: false,
+                keepBroadcast: false,
+                keepDocumentation: false,
+              });
+            }
 
             allFileResults.push({
               filePath,
@@ -947,7 +1017,23 @@ program
       }
 
       // Extract IP summary from content (include subnet network addresses)
-      const ipSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+      let ipSummary = extractIPSummary(content, { includeSubnetNetworks: true });
+
+      // Apply IP filtering if enabled (via CLI option or config)
+      if (filterSpecialIps) {
+        ipSummary = filterIPSummary(ipSummary, {
+          keepPublic: true,
+          keepPrivate: true,
+          keepCgnat: true,
+          keepLoopback: false,
+          keepLinkLocal: false,
+          keepMulticast: false,
+          keepReserved: false,
+          keepUnspecified: false,
+          keepBroadcast: false,
+          keepDocumentation: false,
+        });
+      }
 
       // Output results based on format
       if (options.format === 'sarif') {
