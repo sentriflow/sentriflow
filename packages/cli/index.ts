@@ -89,26 +89,17 @@ program
   .option('-c, --config <path>', 'Path to config file (default: auto-detect)')
   .option('--no-config', 'Ignore config file')
   .option('-r, --rules <path>', 'Additional rules file to load (legacy)')
-  .option('-p, --rule-pack <path>', 'Rule pack file to load')
   .option(
-    '--encrypted-pack <path...>',
-    'SEC-012: Path(s) to encrypted rule pack(s) (.grpx), can specify multiple'
+    '--pack <path...>',
+    'Path(s) to rule pack(s) (auto-detects format: .grx2, .grpx, or unencrypted)'
   )
   .option(
     '--license-key <key>',
-    'SEC-012: License key for encrypted rule packs (or set SENTRIFLOW_LICENSE_KEY)'
+    'License key for encrypted rule packs (or set SENTRIFLOW_LICENSE_KEY)'
   )
   .option(
     '--strict-packs',
-    'Fail if encrypted pack cannot be loaded (default: warn and continue)'
-  )
-  .option(
-    '--grx2-pack <path...>',
-    'Path(s) to extended encrypted rule pack(s) (.grx2), can specify multiple'
-  )
-  .option(
-    '--strict-grx2',
-    'Fail immediately if any GRX2 pack cannot be loaded'
+    'Fail immediately if any pack cannot be loaded (default: warn and continue)'
   )
   .option(
     '--show-machine-id',
@@ -249,12 +240,9 @@ program
         configPath: options.config,
         noConfig: options.config === false, // --no-config sets this to false
         rulesPath: options.rules,
-        rulePackPath: options.rulePack,
-        encryptedPackPaths: options.encryptedPack, // SEC-012: Now supports array
-        licenseKey, // SEC-012: From CLI or SENTRIFLOW_LICENSE_KEY env var
-        strictPacks: options.strictPacks, // SEC-012: Fail on pack load errors
-        grx2PackPaths: options.grx2Pack, // Extended GRX2 packs
-        strictGrx2: options.strictGrx2, // Fail on GRX2 pack load errors
+        packPaths: options.pack, // Unified pack loading with auto-format detection
+        licenseKey, // From CLI or SENTRIFLOW_LICENSE_KEY env var
+        strictPacks: options.strictPacks, // Fail on pack load errors
         jsonRulesPaths: options.jsonRules, // JSON rules files
         disableIds: options.disable ?? [],
         vendorId,
@@ -683,12 +671,9 @@ program
           configPath: options.config,
           noConfig: options.config === false,
           rulesPath: options.rules,
-          rulePackPath: options.rulePack,
-          encryptedPackPaths: options.encryptedPack,
+          packPaths: options.pack,
           licenseKey,
           strictPacks: options.strictPacks,
-          grx2PackPaths: options.grx2Pack,
-          strictGrx2: options.strictGrx2,
           jsonRulesPaths: options.jsonRules,
           disableIds: options.disable ?? [],
           vendorId: vendor.id,
@@ -927,13 +912,10 @@ program
         configPath: options.config,
         noConfig: options.config === false,
         rulesPath: options.rules,
-        rulePackPath: options.rulePack,
-        encryptedPackPaths: options.encryptedPack,
+        packPaths: options.pack,
         licenseKey,
         strictPacks: options.strictPacks,
-        grx2PackPaths: options.grx2Pack,
-        strictGrx2: options.strictGrx2,
-        jsonRulesPaths: options.jsonRules, // JSON rules files
+        jsonRulesPaths: options.jsonRules,
         disableIds: options.disable ?? [],
         vendorId: vendor.id, // Now we have the actual detected vendor
         cwd: configSearchDir,

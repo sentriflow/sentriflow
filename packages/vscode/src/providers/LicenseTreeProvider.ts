@@ -219,21 +219,23 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
     // Loaded packs section
     const loadedPacks = this.encryptedPacks.filter((p) => p.loaded);
     if (loadedPacks.length > 0) {
-      const packChildren = loadedPacks.map((pack, index) =>
-        new LicenseTreeItem(
+      const packChildren = loadedPacks.map((pack, index) => {
+        // Format indicator: GRX2 or GRPX
+        const formatLabel = pack.format ? ` [${pack.format.toUpperCase()}]` : '';
+        return new LicenseTreeItem(
           `pack-${index}-${pack.feedId}`,
           pack.name || pack.feedId,
           vscode.TreeItemCollapsibleState.None,
           'pack-item',
-          `v${pack.version} • ${pack.ruleCount} rules`,
-          new vscode.ThemeIcon('lock')
-        )
-      );
+          `v${pack.version} • ${pack.ruleCount} rules${formatLabel}`,
+          new vscode.ThemeIcon('package')
+        );
+      });
 
       items.push(
         new LicenseTreeItem(
           'license-packs',
-          'Loaded Packs',
+          'Rule Packs',
           vscode.TreeItemCollapsibleState.Expanded,
           'license-packs',
           `${loadedPacks.length}`,
@@ -270,8 +272,8 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
         new vscode.ThemeIcon('refresh'),
         undefined,
         {
-          command: 'sentriflow.reloadEncryptedPacks',
-          title: 'Reload Encrypted Packs',
+          command: 'sentriflow.reloadPacks',
+          title: 'Reload Rule Packs',
         }
       )
     );

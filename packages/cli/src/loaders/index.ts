@@ -78,3 +78,12 @@ export async function loadAndValidate<T>(options: LoadOptions<T>): Promise<T> {
     return data;
   }, errorContext);
 }
+
+// Pack format detection exports
+export {
+  detectPackFormat,
+  createPackDescriptor,
+  createPackDescriptors,
+  FORMAT_PRIORITIES,
+} from './pack-detector';
+export type { PackFormat, PackDescriptor } from './pack-detector';

@@ -37,3 +37,6 @@ export * from './helpers/common';
 
 // IP/Subnet extraction module
 export * from './ip';
+
+// Validation utilities (shared with CLI and VS Code)
+export * from './validation';

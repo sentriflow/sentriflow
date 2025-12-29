@@ -15,3 +15,10 @@
 
 export * from './types';
 export { loadEncryptedPack, validatePackFormat } from './PackLoader';
+
+// Pack format detection (shared with CLI and VS Code)
+export {
+  detectPackFormat,
+  FORMAT_PRIORITIES,
+  type PackFormat,
+} from './format-detector';

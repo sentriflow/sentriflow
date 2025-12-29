@@ -272,16 +272,16 @@
         "icon": "$(cloud-download)"
       },
       {
-        "command": "sentriflow.reloadEncryptedPacks",
-        "title": "Reload Encrypted Packs",
+        "command": "sentriflow.reloadPacks",
+        "title": "Reload Rule Packs",
         "category": "SentriFlow",
         "icon": "$(refresh)"
       },
       {
-        "command": "sentriflow.showEncryptedPackStatus",
-        "title": "Show Encrypted Pack Status",
+        "command": "sentriflow.showPackStatus",
+        "title": "Show Pack Status",
         "category": "SentriFlow",
-        "icon": "$(lock)"
+        "icon": "$(package)"
       }
     ],
     "menus": {
@@ -559,17 +559,17 @@
           "default": "all",
           "description": "Filter tags by type in the 'By Tag' section. Choose 'all' to show all tags, or select a specific type."
         },
-        "sentriflow.encryptedPacks.enabled": {
+        "sentriflow.packs.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable loading of encrypted rule packs (.grx2 files)"
+          "description": "Enable loading of encrypted rule packs (.grx2, .grpx files)"
         },
-        "sentriflow.encryptedPacks.directory": {
+        "sentriflow.packs.directory": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Directory to scan for encrypted rule packs (.grx2 files). Leave empty for platform default: `~/.sentriflow/packs` on Unix, `%USERPROFILE%\\.sentriflow\\packs` on Windows."
+          "markdownDescription": "Directory to scan for rule packs (.grx2, .grpx files). Leave empty for platform default: `~/.sentriflow/packs` on Unix, `%USERPROFILE%\\.sentriflow\\packs` on Windows."
         },
-        "sentriflow.encryptedPacks.autoUpdate": {
+        "sentriflow.packs.autoUpdate": {
           "type": "string",
           "enum": ["disabled", "on-activation", "daily", "manual"],
           "enumDescriptions": [
@@ -579,12 +579,12 @@
             "Only when manually triggered"
           ],
           "default": "on-activation",
-          "description": "When to check for encrypted pack updates from cloud"
+          "description": "When to check for pack updates from cloud"
         },
-        "sentriflow.encryptedPacks.showInTree": {
+        "sentriflow.packs.showInTree": {
           "type": "boolean",
           "default": true,
-          "description": "Show encrypted packs in the rules tree view with a lock icon"
+          "description": "Show rule packs in the tree view with a lock icon"
         }
       }
     },
