@@ -604,6 +604,25 @@ const SUPPORTED_LANGUAGES = ['network-config', 'plaintext'];
 const DEBOUNCE_MS = 300;
 const MAX_FILE_SIZE = 500_000; // 500KB - be conservative for real-time
 
+// Known network configuration file extensions for bulk scanning
+const CONFIG_EXTENSIONS = new Set([
+  '.txt',
+  '.cfg',
+  '.conf',
+  '.config',
+  '.ios',
+  '.junos',
+  '.eos',
+  '.nxos',
+  '.routeros',
+  '.vyos',
+  '.panos',
+  '.sros',
+  '.vrp',
+  '.exos',
+  '.voss',
+]);
+
 // Debug mode - only log when explicitly enabled
 let debugMode = false;
 
@@ -1240,6 +1259,7 @@ export function activate(context: vscode.ExtensionContext) {
         'sentriflow.scanSelection',
         cmdScanSelection
       ),
+      vscode.commands.registerCommand('sentriflow.scanBulk', cmdScanBulk),
       vscode.commands.registerCommand('sentriflow.setLanguage', cmdSetLanguage),
       vscode.commands.registerCommand('sentriflow.toggleDebug', cmdToggleDebug),
       vscode.commands.registerCommand(
@@ -1924,6 +1944,291 @@ function cmdScanSelection() {
     updateStatusBar('error');
     log(`Selection scan error: ${e instanceof Error ? e.message : e}`);
   }
+}
+
+// ============================================================================
+// Bulk Scan Commands
+// ============================================================================
+
+/**
+ * Check if a URI has a known network configuration file extension.
+ */
+function isConfigFile(uri: vscode.Uri): boolean {
+  const path = uri.path.toLowerCase();
+  const lastDot = path.lastIndexOf('.');
+  if (lastDot === -1) return false;
+  const ext = path.substring(lastDot);
+  return CONFIG_EXTENSIONS.has(ext);
+}
+
+/**
+ * Recursively collect files to scan from a list of URIs.
+ * Files are filtered by extension; folders are expanded recursively.
+ */
+async function collectFilesToScan(
+  uris: vscode.Uri[],
+  token: vscode.CancellationToken
+): Promise<vscode.Uri[]> {
+  const files: vscode.Uri[] = [];
+
+  for (const uri of uris) {
+    if (token.isCancellationRequested) break;
+
+    try {
+      const stat = await vscode.workspace.fs.stat(uri);
+
+      if (stat.type === vscode.FileType.File) {
+        // Direct file - check extension
+        if (isConfigFile(uri)) {
+          files.push(uri);
+        }
+      } else if (stat.type === vscode.FileType.Directory) {
+        // Folder - use workspace.findFiles for recursive discovery
+        const pattern = new vscode.RelativePattern(uri, '**/*');
+        const foundFiles = await vscode.workspace.findFiles(
+          pattern,
+          '**/node_modules/**',
+          undefined,
+          token
+        );
+
+        // Filter to config files only
+        for (const file of foundFiles) {
+          if (isConfigFile(file)) {
+            files.push(file);
+          }
+        }
+      }
+    } catch (e) {
+      // File/folder inaccessible - log and skip
+      log(`Cannot access: ${uri.fsPath}: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
+  return files;
+}
+
+interface BulkScanFileResult {
+  errors: number;
+  warnings: number;
+}
+
+/**
+ * Scan a single file by URI and add diagnostics.
+ * Uses SchemaAwareParser (no incremental caching needed for batch).
+ */
+async function scanFileByUri(uri: vscode.Uri): Promise<BulkScanFileResult> {
+  // Read file content
+  const contentBytes = await vscode.workspace.fs.readFile(uri);
+  const text = new TextDecoder('utf-8').decode(contentBytes);
+
+  // Skip empty files
+  if (text.trim().length === 0) {
+    diagnosticCollection.set(uri, []);
+    return { errors: 0, warnings: 0 };
+  }
+
+  // Skip oversized files
+  if (text.length > MAX_FILE_SIZE) {
+    log(`Skipped oversized file: ${uri.fsPath} (${text.length} bytes)`);
+    return { errors: 0, warnings: 0 };
+  }
+
+  // Get configured vendor option
+  const vendorOption = getConfiguredVendor();
+  const vendor = vendorOption === 'auto' ? detectVendor(text) : vendorOption;
+
+  // Parse using SchemaAwareParser (better for batch - no incremental caching needed)
+  const parser = new SchemaAwareParser({ vendor });
+  const nodes = parser.parse(text);
+
+  // Ensure rule index is up to date
+  const vendorId = vendor.id;
+  if (rulesVersion !== lastIndexedVersion || vendorId !== lastIndexedVendorId) {
+    const rules = getAllRules(vendorId);
+    engine.buildIndex(rules);
+    lastIndexedVersion = rulesVersion;
+    lastIndexedVendorId = vendorId;
+  }
+
+  // Run rules
+  const results = engine.run(nodes);
+
+  // Build diagnostics
+  const diagnostics: vscode.Diagnostic[] = [];
+  let errorCount = 0;
+  let warningCount = 0;
+
+  // Split text into lines for range calculation
+  const lines = text.split(/\r?\n/);
+
+  for (const result of results) {
+    if (!result.passed && result.loc) {
+      const startLine = result.loc.startLine;
+
+      if (startLine >= 0 && startLine < lines.length) {
+        const lineText = lines[startLine] ?? '';
+        const severity = mapSeverity(result.level);
+        const rule = getRuleById(result.ruleId);
+        const category = formatCategory(rule);
+
+        // Apply category filter if set
+        if (categoryFilter) {
+          const ruleCats = rule?.category
+            ? Array.isArray(rule.category)
+              ? rule.category
+              : [rule.category]
+            : [];
+          if (!ruleCats.includes(categoryFilter)) {
+            continue;
+          }
+        }
+
+        const range = new vscode.Range(startLine, 0, startLine, lineText.length);
+
+        const diagnostic = new vscode.Diagnostic(
+          range,
+          `[${result.ruleId}] (${category}) ${result.message}`,
+          severity
+        );
+        diagnostic.source = 'SentriFlow';
+        diagnostic.code = result.ruleId;
+        diagnostics.push(diagnostic);
+
+        if (result.level === 'error') errorCount++;
+        if (result.level === 'warning') warningCount++;
+      }
+    }
+  }
+
+  // Set diagnostics for this file
+  diagnosticCollection.set(uri, diagnostics);
+
+  return { errors: errorCount, warnings: warningCount };
+}
+
+/**
+ * Show summary of bulk scan results.
+ */
+function showBulkScanSummary(
+  filesScanned: number,
+  totalErrors: number,
+  totalWarnings: number,
+  fileErrors: Array<{ file: string; error: string }>
+): void {
+  const issueCount = totalErrors + totalWarnings;
+
+  let message = `SENTRIFLOW: Scanned ${filesScanned} file${filesScanned !== 1 ? 's' : ''}`;
+
+  if (issueCount === 0 && fileErrors.length === 0) {
+    message += ' - no issues found';
+    vscode.window.showInformationMessage(message);
+  } else {
+    if (issueCount > 0) {
+      message += ` - ${totalErrors} error${totalErrors !== 1 ? 's' : ''}, ${totalWarnings} warning${totalWarnings !== 1 ? 's' : ''}`;
+    }
+    if (fileErrors.length > 0) {
+      message += ` (${fileErrors.length} file${fileErrors.length !== 1 ? 's' : ''} had errors)`;
+    }
+
+    // Offer to show Problems panel
+    vscode.window
+      .showWarningMessage(message, 'Show Problems')
+      .then((action) => {
+        if (action === 'Show Problems') {
+          vscode.commands.executeCommand('workbench.panel.markers.view.focus');
+        }
+      });
+  }
+
+  // Log details
+  log(
+    `Bulk scan complete: ${filesScanned} files, ${totalErrors} errors, ${totalWarnings} warnings`
+  );
+  if (fileErrors.length > 0) {
+    for (const fe of fileErrors) {
+      log(`  File error: ${fe.file}: ${fe.error}`);
+    }
+  }
+}
+
+/**
+ * Scan multiple files/folders from explorer context menu.
+ * @param uri - The right-clicked URI
+ * @param selectedUris - All selected URIs (includes the clicked one)
+ */
+async function cmdScanBulk(
+  uri?: vscode.Uri,
+  selectedUris?: vscode.Uri[]
+): Promise<void> {
+  // Resolve URIs to scan
+  const urisToProcess = selectedUris?.length ? selectedUris : uri ? [uri] : [];
+  if (urisToProcess.length === 0) {
+    vscode.window.showWarningMessage('SENTRIFLOW: No files or folders selected');
+    return;
+  }
+
+  // Run with progress
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'SentriFlow: Scanning...',
+      cancellable: true,
+    },
+    async (progress, token) => {
+      // 1. Discover files
+      progress.report({ message: 'Discovering files...' });
+      const files = await collectFilesToScan(urisToProcess, token);
+
+      if (token.isCancellationRequested) {
+        vscode.window.showInformationMessage('SENTRIFLOW: Scan cancelled');
+        return;
+      }
+
+      if (files.length === 0) {
+        vscode.window.showInformationMessage(
+          'SENTRIFLOW: No configuration files found'
+        );
+        return;
+      }
+
+      // 2. Scan each file
+      let scanned = 0;
+      let totalErrors = 0;
+      let totalWarnings = 0;
+      const fileErrors: Array<{ file: string; error: string }> = [];
+
+      for (const fileUri of files) {
+        if (token.isCancellationRequested) {
+          vscode.window.showInformationMessage(
+            `SENTRIFLOW: Scan cancelled (${scanned}/${files.length} files scanned)`
+          );
+          return;
+        }
+
+        progress.report({
+          message: `${scanned + 1}/${files.length}: ${vscode.workspace.asRelativePath(fileUri)}`,
+          increment: 100 / files.length,
+        });
+
+        try {
+          const result = await scanFileByUri(fileUri);
+          totalErrors += result.errors;
+          totalWarnings += result.warnings;
+        } catch (e) {
+          fileErrors.push({
+            file: fileUri.fsPath,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+
+        scanned++;
+      }
+
+      // 3. Show summary
+      showBulkScanSummary(scanned, totalErrors, totalWarnings, fileErrors);
+    }
+  );
 }
 
 async function cmdSetLanguage() {

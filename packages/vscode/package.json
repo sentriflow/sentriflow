@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "license": "Apache-2.0",
   "qna": "marketplace",
   "privacy": {
@@ -282,6 +282,12 @@
         "title": "Show Pack Status",
         "category": "SentriFlow",
         "icon": "$(package)"
+      },
+      {
+        "command": "sentriflow.scanBulk",
+        "title": "Scan with SentriFlow",
+        "category": "SentriFlow",
+        "icon": "$(search)"
       }
     ],
     "menus": {
@@ -299,15 +305,24 @@
       ],
       "explorer/context": [
         {
-          "command": "sentriflow.scan",
+          "command": "sentriflow.scanBulk",
           "group": "navigation",
-          "when": "resourceExtname =~ /^\\.(conf|config|cfg|ios|junos|txt)$/"
+          "when": "explorerResourceIsFolder"
+        },
+        {
+          "command": "sentriflow.scanBulk",
+          "group": "navigation",
+          "when": "resourceExtname =~ /^\\.(conf|config|cfg|ios|junos|txt|eos|nxos|routeros|vyos|panos|sros|vrp|exos|voss)$/"
         }
       ],
       "commandPalette": [
         {
           "command": "sentriflow.scanSelection",
           "when": "editorHasSelection"
+        },
+        {
+          "command": "sentriflow.scanBulk",
+          "when": "false"
         },
         {
           "command": "sentriflow.disableTreeItem",
