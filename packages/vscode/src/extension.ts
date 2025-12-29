@@ -14,6 +14,12 @@ import {
   getAvailableVendorInfo,
   VALID_VENDOR_IDS,
   isValidVendorId,
+  // Shared validation utilities (DRY)
+  validateRule,
+  isValidRule,
+  validateRulePack,
+  isValidRulePack,
+  ruleAppliesToVendor,
 } from '@sentriflow/core';
 import type {
   IRule,
@@ -36,7 +42,7 @@ import { LicenseTreeProvider } from './providers/LicenseTreeProvider';
 import {
   LicenseManager,
   CloudClient,
-  loadAllPacks,
+  loadAllPacksUnified,
   checkForUpdatesWithProgress,
   downloadUpdatesWithProgress,
   type UpdateCheckResult,
@@ -129,28 +135,7 @@ interface RegisteredPackState {
   rulesById: Map<string, IRule>;
 }
 
-/**
- * Check if a rule applies to the given vendor.
- * Rules without a vendor property are considered vendor-agnostic (apply to all).
- * Rules with vendor: 'common' also apply to all vendors.
- */
-function ruleAppliesToVendor(rule: IRule, vendorId: string): boolean {
-  // No vendor specified = vendor-agnostic, applies to all
-  if (!rule.vendor) {
-    return true;
-  }
-
-  // Handle array of vendors
-  if (Array.isArray(rule.vendor)) {
-    return (
-      rule.vendor.includes('common') ||
-      rule.vendor.includes(vendorId as RuleVendor)
-    );
-  }
-
-  // Single vendor
-  return rule.vendor === 'common' || rule.vendor === vendorId;
-}
+// Note: ruleAppliesToVendor is now imported from @sentriflow/core
 
 /**
  * Check if a rule should be disabled based on settings and pack disable configs.
@@ -223,167 +208,9 @@ function isRuleDisabled(
   return false;
 }
 
-/**
- * Validates that an object has the basic structure of an IRule.
- * Security: Prevents malicious extensions from registering invalid rules (M-4 fix).
- * Returns error message if invalid, null if valid.
- */
-function validateRule(rule: unknown): string | null {
-  if (typeof rule !== 'object' || rule === null) {
-    return 'Rule is not an object';
-  }
-
-  const obj = rule as Record<string, unknown>;
-
-  // Required: id (string matching pattern)
-  if (typeof obj.id !== 'string') {
-    return 'Rule id is not a string';
-  }
-  if (!RULE_ID_PATTERN.test(obj.id)) {
-    return `Rule id "${obj.id}" does not match pattern ${RULE_ID_PATTERN}`;
-  }
-
-  // Required: check (function)
-  if (typeof obj.check !== 'function') {
-    return `Rule ${obj.id}: check is not a function (got ${typeof obj.check})`;
-  }
-
-  // Optional but recommended: selector (string)
-  if (obj.selector !== undefined && typeof obj.selector !== 'string') {
-    return `Rule ${obj.id}: selector is not a string`;
-  }
-
-  // Optional: vendor (string or array of strings)
-  // SEC-004: Use centralized isValidVendorId from @sentriflow/core
-  if (obj.vendor !== undefined) {
-    if (Array.isArray(obj.vendor)) {
-      // Validate each vendor in the array
-      for (const v of obj.vendor) {
-        if (typeof v !== 'string') {
-          return `Rule ${obj.id}: vendor array contains non-string`;
-        }
-        if (!isValidVendorId(v)) {
-          return `Rule ${obj.id}: invalid vendor "${v}"`;
-        }
-      }
-    } else if (typeof obj.vendor !== 'string') {
-      return `Rule ${obj.id}: vendor is not a string`;
-    } else if (!isValidVendorId(obj.vendor)) {
-      return `Rule ${obj.id}: invalid vendor "${obj.vendor}"`;
-    }
-  }
-
-  // Required: metadata (object with level)
-  if (typeof obj.metadata !== 'object' || obj.metadata === null) {
-    return `Rule ${obj.id}: metadata is not an object`;
-  }
-
-  const metadata = obj.metadata as Record<string, unknown>;
-  if (!['error', 'warning', 'info'].includes(metadata.level as string)) {
-    return `Rule ${obj.id}: invalid metadata.level "${metadata.level}"`;
-  }
-
-  return null;
-}
-
-function isValidRule(rule: unknown): rule is IRule {
-  return validateRule(rule) === null;
-}
-
-/**
- * Validates that an object has the basic structure of a RulePack.
- * Returns error message if invalid, null if valid.
- */
-function validateRulePack(pack: unknown): string | null {
-  if (typeof pack !== 'object' || pack === null) {
-    return 'Pack is not an object';
-  }
-
-  const obj = pack as Record<string, unknown>;
-
-  // Required: name (non-empty string)
-  if (typeof obj.name !== 'string' || obj.name.length === 0) {
-    return 'Pack name is missing or empty';
-  }
-
-  // Cannot use reserved default pack name
-  if (obj.name === DEFAULT_PACK_NAME) {
-    return `Pack name "${obj.name}" is reserved`;
-  }
-
-  // Required: version (string)
-  if (typeof obj.version !== 'string' || obj.version.length === 0) {
-    return 'Pack version is missing or empty';
-  }
-
-  // Required: publisher (string)
-  if (typeof obj.publisher !== 'string' || obj.publisher.length === 0) {
-    return 'Pack publisher is missing or empty';
-  }
-
-  // Required: priority (number)
-  if (typeof obj.priority !== 'number' || obj.priority < 0) {
-    return `Pack priority is invalid (got ${obj.priority})`;
-  }
-
-  // Required: rules (array)
-  if (!Array.isArray(obj.rules)) {
-    return 'Pack rules is not an array';
-  }
-
-  // Validate each rule in the pack
-  for (let i = 0; i < obj.rules.length; i++) {
-    const ruleError = validateRule(obj.rules[i]);
-    if (ruleError) {
-      return `Rule[${i}]: ${ruleError}`;
-    }
-  }
-
-  // Optional: disables (object with specific structure)
-  if (obj.disables !== undefined) {
-    if (typeof obj.disables !== 'object' || obj.disables === null) {
-      return 'Pack disables is not an object';
-    }
-
-    const disables = obj.disables as Record<string, unknown>;
-
-    // Optional: all (boolean)
-    if (disables.all !== undefined && typeof disables.all !== 'boolean') {
-      return 'Pack disables.all is not a boolean';
-    }
-
-    // Optional: vendors (array of valid vendor strings)
-    // SEC-004: Use centralized isValidVendorId from @sentriflow/core
-    if (disables.vendors !== undefined) {
-      if (!Array.isArray(disables.vendors)) {
-        return 'Pack disables.vendors is not an array';
-      }
-      for (const v of disables.vendors) {
-        if (typeof v !== 'string' || !isValidVendorId(v)) {
-          return `Pack disables.vendors contains invalid vendor "${v}"`;
-        }
-      }
-    }
-
-    // Optional: rules (array of strings)
-    if (disables.rules !== undefined) {
-      if (!Array.isArray(disables.rules)) {
-        return 'Pack disables.rules is not an array';
-      }
-      for (const r of disables.rules) {
-        if (typeof r !== 'string') {
-          return 'Pack disables.rules contains non-string';
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-function isValidRulePack(pack: unknown): pack is RulePack {
-  return validateRulePack(pack) === null;
-}
+// Note: validateRule, isValidRule, validateRulePack, isValidRulePack, and
+// ruleAppliesToVendor are now imported from @sentriflow/core
+// Use validateRulePack(pack, DEFAULT_PACK_NAME) to check for reserved pack name
 
 /**
  * Get all rules from all packs, filtered by vendor and respecting priorities.
@@ -785,28 +612,28 @@ let debugMode = false;
 // ============================================================================
 
 /**
- * Initialize encrypted pack support.
+ * Initialize pack support (GRX2 + GRPX formats).
  * Called during extension activation.
  */
-async function initializeEncryptedPacks(
+async function initializePacks(
   context: vscode.ExtensionContext
 ): Promise<void> {
-  log('[EncryptedPacks] Initializing encrypted packs support...');
+  log('[Packs] Initializing pack support...');
 
   // Always initialize license manager (for license info display)
   licenseManager = new LicenseManager(context);
-  log('[EncryptedPacks] License manager initialized');
+  log('[Packs] License manager initialized');
 
   const config = vscode.workspace.getConfiguration('sentriflow');
-  const enabled = config.get<boolean>('encryptedPacks.enabled', true);
-  log(`[EncryptedPacks] encryptedPacks.enabled = ${enabled}`);
+  const enabled = config.get<boolean>('packs.enabled', true);
+  log(`[Packs] packs.enabled = ${enabled}`);
 
   // Check if we have a license key
   const hasLicense = await licenseManager.hasLicenseKey();
-  log(`[EncryptedPacks] Has license key: ${hasLicense}`);
+  log(`[Packs] Has license key: ${hasLicense}`);
   if (!hasLicense) {
     log(
-      '[EncryptedPacks] No license key configured - encrypted packs not available'
+      '[Packs] No license key configured - packs not available'
     );
     return;
   }
@@ -814,27 +641,27 @@ async function initializeEncryptedPacks(
   // Get license info (for display even if packs disabled)
   const licenseInfo = await licenseManager.getLicenseInfo();
   if (!licenseInfo) {
-    logInfo('[EncryptedPacks] Failed to parse license info');
+    logInfo('[Packs] Failed to parse license info');
     return;
   }
   log(
-    `[EncryptedPacks] License info: tier=${licenseInfo.payload.tier}, expires=${
+    `[Packs] License info: tier=${licenseInfo.payload.tier}, expires=${
       licenseInfo.expiryDate
     }, feeds=${licenseInfo.payload.feeds.join(',')}`
   );
 
-  // Stop here if encrypted packs are disabled (but license info is still available)
+  // Stop here if packs are disabled (but license info is still available)
   if (!enabled) {
     log(
-      '[EncryptedPacks] Encrypted packs disabled by configuration - license info still available'
+      '[Packs] Packs disabled by configuration - license info still available'
     );
     return;
   }
 
   if (licenseInfo.isExpired) {
-    logInfo(`[EncryptedPacks] License expired on ${licenseInfo.expiryDate}`);
+    logInfo(`[Packs] License expired on ${licenseInfo.expiryDate}`);
     vscode.window.showWarningMessage(
-      `SentriFlow license expired on ${licenseInfo.expiryDate}. Encrypted packs will not be loaded.`
+      `SentriFlow license expired on ${licenseInfo.expiryDate}. Packs will not be loaded.`
     );
     return;
   }
@@ -847,7 +674,7 @@ async function initializeEncryptedPacks(
   }
 
   // Initialize cloud client
-  log(`[EncryptedPacks] API URL for updates: ${licenseInfo.payload.api}`);
+  log(`[Packs] API URL for updates: ${licenseInfo.payload.api}`);
   cloudClient = new CloudClient({
     apiUrl: licenseInfo.payload.api,
     licenseKey: licenseInfo.jwt,
@@ -855,7 +682,7 @@ async function initializeEncryptedPacks(
 
   // Check auto-update setting
   const autoUpdate = config.get<string>(
-    'encryptedPacks.autoUpdate',
+    'packs.autoUpdate',
     'on-activation'
   );
   const shouldCheckUpdates = await licenseManager.isUpdateCheckDue(
@@ -869,14 +696,14 @@ async function initializeEncryptedPacks(
     });
   }
 
-  // Load encrypted packs
-  log('[EncryptedPacks] About to call loadEncryptedPacks()...');
-  await loadEncryptedPacks();
-  log('[EncryptedPacks] loadEncryptedPacks() returned');
+  // Load packs (supports GRX2 + GRPX)
+  log('[Packs] About to call loadPacks()...');
+  await loadPacks();
+  log('[Packs] loadPacks() returned');
 
   // Update license tree view
   updateLicenseTree();
-  log('[EncryptedPacks] initializeEncryptedPacks() COMPLETED');
+  log('[Packs] initializePacks() COMPLETED');
 }
 
 /**
@@ -916,7 +743,7 @@ async function checkAndDownloadUpdates(): Promise<void> {
         lastUpdateCheck.updatesAvailable
       );
       // Reload packs after download
-      await loadEncryptedPacks();
+      await loadPacks();
     }
   }
 
@@ -925,71 +752,72 @@ async function checkAndDownloadUpdates(): Promise<void> {
 }
 
 /**
- * Load encrypted packs from configured directory and cache.
+ * Load packs from configured directory and cache.
+ * Supports both GRX2 and GRPX formats with auto-detection.
  */
-async function loadEncryptedPacks(): Promise<void> {
-  log('[EncryptedPacks] Starting loadEncryptedPacks...');
+async function loadPacks(): Promise<void> {
+  log('[Packs] Starting loadPacks...');
 
   if (!licenseManager) {
-    log('[EncryptedPacks] Cannot load - no license manager initialized');
+    log('[Packs] Cannot load - no license manager initialized');
     return;
   }
 
   const config = vscode.workspace.getConfiguration('sentriflow');
-  const enabled = config.get<boolean>('encryptedPacks.enabled', true);
-  log(`[EncryptedPacks] Enabled setting: ${enabled}`);
+  const enabled = config.get<boolean>('packs.enabled', true);
+  log(`[Packs] Enabled setting: ${enabled}`);
 
   if (!enabled) {
-    log('[EncryptedPacks] Encrypted packs disabled in settings');
+    log('[Packs] Packs disabled in settings');
     return;
   }
 
   const licenseInfo = await licenseManager.getLicenseInfo();
   if (!licenseInfo) {
-    log('[EncryptedPacks] No license key configured');
+    log('[Packs] No license key configured');
     return;
   }
   if (licenseInfo.isExpired) {
-    log(`[EncryptedPacks] License expired on ${licenseInfo.expiryDate}`);
+    log(`[Packs] License expired on ${licenseInfo.expiryDate}`);
     return;
   }
   log(
-    `[EncryptedPacks] License valid - tier: ${
+    `[Packs] License valid - tier: ${
       licenseInfo.payload.tier
     }, feeds: ${licenseInfo.payload.feeds.join(', ')}`
   );
 
-  const configDirectory = config.get<string>('encryptedPacks.directory', '');
+  const configDirectory = config.get<string>('packs.directory', '');
   const directory = configDirectory || DEFAULT_PACKS_DIRECTORY;
-  log(`[EncryptedPacks] Scanning directory: ${directory}`);
+  log(`[Packs] Scanning directory: ${directory}`);
 
   // Use machine ID only if license is bound to a specific machine
   // Portable licenses (no 'mid' in JWT) use 'portable-pack' convention
   let machineId: string;
   const actualMachineId = await licenseManager.getMachineId();
-  log(`[EncryptedPacks] This machine's ID: ${actualMachineId}`);
+  log(`[Packs] This machine's ID: ${actualMachineId}`);
 
   if (licenseInfo.payload.mid) {
     if (licenseInfo.payload.mid !== actualMachineId) {
-      logInfo(`[EncryptedPacks] ERROR: License bound to different machine`);
+      logInfo(`[Packs] ERROR: License bound to different machine`);
       log(
-        `[EncryptedPacks] Machine ID mismatch! License: ${licenseInfo.payload.mid}, this machine: ${actualMachineId}`
+        `[Packs] Machine ID mismatch! License: ${licenseInfo.payload.mid}, this machine: ${actualMachineId}`
       );
       vscode.window.showErrorMessage(
-        'SentriFlow: This license is bound to a different machine. Encrypted packs will not load.'
+        'SentriFlow: This license is bound to a different machine. Packs will not load.'
       );
       return;
     }
     machineId = actualMachineId;
     log(
-      `[EncryptedPacks] Machine ID verified: ${machineId.substring(0, 8)}...`
+      `[Packs] Machine ID verified: ${machineId.substring(0, 8)}...`
     );
   } else {
     machineId = 'portable-pack';
-    log('[EncryptedPacks] Machine ID binding: portable (portable-pack)');
+    log('[Packs] Machine ID binding: portable (portable-pack)');
   }
 
-  // Clear existing encrypted packs
+  // Clear existing packs
   for (const packInfo of encryptedPacksInfo) {
     if (packInfo.loaded && registeredPacks.has(packInfo.feedId)) {
       registeredPacks.delete(packInfo.feedId);
@@ -997,9 +825,9 @@ async function loadEncryptedPacks(): Promise<void> {
   }
   encryptedPacksInfo = [];
 
-  // Load from main directory
-  log(`[EncryptedPacks] Loading from main directory: ${directory}`);
-  const mainResult = await loadAllPacks(
+  // Load from main directory using unified loader (supports GRX2 + GRPX)
+  log(`[Packs] Loading from main directory: ${directory}`);
+  const mainResult = await loadAllPacksUnified(
     directory,
     licenseInfo.jwt,
     machineId,
@@ -1007,24 +835,27 @@ async function loadEncryptedPacks(): Promise<void> {
     log
   );
   log(
-    `[EncryptedPacks] Main directory result: ${mainResult.packs.length} packs found, ${mainResult.errors.length} errors`
+    `[Packs] Main directory result: ${mainResult.packs.length} packs found, ${mainResult.errors.length} errors`
   );
+  if (mainResult.skipped.length > 0) {
+    log(`[Packs] Skipped ${mainResult.skipped.length} unencrypted pack(s)`);
+  }
   if (mainResult.errors.length > 0) {
     logInfo(
-      `[EncryptedPacks] Errors loading packs: ${mainResult.errors.join('; ')}`
+      `[Packs] Errors loading packs: ${mainResult.errors.join('; ')}`
     );
   }
   for (const pack of mainResult.packs) {
     log(
-      `[EncryptedPacks]   - ${pack.feedId}: ${
+      `[Packs]   - ${pack.feedId} (${pack.format || 'unknown'}): ${
         pack.loaded ? 'loaded' : 'failed'
       } (${pack.error || 'ok'})`
     );
   }
 
   // Load from cache directory
-  log(`[EncryptedPacks] Loading from cache directory: ${CACHE_DIRECTORY}`);
-  const cacheResult = await loadAllPacks(
+  log(`[Packs] Loading from cache directory: ${CACHE_DIRECTORY}`);
+  const cacheResult = await loadAllPacksUnified(
     CACHE_DIRECTORY,
     licenseInfo.jwt,
     machineId,
@@ -1032,85 +863,65 @@ async function loadEncryptedPacks(): Promise<void> {
     log
   );
   log(
-    `[EncryptedPacks] Cache directory result: ${cacheResult.packs.length} packs found, ${cacheResult.errors.length} errors`
+    `[Packs] Cache directory result: ${cacheResult.packs.length} packs found, ${cacheResult.errors.length} errors`
   );
   if (cacheResult.errors.length > 0) {
     log(
-      `[EncryptedPacks] Cache directory errors: ${cacheResult.errors.join(
-        '; '
-      )}`
+      `[Packs] Cache directory errors: ${cacheResult.errors.join('; ')}`
     );
   }
 
   // Merge results (prefer cache for newer versions)
-  const allPacks = new Map<string, EncryptedPackInfo>();
+  // Track both pack info and loaded pack data
+  const allPackInfo = new Map<string, EncryptedPackInfo>();
+  const allLoadedPacks = new Map<string, { info: EncryptedPackInfo; pack: import('@sentriflow/core').RulePack }>();
 
+  // Add main directory results
   for (const pack of mainResult.packs) {
-    allPacks.set(pack.feedId, pack);
+    allPackInfo.set(pack.feedId, pack);
+  }
+  for (const loaded of mainResult.loadedPacks) {
+    allLoadedPacks.set(loaded.info.feedId, loaded);
   }
 
+  // Add cache results (prefer cache for newer versions or if main failed)
   for (const pack of cacheResult.packs) {
-    const existing = allPacks.get(pack.feedId);
+    const existing = allPackInfo.get(pack.feedId);
     if (!existing || (pack.loaded && !existing.loaded)) {
-      allPacks.set(pack.feedId, { ...pack, source: 'cache' });
+      allPackInfo.set(pack.feedId, { ...pack, source: 'cache' });
+    }
+  }
+  for (const loaded of cacheResult.loadedPacks) {
+    const existing = allLoadedPacks.get(loaded.info.feedId);
+    if (!existing) {
+      allLoadedPacks.set(loaded.info.feedId, { ...loaded, info: { ...loaded.info, source: 'cache' } });
     }
   }
 
-  encryptedPacksInfo = Array.from(allPacks.values());
-  log(`[EncryptedPacks] Total merged packs: ${encryptedPacksInfo.length}`);
+  encryptedPacksInfo = Array.from(allPackInfo.values());
+  log(`[Packs] Total merged packs: ${encryptedPacksInfo.length}`);
 
   // Register loaded packs with the extension
   let loadedCount = 0;
   let totalRules = 0;
 
-  for (const packInfo of encryptedPacksInfo) {
-    if (packInfo.loaded) {
-      // Load the actual pack data again (we need the rules)
-      try {
-        const packResult = await loadAllPacks(
-          packInfo.source === 'cache' ? CACHE_DIRECTORY : directory,
-          licenseInfo.jwt,
-          machineId,
-          [packInfo.feedId],
-          log
-        );
+  for (const [feedId, { info, pack }] of allLoadedPacks) {
+    // Register the pack
+    registeredPacks.set(feedId, {
+      ...pack,
+      name: feedId,
+    });
 
-        // Find matching pack with rules
-        // The loadAllPacks returns pack info but not the actual rules
-        // We need to use loadExtendedPack directly
-        const { loadExtendedPack } = await import(
-          './encryption/GRX2ExtendedLoader'
-        );
-        const pack = await loadExtendedPack(
-          packInfo.filePath,
-          licenseInfo.jwt,
-          machineId,
-          log
-        );
-
-        // Register the pack
-        registeredPacks.set(packInfo.feedId, {
-          ...pack,
-          name: packInfo.feedId,
-        });
-
-        loadedCount++;
-        totalRules += pack.rules.length;
-        logInfo(
-          `Loaded encrypted pack: ${packInfo.feedId} v${packInfo.version} (${pack.rules.length} rules)`
-        );
-      } catch (err) {
-        logInfo(
-          `Failed to load encrypted pack ${packInfo.feedId}: ${
-            (err as Error).message
-          }`
-        );
-      }
-    }
+    loadedCount++;
+    totalRules += pack.rules.length;
+    const formatLabel = info.format ? ` [${info.format.toUpperCase()}]` : '';
+    logInfo(
+      `Loaded pack${formatLabel}: ${feedId} v${info.version} (${pack.rules.length} rules)`
+    );
   }
 
   if (loadedCount > 0) {
-    logInfo(`Loaded ${loadedCount} encrypted pack(s) with ${totalRules} rules`);
+    logInfo(`Loaded ${loadedCount} pack(s) with ${totalRules} rules`);
     rulesTreeProvider?.refresh();
     rescanActiveEditor();
   }
@@ -1118,7 +929,7 @@ async function loadEncryptedPacks(): Promise<void> {
   // Log errors
   const allErrors = [...mainResult.errors, ...cacheResult.errors];
   for (const error of allErrors) {
-    log(`Encrypted pack error: ${error}`);
+    log(`Pack error: ${error}`);
   }
 
   // Update license tree with loaded packs
@@ -1163,7 +974,7 @@ async function cmdEnterLicenseKey(): Promise<void> {
     }
 
     // Reload encrypted packs with new license
-    await loadEncryptedPacks();
+    await loadPacks();
     updateLicenseTree();
   }
 }
@@ -1283,16 +1094,16 @@ async function cmdDownloadUpdates(): Promise<void> {
     vscode.window.showInformationMessage(
       `Downloaded ${downloaded.length} pack update(s). Reloading...`
     );
-    await loadEncryptedPacks();
+    await loadPacks();
   }
 }
 
 /**
- * Command: Reload encrypted packs
+ * Command: Reload packs (GRX2 + GRPX)
  */
-async function cmdReloadEncryptedPacks(): Promise<void> {
-  await loadEncryptedPacks();
-  vscode.window.showInformationMessage('Encrypted packs reloaded');
+async function cmdReloadPacks(): Promise<void> {
+  await loadPacks();
+  vscode.window.showInformationMessage('Rule packs reloaded');
 }
 
 /**
@@ -1510,11 +1321,11 @@ export function activate(context: vscode.ExtensionContext) {
         cmdDownloadUpdates
       ),
       vscode.commands.registerCommand(
-        'sentriflow.reloadEncryptedPacks',
-        cmdReloadEncryptedPacks
+        'sentriflow.reloadPacks',
+        cmdReloadPacks
       ),
       vscode.commands.registerCommand(
-        'sentriflow.showEncryptedPackStatus',
+        'sentriflow.showPackStatus',
         cmdShowEncryptedPackStatus
       )
     );
@@ -1600,10 +1411,10 @@ export function activate(context: vscode.ExtensionContext) {
     // Prompt user about default rules (once per installation)
     promptDefaultRulesOnce();
 
-    // Initialize encrypted pack support (async, don't block activation)
-    initializeEncryptedPacks(context)
+    // Initialize pack support (GRX2 + GRPX formats, async, don't block activation)
+    initializePacks(context)
       .catch((err) => {
-        log(`Failed to initialize encrypted packs: ${(err as Error).message}`);
+        log(`Failed to initialize packs: ${(err as Error).message}`);
       })
       .finally(() => {
         // Always update license tree after initialization attempt
@@ -1660,7 +1471,7 @@ export function activate(context: vscode.ExtensionContext) {
             return false;
           }
 
-          const validationError = validateRulePack(pack);
+          const validationError = validateRulePack(pack, DEFAULT_PACK_NAME);
           if (validationError) {
             console.error(`SENTRIFLOW: Invalid rule pack - ${validationError}`);
             vscode.window.showErrorMessage(

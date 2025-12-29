@@ -75,6 +75,28 @@ sentriflow -D configs/ -R
 sentriflow router.conf -f sarif
 ```
 
+### Using Rule Packs
+
+SentriFlow supports loading additional rules from pack files. The `--pack` argument auto-detects the pack format from magic bytes:
+
+```bash
+# Load a single rule pack (format auto-detected)
+sentriflow --pack rules.grx2 --license-key $KEY router.conf
+sentriflow --pack rules.grpx --license-key $KEY router.conf
+sentriflow --pack custom-rules.js router.conf
+
+# Load multiple packs (mixed formats supported)
+sentriflow --pack a.grx2 --pack b.grpx --pack c.js --license-key $KEY router.conf
+
+# Strict mode (fail on pack load errors)
+sentriflow --pack rules.grx2 --strict-packs --license-key $KEY router.conf
+```
+
+Supported pack formats:
+- **GRX2** (`.grx2`) - Encrypted rule packs (requires license key)
+- **GRPX** (`.grpx`) - Encrypted rule packs (requires license key)
+- **Unencrypted** (`.js`/`.ts`) - Plain JavaScript/TypeScript rule modules
+
 ### VS Code Extension
 
 Search for "SentriFlow" in the VS Code Extensions marketplace, or install from the command line:

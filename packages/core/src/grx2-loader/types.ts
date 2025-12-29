@@ -189,6 +189,9 @@ export interface EncryptedPackInfo {
 
   /** Source: local directory or cloud cache */
   source: 'local' | 'cache';
+
+  /** Pack format (for unified loading) */
+  format?: 'grx2' | 'grpx' | 'unencrypted' | 'unknown';
 }
 
 /**

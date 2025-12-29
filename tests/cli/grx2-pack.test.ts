@@ -1,13 +1,15 @@
 /**
- * CLI Integration Tests for GRX2 Pack Support
+ * CLI Integration Tests for Unified Pack Loading (GRX2 packs)
  *
  * Tests:
- * - T014: Basic CLI integration tests for --grx2-pack, --strict-grx2, --show-machine-id
- * - T031: Environment variable tests (SENTRIFLOW_LICENSE_KEY)
- * - T036: Graceful degradation tests (warning on failure, --strict-grx2 mode)
+ * - Basic CLI integration tests for --pack with GRX2 format, --strict-packs, --show-machine-id
+ * - Environment variable tests (SENTRIFLOW_LICENSE_KEY)
+ * - Graceful degradation tests (warning on failure, --strict-packs mode)
  *
  * NOTE: These tests generate GRX2 fixtures dynamically using the actual machine ID
  * to ensure proper decryption during testing.
+ *
+ * Updated for unified --pack argument (auto-detects format from magic bytes).
  *
  * @module tests/cli/grx2-pack.test
  */
@@ -166,12 +168,12 @@ afterAll(() => {
 // =============================================================================
 
 describe.skipIf(!CLI_EXISTS)('T014: Basic CLI Integration Tests', () => {
-  describe('--grx2-pack flag', () => {
+  describe('--pack flag (GRX2 format)', () => {
     it('should load valid GRX2 pack and apply rules', async () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -185,7 +187,7 @@ describe.skipIf(!CLI_EXISTS)('T014: Basic CLI Integration Tests', () => {
       await proc.exited;
 
       // Should show GRX2 pack loading summary
-      expect(stderr).toContain('GRX2 packs:');
+      expect(stderr).toContain('Packs:');
       expect(stderr).toContain('1 of 1 loaded');
 
       // Output should be valid JSON with results
@@ -197,8 +199,8 @@ describe.skipIf(!CLI_EXISTS)('T014: Basic CLI Integration Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
-        '--grx2-pack', SECOND_VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
+        '--pack', SECOND_VALID_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -212,7 +214,7 @@ describe.skipIf(!CLI_EXISTS)('T014: Basic CLI Integration Tests', () => {
       await proc.exited;
 
       // Should show both packs loaded
-      expect(stderr).toContain('GRX2 packs:');
+      expect(stderr).toContain('Packs:');
       expect(stderr).toContain('2 of 2 loaded');
 
       // Output should be valid JSON
@@ -259,7 +261,7 @@ describe.skipIf(!CLI_EXISTS)('T014: Basic CLI Integration Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', CORRUPTED_PACK_PATH,
+        '--pack', CORRUPTED_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -273,14 +275,14 @@ describe.skipIf(!CLI_EXISTS)('T014: Basic CLI Integration Tests', () => {
 
       // Should show warning about failed pack
       expect(stderr).toContain('Warning:');
-      expect(stderr).toContain('Failed to load GRX2 pack');
+      expect(stderr).toContain('Failed to load pack');
     });
 
     it('should show friendly error for non-existent pack', async () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', '/nonexistent/path.grx2',
+        '--pack', '/nonexistent/path.grx2',
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -300,7 +302,7 @@ describe.skipIf(!CLI_EXISTS)('T014: Basic CLI Integration Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
         '--license-key', 'wrong-license-key',
         '--allow-external',
       ], {
@@ -314,7 +316,7 @@ describe.skipIf(!CLI_EXISTS)('T014: Basic CLI Integration Tests', () => {
 
       // Should show warning about decryption failure
       expect(stderr).toContain('Warning:');
-      expect(stderr).toContain('Failed to load GRX2 pack');
+      expect(stderr).toContain('Failed to load pack');
     });
   });
 });
@@ -329,7 +331,7 @@ describe.skipIf(!CLI_EXISTS)('T031: Environment Variable Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
         '--allow-external',
       ], {
         stdout: 'pipe',
@@ -345,7 +347,7 @@ describe.skipIf(!CLI_EXISTS)('T031: Environment Variable Tests', () => {
       await proc.exited;
 
       // Should successfully load pack using env var
-      expect(stderr).toContain('GRX2 packs:');
+      expect(stderr).toContain('Packs:');
       expect(stderr).toContain('1 of 1 loaded');
 
       // Output should be valid JSON
@@ -358,7 +360,7 @@ describe.skipIf(!CLI_EXISTS)('T031: Environment Variable Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -375,7 +377,7 @@ describe.skipIf(!CLI_EXISTS)('T031: Environment Variable Tests', () => {
       await proc.exited;
 
       // Should successfully load pack using CLI arg (not env var)
-      expect(stderr).toContain('GRX2 packs:');
+      expect(stderr).toContain('Packs:');
       expect(stderr).toContain('1 of 1 loaded');
 
       // Output should be valid JSON
@@ -391,7 +393,7 @@ describe.skipIf(!CLI_EXISTS)('T031: Environment Variable Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
         '--allow-external',
       ], {
         stdout: 'pipe',
@@ -420,8 +422,8 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', CORRUPTED_PACK_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
+        '--pack', CORRUPTED_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -436,10 +438,10 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
 
       // Should show warning for corrupted pack
       expect(stderr).toContain('Warning:');
-      expect(stderr).toContain('Failed to load GRX2 pack');
+      expect(stderr).toContain('Failed to load pack');
 
       // Should show summary with partial success
-      expect(stderr).toContain('GRX2 packs:');
+      expect(stderr).toContain('Packs:');
       expect(stderr).toContain('1 of 2 loaded');
       expect(stderr).toContain('1 failed');
 
@@ -452,9 +454,9 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
-        '--grx2-pack', CORRUPTED_PACK_PATH,
-        '--grx2-pack', SECOND_VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
+        '--pack', CORRUPTED_PACK_PATH,
+        '--pack', SECOND_VALID_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -468,7 +470,7 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       await proc.exited;
 
       // Should show summary: 2 of 3 loaded
-      expect(stderr).toContain('GRX2 packs:');
+      expect(stderr).toContain('Packs:');
       expect(stderr).toContain('2 of 3 loaded');
 
       // Should still produce valid output
@@ -477,14 +479,14 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
     });
   });
 
-  describe('--strict-grx2 flag', () => {
-    it('should fail immediately when pack load fails with --strict-grx2', async () => {
+  describe('--strict-packs flag', () => {
+    it('should fail immediately when pack load fails with --strict-packs', async () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', CORRUPTED_PACK_PATH,
+        '--pack', CORRUPTED_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
-        '--strict-grx2',
+        '--strict-packs',
         '--allow-external',
       ], {
         stdout: 'pipe',
@@ -500,10 +502,10 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
 
       // Should show error message
       expect(stderr).toContain('Error:');
-      expect(stderr).toContain('Failed to load GRX2 pack');
+      expect(stderr).toContain('Failed to load pack');
     });
 
-    it('should fail immediately with --strict-grx2 when license key missing', async () => {
+    it('should fail immediately with --strict-packs when license key missing', async () => {
       // Remove env var and don't provide CLI arg
       const envWithoutLicense = { ...process.env };
       delete envWithoutLicense.SENTRIFLOW_LICENSE_KEY;
@@ -511,8 +513,8 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
-        '--strict-grx2',
+        '--pack', VALID_PACK_PATH,
+        '--strict-packs',
         '--allow-external',
       ], {
         stdout: 'pipe',
@@ -531,13 +533,13 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       expect(stderr).toContain('License key required');
     });
 
-    it('should succeed with --strict-grx2 when all packs load successfully', async () => {
+    it('should succeed with --strict-packs when all packs load successfully', async () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
-        '--strict-grx2',
+        '--strict-packs',
         '--allow-external',
       ], {
         stdout: 'pipe',
@@ -550,7 +552,7 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       await proc.exited;
 
       // Should show successful loading
-      expect(stderr).toContain('GRX2 packs:');
+      expect(stderr).toContain('Packs:');
       expect(stderr).toContain('1 of 1 loaded');
 
       // Should produce valid output
@@ -564,8 +566,8 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
-        '--grx2-pack', SECOND_VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
+        '--pack', SECOND_VALID_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -578,14 +580,14 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       await proc.exited;
 
       // Should show summary
-      expect(stderr).toMatch(/GRX2 packs: \d+ of \d+ loaded/);
+      expect(stderr).toMatch(/Packs: \d+ of \d+ loaded/);
     });
 
     it('should show rule count in summary', async () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -598,15 +600,15 @@ describe.skipIf(!CLI_EXISTS)('T036: Graceful Degradation Tests', () => {
       await proc.exited;
 
       // Should show rule count in summary (e.g., "1 of 1 loaded (X rules)")
-      expect(stderr).toMatch(/GRX2 packs:.*\d+ rules/);
+      expect(stderr).toMatch(/Packs:.*\d+ rules/);
     });
 
     it('should show failed count when packs fail', async () => {
       const proc = Bun.spawn([
         CLI_PATH,
         TEST_CONFIG_PATH,
-        '--grx2-pack', VALID_PACK_PATH,
-        '--grx2-pack', CORRUPTED_PACK_PATH,
+        '--pack', VALID_PACK_PATH,
+        '--pack', CORRUPTED_PACK_PATH,
         '--license-key', TEST_LICENSE_KEY,
         '--allow-external',
       ], {
@@ -632,7 +634,7 @@ describe.skipIf(!CLI_EXISTS)('Edge Cases', () => {
   it('should handle --grx2-pack with --list-rules', async () => {
     const proc = Bun.spawn([
       CLI_PATH,
-      '--grx2-pack', VALID_PACK_PATH,
+      '--pack', VALID_PACK_PATH,
       '--license-key', TEST_LICENSE_KEY,
       '--list-rules',
       '--allow-external',
@@ -654,7 +656,7 @@ describe.skipIf(!CLI_EXISTS)('Edge Cases', () => {
     const proc = Bun.spawn([
       CLI_PATH,
       TEST_CONFIG_PATH,
-      '--grx2-pack', VALID_PACK_PATH,
+      '--pack', VALID_PACK_PATH,
       '--license-key', '',
       '--allow-external',
     ], {
@@ -675,7 +677,7 @@ describe.skipIf(!CLI_EXISTS)('Edge Cases', () => {
     const proc = Bun.spawn([
       CLI_PATH,
       '--directory', TEMP_DIR,
-      '--grx2-pack', VALID_PACK_PATH,
+      '--pack', VALID_PACK_PATH,
       '--license-key', TEST_LICENSE_KEY,
       '--allow-external',
     ], {
@@ -689,7 +691,7 @@ describe.skipIf(!CLI_EXISTS)('Edge Cases', () => {
     await proc.exited;
 
     // Should show GRX2 pack loaded
-    expect(stderr).toContain('GRX2 packs:');
+    expect(stderr).toContain('Packs:');
 
     // Should produce valid JSON output
     const output = JSON.parse(stdout);

@@ -7,7 +7,7 @@ import {
   MAX_TRAVERSAL_DEPTH,
   RULE_ID_PATTERN,
   VALID_VENDOR_IDS,
-  isValidVendorId, // SEC-012: Encrypted pack support
+  isValidVendorId,
   loadEncryptedPack,
   validatePackFormat,
   PackLoadError,
@@ -19,6 +19,10 @@ import {
   loadExtendedPack,
   getMachineId,
   EncryptedPackError,
+  // Shared validation utilities (DRY)
+  isValidRule,
+  isValidRulePack,
+  ruleAppliesToVendor,
 } from '@sentriflow/core';
 import type {
   IRule,
@@ -35,15 +39,17 @@ import { readFile as readFileAsync } from 'fs/promises';
 import { resolve, dirname } from 'path';
 import {
   validateConfigPath,
-  validateEncryptedPackPath,
-  validateGrx2PackPath,
+  validatePackPath,
   validateJsonRulesPath,
 } from './security/pathValidator';
 import {
   loadAndValidate,
   validatePathOrThrow,
   wrapLoadError,
+  createPackDescriptors,
+  FORMAT_PRIORITIES,
 } from './loaders';
+import type { PackDescriptor } from './loaders';
 
 /**
  * Directory scanning options from config file (FR-005)
@@ -340,133 +346,9 @@ export function mergeDirectoryOptions(
   return result;
 }
 
-/**
- * Validates that an object has the basic structure of an IRule.
- */
-function isValidRule(rule: unknown): rule is IRule {
-  if (typeof rule !== 'object' || rule === null) {
-    return false;
-  }
+// Note: isValidRule is now imported from @sentriflow/core
 
-  const obj = rule as Record<string, unknown>;
-
-  // Required: id (string matching pattern)
-  if (typeof obj.id !== 'string' || !RULE_ID_PATTERN.test(obj.id)) {
-    return false;
-  }
-
-  // Required: check (function)
-  if (typeof obj.check !== 'function') {
-    return false;
-  }
-
-  // Optional: vendor (string or array of valid vendors)
-  // SEC-004: Use centralized isValidVendorId from @sentriflow/core
-  if (obj.vendor !== undefined) {
-    if (Array.isArray(obj.vendor)) {
-      for (const v of obj.vendor) {
-        if (typeof v !== 'string' || !isValidVendorId(v)) {
-          return false;
-        }
-      }
-    } else if (typeof obj.vendor !== 'string' || !isValidVendorId(obj.vendor)) {
-      return false;
-    }
-  }
-
-  // Required: metadata (object with level)
-  if (typeof obj.metadata !== 'object' || obj.metadata === null) {
-    return false;
-  }
-
-  const metadata = obj.metadata as Record<string, unknown>;
-  if (!['error', 'warning', 'info'].includes(metadata.level as string)) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Validates that an object has the basic structure of a RulePack.
- */
-function isValidRulePack(pack: unknown): pack is RulePack {
-  if (typeof pack !== 'object' || pack === null) {
-    return false;
-  }
-
-  const obj = pack as Record<string, unknown>;
-
-  // Required: name (non-empty string)
-  if (typeof obj.name !== 'string' || obj.name.length === 0) {
-    return false;
-  }
-
-  // Required: version (string)
-  if (typeof obj.version !== 'string' || obj.version.length === 0) {
-    return false;
-  }
-
-  // Required: publisher (string)
-  if (typeof obj.publisher !== 'string' || obj.publisher.length === 0) {
-    return false;
-  }
-
-  // Required: priority (number >= 0)
-  if (typeof obj.priority !== 'number' || obj.priority < 0) {
-    return false;
-  }
-
-  // Required: rules (array)
-  if (!Array.isArray(obj.rules)) {
-    return false;
-  }
-
-  // Validate each rule in the pack
-  for (const rule of obj.rules) {
-    if (!isValidRule(rule)) {
-      return false;
-    }
-  }
-
-  // Optional: disables (object with specific structure)
-  if (obj.disables !== undefined) {
-    if (typeof obj.disables !== 'object' || obj.disables === null) {
-      return false;
-    }
-
-    const disables = obj.disables as Record<string, unknown>;
-
-    if (disables.all !== undefined && typeof disables.all !== 'boolean') {
-      return false;
-    }
-
-    // SEC-004: Use centralized isValidVendorId from @sentriflow/core
-    if (disables.vendors !== undefined) {
-      if (!Array.isArray(disables.vendors)) {
-        return false;
-      }
-      for (const v of disables.vendors) {
-        if (typeof v !== 'string' || !isValidVendorId(v)) {
-          return false;
-        }
-      }
-    }
-
-    if (disables.rules !== undefined) {
-      if (!Array.isArray(disables.rules)) {
-        return false;
-      }
-      for (const r of disables.rules) {
-        if (typeof r !== 'string') {
-          return false;
-        }
-      }
-    }
-  }
-
-  return true;
-}
+// Note: isValidRulePack is now imported from @sentriflow/core
 
 /**
  * Load configuration from a file.
@@ -600,23 +482,14 @@ export interface ResolveOptions {
   /** Additional rules file path (legacy) */
   rulesPath?: string;
 
-  /** Path to rule pack file */
-  rulePackPath?: string;
+  /** Path(s) to rule pack(s) - auto-detects format (GRX2, GRPX, or unencrypted) */
+  packPaths?: string | string[];
 
-  /** SEC-012: Path(s) to encrypted rule pack(s) (.grpx) */
-  encryptedPackPaths?: string | string[];
-
-  /** SEC-012: License key for encrypted packs (shared across all packs) */
+  /** License key for encrypted packs (shared across all packs) */
   licenseKey?: string;
 
-  /** SEC-012: Fail if encrypted pack cannot be loaded (default: false, warn and continue) */
+  /** Fail immediately if any pack cannot be loaded (default: false, warn and continue) */
   strictPacks?: boolean;
-
-  /** Path(s) to extended encrypted rule pack(s) (.grx2) */
-  grx2PackPaths?: string | string[];
-
-  /** Fail immediately if any GRX2 pack cannot be loaded (default: false, warn and continue) */
-  strictGrx2?: boolean;
 
   /** Path(s) to JSON rules file(s) */
   jsonRulesPaths?: string | string[];
@@ -634,20 +507,8 @@ export interface ResolveOptions {
   allowedBaseDirs?: string[];
 }
 
-/**
- * Check if a rule applies to the given vendor.
- * Exported for use in per-file filtering when vendor detection happens after rule resolution.
- */
-export function ruleAppliesToVendor(rule: IRule, vendorId: string): boolean {
-  if (!rule.vendor) return true;
-  if (Array.isArray(rule.vendor)) {
-    return (
-      rule.vendor.includes('common') ||
-      rule.vendor.includes(vendorId as RuleVendor)
-    );
-  }
-  return rule.vendor === 'common' || rule.vendor === vendorId;
-}
+// Re-export from core for backward compatibility
+export { ruleAppliesToVendor };
 
 /**
  * Check if a default rule should be disabled based on pack disable configs.
@@ -723,7 +584,7 @@ export async function loadEncryptedRulePack(
 ): Promise<RulePack> {
   const canonicalPath = validatePathOrThrow(
     packPath,
-    validateEncryptedPackPath,
+    validatePackPath,
     'encrypted pack',
     baseDirs
   );
@@ -760,10 +621,12 @@ export async function loadEncryptedRulePack(
  * 2. Config file legacy rules (priority 50)
  * 3. Config file rule packs (their own priority)
  * 4. CLI --rules file (priority 50)
- * 5. CLI --rule-pack file (its own priority)
- * 6. Config file JSON rules (priority 75)
- * 7. CLI --json-rules file(s) (priority 100+)
- * 8. SEC-012: CLI --encrypted-pack file (priority 200+)
+ * 5. Config file JSON rules (priority 75)
+ * 6. CLI --json-rules file(s) (priority 100+)
+ * 7. CLI --pack file(s) with format-based priority:
+ *    - Unencrypted packs (priority 100 + index)
+ *    - GRPX packs (priority 200 + index)
+ *    - GRX2 packs (priority 300 + index)
  *
  * Disables are collected from all packs and applied to default rules.
  */
@@ -774,12 +637,9 @@ export async function resolveRules(
     configPath,
     noConfig = false,
     rulesPath,
-    rulePackPath,
-    encryptedPackPaths,
+    packPaths,
     licenseKey,
-    strictPacks = false, // SEC-012: Default to graceful handling
-    grx2PackPaths,
-    strictGrx2 = false, // Default to graceful handling
+    strictPacks = false, // Default to graceful handling
     jsonRulesPaths,
     disableIds = [],
     vendorId,
@@ -787,11 +647,11 @@ export async function resolveRules(
     allowedBaseDirs, // SEC-011: Allowed base directories for file path validation
   } = options;
 
-  // Normalize encrypted pack paths to array
-  const packPathsArray = encryptedPackPaths
-    ? Array.isArray(encryptedPackPaths)
-      ? encryptedPackPaths
-      : [encryptedPackPaths]
+  // Normalize pack paths to array
+  const packPathsArray = packPaths
+    ? Array.isArray(packPaths)
+      ? packPaths
+      : [packPaths]
     : [];
 
   // Normalize JSON rules paths to array
@@ -799,13 +659,6 @@ export async function resolveRules(
     ? Array.isArray(jsonRulesPaths)
       ? jsonRulesPaths
       : [jsonRulesPaths]
-    : [];
-
-  // Normalize GRX2 pack paths to array
-  const grx2PathsArray = grx2PackPaths
-    ? Array.isArray(grx2PackPaths)
-      ? grx2PackPaths
-      : [grx2PackPaths]
     : [];
 
   let config: SentriflowConfig = { includeDefaults: true };
@@ -849,12 +702,6 @@ export async function resolveRules(
         rules: externalRules,
       });
     }
-  }
-
-  // Add CLI --rule-pack file
-  if (rulePackPath) {
-    const cliPack = await loadRulePackFile(rulePackPath, allowedBaseDirs);
-    allPacks.push(cliPack);
   }
 
   // Add JSON rules from config file (priority 75)
@@ -906,142 +753,152 @@ export async function resolveRules(
     }
   }
 
-  // SEC-012: Add CLI --encrypted-pack file(s) (priority 200+)
+  // Unified pack loading with auto-format detection
+  // Priority assignment: unencrypted=100+i, grpx=200+i, grx2=300+i
   if (packPathsArray.length > 0) {
-    if (!licenseKey) {
+    // Detect format for each pack
+    let packDescriptors: PackDescriptor[];
+    try {
+      packDescriptors = await createPackDescriptors(packPathsArray);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      if (strictPacks) {
+        throw new SentriflowConfigError(`Pack detection failed: ${errorMsg}`);
+      }
+      console.error(`Warning: Pack detection failed: ${errorMsg}`);
+      packDescriptors = [];
+    }
+
+    // Check if any encrypted packs need a license key
+    const hasEncryptedPacks = packDescriptors.some(
+      (d) => d.format === 'grx2' || d.format === 'grpx'
+    );
+    if (hasEncryptedPacks && !licenseKey) {
       const errorMsg =
         'License key required for encrypted packs (use --license-key or set SENTRIFLOW_LICENSE_KEY)';
       if (strictPacks) {
         throw new SentriflowConfigError(errorMsg);
       }
       console.error(`Warning: ${errorMsg}`);
-      console.error(
-        `Warning: Skipping ${packPathsArray.length} encrypted pack(s)`
-      );
-    } else {
-      // Load each pack with incrementing priority (200, 201, 202, ...)
-      for (let i = 0; i < packPathsArray.length; i++) {
-        const packPath = packPathsArray[i];
-        if (!packPath) continue;
-
-        try {
-          const encryptedPack = await loadEncryptedRulePack(
-            packPath,
-            licenseKey,
-            allowedBaseDirs
-          );
-          // Increment priority for each pack so later packs override earlier ones
-          encryptedPack.priority = 200 + i;
-          allPacks.push(encryptedPack);
-        } catch (error) {
-          const errorMsg =
-            error instanceof Error ? error.message : 'Unknown error';
-          if (strictPacks) {
-            throw error;
-          }
-          console.error(`Warning: Failed to load encrypted pack: ${errorMsg}`);
-          console.error(`Warning: Skipping encrypted pack: ${packPath}`);
-        }
-      }
     }
-  }
 
-  // Add CLI --grx2-pack file(s) (priority 300+)
-  // Extended GRX2 format with embedded wrapped TMK - higher priority than legacy .grpx
-  if (grx2PathsArray.length > 0) {
-    if (!licenseKey) {
-      const errorMsg =
-        'License key required for GRX2 packs (use --license-key or set SENTRIFLOW_LICENSE_KEY)';
-      if (strictGrx2) {
-        throw new SentriflowConfigError(errorMsg);
-      }
-      console.error(`Warning: ${errorMsg}`);
-      console.error(
-        `Warning: Skipping ${grx2PathsArray.length} GRX2 pack(s)`
-      );
-    } else {
-      // Get machine ID for license binding
-      let machineId: string;
+    // Get machine ID for GRX2 packs (only if needed)
+    let machineId: string | undefined;
+    const hasGrx2Packs = packDescriptors.some((d) => d.format === 'grx2');
+    if (hasGrx2Packs && licenseKey) {
       try {
         machineId = await getMachineId();
       } catch (error) {
         const errorMsg = 'Failed to retrieve machine ID for license validation';
-        if (strictGrx2) {
+        if (strictPacks) {
           throw new SentriflowConfigError(errorMsg);
         }
         console.error(`Warning: ${errorMsg}`);
-        console.error(
-          `Warning: Skipping ${grx2PathsArray.length} GRX2 pack(s)`
-        );
-        machineId = ''; // Will be checked in loader
       }
+    }
 
-      if (machineId) {
-        // Track loading statistics for summary
-        let loadedCount = 0;
-        let totalRules = 0;
-        const failedPacks: string[] = [];
+    // Track loading statistics
+    let loadedCount = 0;
+    let totalRules = 0;
+    const failedPacks: string[] = [];
 
-        // Load each GRX2 pack with incrementing priority (300, 301, 302, ...)
-        for (let i = 0; i < grx2PathsArray.length; i++) {
-          const packPath = grx2PathsArray[i];
-          if (!packPath) continue;
+    // Load each pack based on detected format
+    for (const desc of packDescriptors) {
+      try {
+        // Validate path is within allowed directories
+        const validation = validatePackPath(desc.path, allowedBaseDirs);
+        if (!validation.valid) {
+          throw new SentriflowConfigError(validation.error ?? 'Invalid pack path');
+        }
 
-          try {
-            // Validate path is within allowed directories
-            const validation = validateGrx2PackPath(packPath, allowedBaseDirs);
-            if (!validation.valid) {
-              throw new SentriflowConfigError(validation.error ?? 'Invalid pack path');
+        let loadedPack: RulePack;
+
+        switch (desc.format) {
+          case 'grx2': {
+            if (!licenseKey) {
+              console.error(`Warning: Skipping GRX2 pack (no license key): ${desc.path}`);
+              continue;
             }
-
-            const grx2Pack = await loadExtendedPack(
+            if (!machineId) {
+              console.error(`Warning: Skipping GRX2 pack (no machine ID): ${desc.path}`);
+              continue;
+            }
+            loadedPack = await loadExtendedPack(
               validation.canonicalPath!,
               licenseKey,
               machineId
             );
-            // Increment priority for each pack so later packs override earlier ones
-            grx2Pack.priority = 300 + i;
-            allPacks.push(grx2Pack);
-            loadedCount++;
-            totalRules += grx2Pack.rules.length;
-          } catch (error) {
-            // Map error codes to user-friendly messages
-            let errorMsg: string;
-            if (error instanceof EncryptedPackError) {
-              const messages: Record<string, string> = {
-                LICENSE_MISSING: 'Invalid or missing license key',
-                LICENSE_EXPIRED: 'License has expired',
-                LICENSE_INVALID: 'License key is invalid for this pack',
-                DECRYPTION_FAILED: 'Failed to decrypt pack (invalid key or corrupted data)',
-                MACHINE_MISMATCH: 'License is not valid for this machine',
-                PACK_CORRUPTED: 'Pack file is corrupted or invalid',
-                NOT_EXTENDED_FORMAT: 'Pack is not in extended GRX2 format',
-              };
-              errorMsg = messages[error.code] ?? `Pack load error: ${error.message}`;
-            } else {
-              errorMsg = error instanceof Error ? error.message : 'Unknown error';
-            }
-
-            if (strictGrx2) {
-              throw new SentriflowConfigError(
-                `Failed to load GRX2 pack '${packPath}': ${errorMsg}`
-              );
-            }
-            console.error(`Warning: Failed to load GRX2 pack: ${errorMsg}`);
-            console.error(`Warning: Skipping GRX2 pack: ${packPath}`);
-            failedPacks.push(packPath);
+            loadedPack.priority = desc.priority;
+            break;
           }
+
+          case 'grpx': {
+            if (!licenseKey) {
+              console.error(`Warning: Skipping GRPX pack (no license key): ${desc.path}`);
+              continue;
+            }
+            loadedPack = await loadEncryptedRulePack(
+              validation.canonicalPath!,
+              licenseKey,
+              allowedBaseDirs
+            );
+            loadedPack.priority = desc.priority;
+            break;
+          }
+
+          case 'unencrypted': {
+            loadedPack = await loadRulePackFile(
+              validation.canonicalPath!,
+              allowedBaseDirs
+            );
+            loadedPack.priority = desc.priority;
+            break;
+          }
+
+          default:
+            console.error(`Warning: Unknown pack format, skipping: ${desc.path}`);
+            continue;
         }
 
-        // Display summary of loaded packs
-        if (grx2PathsArray.length > 0) {
-          const successMsg = `GRX2 packs: ${loadedCount} of ${grx2PathsArray.length} loaded (${totalRules} rules)`;
-          if (failedPacks.length > 0) {
-            console.error(`${successMsg}, ${failedPacks.length} failed`);
-          } else {
-            console.error(successMsg);
-          }
+        allPacks.push(loadedPack);
+        loadedCount++;
+        totalRules += loadedPack.rules.length;
+      } catch (error) {
+        // Map error codes to user-friendly messages
+        let errorMsg: string;
+        if (error instanceof EncryptedPackError) {
+          const messages: Record<string, string> = {
+            LICENSE_MISSING: 'Invalid or missing license key',
+            LICENSE_EXPIRED: 'License has expired',
+            LICENSE_INVALID: 'License key is invalid for this pack',
+            DECRYPTION_FAILED: 'Failed to decrypt pack (invalid key or corrupted data)',
+            MACHINE_MISMATCH: 'License is not valid for this machine',
+            PACK_CORRUPTED: 'Pack file is corrupted or invalid',
+            NOT_EXTENDED_FORMAT: 'Pack is not in extended GRX2 format',
+          };
+          errorMsg = messages[error.code] ?? `Pack load error: ${error.message}`;
+        } else {
+          errorMsg = error instanceof Error ? error.message : 'Unknown error';
         }
+
+        if (strictPacks) {
+          throw new SentriflowConfigError(
+            `Failed to load pack '${desc.path}': ${errorMsg}`
+          );
+        }
+        console.error(`Warning: Failed to load pack: ${errorMsg}`);
+        console.error(`Warning: Skipping pack: ${desc.path}`);
+        failedPacks.push(desc.path);
+      }
+    }
+
+    // Display summary of loaded packs
+    if (packPathsArray.length > 0) {
+      const successMsg = `Packs: ${loadedCount} of ${packPathsArray.length} loaded (${totalRules} rules)`;
+      if (failedPacks.length > 0) {
+        console.error(`${successMsg}, ${failedPacks.length} failed`);
+      } else if (loadedCount > 0) {
+        console.error(successMsg);
       }
     }
   }

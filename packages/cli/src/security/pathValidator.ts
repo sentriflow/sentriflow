@@ -271,6 +271,27 @@ export function validateInputFilePath(
 }
 
 /**
+ * Validates a unified pack file path (any format: .grx2, .grpx, .js, etc.).
+ * Used by the unified --pack argument. Format detection is done via magic bytes,
+ * so any extension is allowed.
+ *
+ * @param packPath - Path to the pack file
+ * @param baseDirs - Optional allowed base directories
+ * @returns Validation result
+ */
+export function validatePackPath(
+  packPath: string,
+  baseDirs?: string[]
+): PathValidationResult {
+  return validatePath(packPath, {
+    allowedBaseDirs: baseDirs,
+    allowedExtensions: [], // Allow any extension - format detected via magic bytes
+    maxFileSize: MAX_ENCRYPTED_PACK_SIZE,
+    mustExist: true,
+  });
+}
+
+/**
  * Throws sentriflowPathError if validation fails.
  * Convenience wrapper for validatePath.
  *
