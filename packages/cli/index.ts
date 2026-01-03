@@ -1102,8 +1102,37 @@ async function loadLicensingExtension(): Promise<void> {
       licensing.registerCommands(program);
     }
   } catch {
-    // @sentriflow/licensing not installed - running in OSS mode
-    // This is expected for open-source users
+    // @sentriflow/licensing not installed - register fallback commands with helpful message
+    const licensingMessage = `
+Cloud licensing features require the @sentriflow/licensing package.
+
+This package is provided to customers after purchasing a license.
+Visit https://sentriflow.com.au/pricing for more information.
+
+Once you have a license, you'll receive access to the private package
+and can enable cloud features like pack downloads and license activation.
+`.trim();
+
+    const fallbackAction = () => {
+      console.log(licensingMessage);
+      process.exit(0);
+    };
+
+    program.command('activate')
+      .description('Activate your SentriFlow license (requires @sentriflow/licensing)')
+      .action(fallbackAction);
+
+    program.command('update')
+      .description('Check and download pack updates (requires @sentriflow/licensing)')
+      .action(fallbackAction);
+
+    program.command('offline')
+      .description('Manage offline bundles (requires @sentriflow/licensing)')
+      .action(fallbackAction);
+
+    program.command('license')
+      .description('Show license status (requires @sentriflow/licensing)')
+      .action(fallbackAction);
   }
 }
 

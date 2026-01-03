@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://sentriflow.io/schemas/json-rules/v1.0.json",
+  "$id": "https://sentriflow.com.au/schemas/json-rules/v1.0.json",
   "title": "SentriFlow JSON Rules",
   "description": "Schema for SentriFlow JSON rule files",
   "type": "object",

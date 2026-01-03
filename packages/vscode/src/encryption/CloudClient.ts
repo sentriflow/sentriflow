@@ -12,7 +12,7 @@
 import * as vscode from 'vscode';
 import { createWriteStream } from 'node:fs';
 import { mkdir, unlink, stat, readdir, readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
@@ -23,6 +23,8 @@ import type {
   FeedInfo,
   PackDownloadInfo,
   UpdateCheckResult,
+  CachedEntitlements,
+  CloudConnectionStatus,
 } from './types';
 import { EncryptedPackError, CACHE_DIRECTORY } from './types';
 
@@ -41,6 +43,11 @@ const MAX_PACK_SIZE_BYTES = 50 * 1024 * 1024;
  * SECURITY: Rejects suspiciously small files that can't be valid packs
  */
 const MIN_PACK_SIZE_BYTES = 200;
+
+/**
+ * Cache file TTL in days - files older than this are considered stale
+ */
+const CACHE_FILE_TTL_DAYS = 30;
 
 // =============================================================================
 // Types
@@ -73,7 +80,28 @@ export class CloudClient {
   private readonly cacheDir: string;
 
   constructor(options: CloudClientOptions) {
-    this.apiUrl = options.apiUrl.replace(/\/$/, ''); // Remove trailing slash
+    // SECURITY: Enforce HTTPS to prevent credential exposure over plaintext
+    const apiUrl = options.apiUrl.replace(/\/$/, ''); // Remove trailing slash
+    try {
+      const url = new URL(apiUrl);
+      if (url.protocol !== 'https:') {
+        throw new EncryptedPackError(
+          'API URL must use HTTPS for secure communication',
+          'API_ERROR'
+        );
+      }
+    } catch (error) {
+      if (error instanceof EncryptedPackError) {
+        throw error;
+      }
+      throw new EncryptedPackError(
+        `Invalid API URL: ${apiUrl}`,
+        'API_ERROR',
+        error
+      );
+    }
+
+    this.apiUrl = apiUrl;
     this.licenseKey = options.licenseKey;
     this.timeout = options.timeout ?? 30000;
     this.cacheDir = this.resolvePath(CACHE_DIRECTORY);
@@ -132,6 +160,45 @@ export class CloudClient {
       );
     } finally {
       clearTimeout(timeoutId);
+    }
+  }
+
+  /**
+   * Fetch entitlements from cloud API with offline fallback
+   *
+   * @param cachedEntitlements - Optional cached entitlements for offline fallback
+   * @returns Object with entitlements, connection status, and whether cache was used
+   */
+  async getEntitlementsWithFallback(
+    cachedEntitlements?: CachedEntitlements | null
+  ): Promise<{
+    entitlements: EntitlementsResponse | null;
+    status: CloudConnectionStatus;
+    fromCache: boolean;
+  }> {
+    try {
+      const entitlements = await this.getEntitlements();
+      return {
+        entitlements,
+        status: 'online',
+        fromCache: false,
+      };
+    } catch (error) {
+      // Network error - try cached entitlements
+      if (
+        error instanceof EncryptedPackError &&
+        error.code === 'NETWORK_ERROR' &&
+        cachedEntitlements
+      ) {
+        return {
+          entitlements: cachedEntitlements.entitlements,
+          status: 'offline',
+          fromCache: true,
+        };
+      }
+
+      // Other errors (license invalid, expired) - don't use cache
+      throw error;
     }
   }
 
@@ -255,8 +322,12 @@ export class CloudClient {
       await mkdir(this.cacheDir, { recursive: true });
     }
 
-    const fileName = `${downloadInfo.feedId}.grx2`;
-    const tempFileName = `${downloadInfo.feedId}.grx2.tmp`;
+    // SECURITY: Use random filename instead of feedId to prevent path traversal
+    // Pack files are self-describing (contain metadata inside), so we don't need
+    // predictable names. Random names also prevent cache probing attacks.
+    const randomId = randomBytes(16).toString('hex');
+    const fileName = `${randomId}.grx2`;
+    const tempFileName = `${randomId}.grx2.tmp`;
     const filePath = join(this.cacheDir, fileName);
     const tempFilePath = join(this.cacheDir, tempFileName);
 
@@ -462,6 +533,41 @@ export class CloudClient {
   }
 
   /**
+   * Clean up stale cache files older than CACHE_FILE_TTL_DAYS
+   *
+   * Should be called periodically (e.g., on extension activation) to
+   * prevent unbounded cache growth.
+   *
+   * @returns Number of files deleted
+   */
+  async cleanupStaleCache(): Promise<number> {
+    if (!existsSync(this.cacheDir)) {
+      return 0;
+    }
+
+    const files = await this.getCachedPacks();
+    const now = Date.now();
+    const ttlMs = CACHE_FILE_TTL_DAYS * 24 * 60 * 60 * 1000;
+    let deletedCount = 0;
+
+    for (const file of files) {
+      try {
+        const fileStats = await stat(file);
+        const age = now - fileStats.mtimeMs;
+
+        if (age > ttlMs) {
+          await unlink(file);
+          deletedCount++;
+        }
+      } catch {
+        // Ignore stat/deletion errors
+      }
+    }
+
+    return deletedCount;
+  }
+
+  /**
    * Compare two version strings
    *
    * @returns true if newVersion is newer than oldVersion
@@ -500,6 +606,43 @@ export class CloudClient {
 // =============================================================================
 
 /**
+ * Options for update check with progress
+ */
+export interface UpdateCheckOptions {
+  /** Cloud client instance */
+  cloudClient: CloudClient;
+
+  /** Local pack versions */
+  localPacks: Map<string, string>;
+
+  /** Optional cached entitlements for offline fallback */
+  cachedEntitlements?: CachedEntitlements | null;
+
+  /** Optional logger for debug messages */
+  logger?: (message: string) => void;
+
+  /** Callback when entitlements are fetched (for caching) */
+  onEntitlementsFetched?: (entitlements: EntitlementsResponse) => void;
+
+  /** Callback when connection status changes */
+  onStatusChange?: (status: CloudConnectionStatus) => void;
+}
+
+/**
+ * Result of update check with status
+ */
+export interface UpdateCheckWithStatusResult {
+  /** Update check result, or null if failed */
+  result: UpdateCheckResult | null;
+
+  /** Connection status */
+  status: CloudConnectionStatus;
+
+  /** Whether cached entitlements were used */
+  fromCache: boolean;
+}
+
+/**
  * Run update check with VS Code progress UI
  *
  * @param cloudClient - Cloud client instance
@@ -529,6 +672,96 @@ export async function checkForUpdatesWithProgress(
           `[EncryptedPacks] Update check failed for ${cloudClient.getApiUrl()}: ${errorMessage}`
         );
         return null;
+      }
+    }
+  );
+}
+
+/**
+ * Run update check with offline fallback and status tracking
+ *
+ * @param options - Update check options including cached entitlements
+ * @returns Update result with connection status
+ */
+export async function checkForUpdatesWithFallback(
+  options: UpdateCheckOptions
+): Promise<UpdateCheckWithStatusResult> {
+  const { cloudClient, localPacks, cachedEntitlements, logger, onEntitlementsFetched, onStatusChange } = options;
+
+  return vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'SentriFlow: Checking for pack updates...',
+      cancellable: false,
+    },
+    async () => {
+      try {
+        // Try to fetch entitlements with fallback
+        const entitlementsResult = await cloudClient.getEntitlementsWithFallback(cachedEntitlements);
+
+        // Notify status change
+        onStatusChange?.(entitlementsResult.status);
+
+        if (!entitlementsResult.entitlements) {
+          return {
+            result: null,
+            status: entitlementsResult.status,
+            fromCache: false,
+          };
+        }
+
+        // Cache entitlements if fetched fresh
+        if (!entitlementsResult.fromCache) {
+          onEntitlementsFetched?.(entitlementsResult.entitlements);
+        }
+
+        // Build update result from entitlements
+        const updatesAvailable: UpdateCheckResult['updatesAvailable'] = [];
+
+        for (const feed of entitlementsResult.entitlements.feeds) {
+          const localVersion = localPacks.get(feed.id);
+
+          if (!localVersion) {
+            // New pack not installed locally
+            updatesAvailable.push({
+              feedId: feed.id,
+              currentVersion: 'none',
+              newVersion: feed.version,
+            });
+          } else if (feed.version !== localVersion) {
+            // Version differs
+            updatesAvailable.push({
+              feedId: feed.id,
+              currentVersion: localVersion,
+              newVersion: feed.version,
+            });
+          }
+        }
+
+        const result: UpdateCheckResult = {
+          hasUpdates: updatesAvailable.length > 0,
+          updatesAvailable,
+          checkedAt: new Date().toISOString(),
+        };
+
+        return {
+          result,
+          status: entitlementsResult.status,
+          fromCache: entitlementsResult.fromCache,
+        };
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        logger?.(
+          `[EncryptedPacks] Update check failed for ${cloudClient.getApiUrl()}: ${errorMessage}`
+        );
+
+        onStatusChange?.('offline');
+
+        return {
+          result: null,
+          status: 'offline',
+          fromCache: false,
+        };
       }
     }
   );

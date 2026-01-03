@@ -155,3 +155,28 @@ export interface EncryptedPacksConfig {
   /** Whether to show encrypted packs in tree view */
   showInTree: boolean;
 }
+
+// =============================================================================
+// Offline Mode Types
+// =============================================================================
+
+/**
+ * Cached entitlements for offline mode
+ *
+ * Stores entitlements with a timestamp for 72-hour offline grace period.
+ */
+export interface CachedEntitlements {
+  /** Cached entitlements response */
+  entitlements: EntitlementsResponse;
+
+  /** When the cache was created (ISO timestamp) */
+  cachedAt: string;
+
+  /** When the cache expires (ISO timestamp) */
+  expiresAt: string;
+}
+
+/**
+ * Connection status for cloud API
+ */
+export type CloudConnectionStatus = 'online' | 'offline' | 'unknown';

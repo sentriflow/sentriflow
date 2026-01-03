@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { LicenseInfo, EncryptedPackInfo } from '../encryption/types';
+import type { LicenseInfo, EncryptedPackInfo, CloudConnectionStatus } from '../encryption/types';
 
 /**
  * Tree item for license information display
@@ -39,6 +39,8 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
   private licenseInfo: LicenseInfo | null = null;
   private encryptedPacks: EncryptedPackInfo[] = [];
   private hasLicenseKey = false;
+  private connectionStatus: CloudConnectionStatus = 'unknown';
+  private cacheHoursRemaining = 0;
 
   /**
    * Update the license info and refresh tree
@@ -54,6 +56,15 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
    */
   setEncryptedPacks(packs: EncryptedPackInfo[]): void {
     this.encryptedPacks = packs;
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
+  /**
+   * Update connection status and cache info
+   */
+  setConnectionStatus(status: CloudConnectionStatus, cacheHoursRemaining = 0): void {
+    this.connectionStatus = status;
+    this.cacheHoursRemaining = cacheHoursRemaining;
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -135,6 +146,34 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
         statusIcon
       )
     );
+
+    // Cloud connection status
+    if (this.connectionStatus !== 'unknown') {
+      const isOnline = this.connectionStatus === 'online';
+      const connectionIcon = isOnline
+        ? new vscode.ThemeIcon('cloud', new vscode.ThemeColor('testing.iconPassed'))
+        : new vscode.ThemeIcon('cloud-offline', new vscode.ThemeColor('warningForeground'));
+
+      let connectionDescription: string;
+      if (isOnline) {
+        connectionDescription = 'Connected';
+      } else if (this.cacheHoursRemaining > 0) {
+        connectionDescription = `Offline (${this.cacheHoursRemaining}h cache remaining)`;
+      } else {
+        connectionDescription = 'Offline (no cache)';
+      }
+
+      items.push(
+        new LicenseTreeItem(
+          'connection-status',
+          'Cloud',
+          vscode.TreeItemCollapsibleState.None,
+          'connection-status',
+          connectionDescription,
+          connectionIcon
+        )
+      );
+    }
 
     // Tier
     const tierIcon = this.licenseInfo.payload.tier === 'enterprise'
@@ -274,6 +313,23 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
         {
           command: 'sentriflow.reloadPacks',
           title: 'Reload Rule Packs',
+        }
+      )
+    );
+
+    // Get License link (always show for upsell)
+    items.push(
+      new LicenseTreeItem(
+        'action-get-license',
+        'Get License',
+        vscode.TreeItemCollapsibleState.None,
+        'action-get-license',
+        'sentriflow.com.au',
+        new vscode.ThemeIcon('link-external'),
+        undefined,
+        {
+          command: 'sentriflow.openLicensingPage',
+          title: 'Get SentriFlow License',
         }
       )
     );

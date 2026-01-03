@@ -15,7 +15,7 @@ declare module 'node-machine-id' {
 
 import * as vscode from 'vscode';
 import { machineIdSync } from 'node-machine-id';
-import type { LicensePayload, LicenseInfo } from './types';
+import type { LicensePayload, LicenseInfo, CachedEntitlements, EntitlementsResponse, CloudConnectionStatus } from './types';
 import { EncryptedPackError } from './types';
 
 // =============================================================================
@@ -30,6 +30,15 @@ const LAST_UPDATE_CHECK_KEY = 'sentriflow.lastUpdateCheck';
 
 /** Cached machine ID key */
 const MACHINE_ID_KEY = 'sentriflow.machineId';
+
+/** Cached entitlements key */
+const ENTITLEMENTS_CACHE_KEY = 'sentriflow.entitlementsCache';
+
+/** Entitlements cache TTL in milliseconds (72 hours) */
+const ENTITLEMENTS_CACHE_TTL_MS = 72 * 60 * 60 * 1000;
+
+/** Cloud connection status key */
+const CONNECTION_STATUS_KEY = 'sentriflow.connectionStatus';
 
 // =============================================================================
 // JWT Utilities
@@ -86,14 +95,64 @@ function decodeJWT(jwt: string): LicensePayload {
       .replace(/_/g, '/');
 
     const payloadJson = Buffer.from(payloadBase64Std, 'base64').toString('utf8');
-    const payload = JSON.parse(payloadJson) as LicensePayload;
+    const payload = JSON.parse(payloadJson) as unknown;
 
-    // Validate required fields
-    if (!payload.sub || !payload.tier || !payload.feeds || !payload.api || !payload.exp) {
-      throw new Error('Missing required fields');
+    // SECURITY: Runtime type validation to prevent malformed JWT attacks
+    // Validates both presence AND type of each field
+    if (typeof payload !== 'object' || payload === null) {
+      throw new Error('Payload must be an object');
     }
 
-    return payload;
+    const p = payload as Record<string, unknown>;
+
+    // Validate required string fields
+    if (typeof p.sub !== 'string' || p.sub.length === 0) {
+      throw new Error('Invalid or missing "sub" claim');
+    }
+
+    // Validate tier is one of the allowed values
+    const validTiers = ['community', 'professional', 'enterprise'];
+    if (typeof p.tier !== 'string' || !validTiers.includes(p.tier)) {
+      throw new Error(`Invalid "tier" claim: must be one of ${validTiers.join(', ')}`);
+    }
+
+    // Validate feeds is an array of strings
+    if (!Array.isArray(p.feeds)) {
+      throw new Error('Invalid "feeds" claim: must be an array');
+    }
+    for (const feed of p.feeds) {
+      if (typeof feed !== 'string') {
+        throw new Error('Invalid "feeds" claim: all items must be strings');
+      }
+    }
+
+    // Validate exp is a number (Unix timestamp)
+    if (typeof p.exp !== 'number' || !Number.isInteger(p.exp) || p.exp <= 0) {
+      throw new Error('Invalid "exp" claim: must be a positive integer');
+    }
+
+    // Validate iat if present
+    if (p.iat !== undefined && (typeof p.iat !== 'number' || !Number.isInteger(p.iat))) {
+      throw new Error('Invalid "iat" claim: must be an integer');
+    }
+
+    // Validate api URL if present (must be HTTPS)
+    if (p.api !== undefined) {
+      if (typeof p.api !== 'string') {
+        throw new Error('Invalid "api" claim: must be a string');
+      }
+      try {
+        const url = new URL(p.api);
+        if (url.protocol !== 'https:') {
+          throw new Error('Invalid "api" claim: must use HTTPS');
+        }
+      } catch {
+        throw new Error('Invalid "api" claim: must be a valid HTTPS URL');
+      }
+    }
+
+    // Cast to LicensePayload after validation
+    return payload as LicensePayload;
   } catch (error) {
     throw new EncryptedPackError(
       'Failed to parse license key payload',
@@ -464,5 +523,100 @@ export class LicenseManager {
     const oneDayMs = 24 * 60 * 60 * 1000;
 
     return now - lastCheckTime > oneDayMs;
+  }
+
+  // ===========================================================================
+  // Entitlement Cache (24-hour offline mode)
+  // ===========================================================================
+
+  /**
+   * Cache entitlements for offline use
+   *
+   * @param entitlements - Entitlements response to cache
+   */
+  async cacheEntitlements(entitlements: EntitlementsResponse): Promise<void> {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ENTITLEMENTS_CACHE_TTL_MS);
+
+    const cached: CachedEntitlements = {
+      entitlements,
+      cachedAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+
+    await this.globalState.update(ENTITLEMENTS_CACHE_KEY, cached);
+  }
+
+  /**
+   * Get cached entitlements if still valid
+   *
+   * @returns Cached entitlements or null if expired/missing
+   */
+  async getCachedEntitlements(): Promise<CachedEntitlements | null> {
+    const cached = this.globalState.get<CachedEntitlements>(ENTITLEMENTS_CACHE_KEY);
+
+    if (!cached) {
+      return null;
+    }
+
+    // Check if cache is still valid
+    const now = Date.now();
+    const expiresAt = new Date(cached.expiresAt).getTime();
+
+    if (now > expiresAt) {
+      // Cache expired - clear it
+      await this.globalState.update(ENTITLEMENTS_CACHE_KEY, undefined);
+      return null;
+    }
+
+    return cached;
+  }
+
+  /**
+   * Get time remaining on entitlements cache
+   *
+   * @returns Hours remaining, or 0 if expired/no cache
+   */
+  async getCacheTimeRemaining(): Promise<number> {
+    const cached = await this.getCachedEntitlements();
+
+    if (!cached) {
+      return 0;
+    }
+
+    const now = Date.now();
+    const expiresAt = new Date(cached.expiresAt).getTime();
+    const msRemaining = expiresAt - now;
+
+    return Math.max(0, Math.floor(msRemaining / (60 * 60 * 1000)));
+  }
+
+  /**
+   * Clear the entitlements cache
+   */
+  async clearEntitlementsCache(): Promise<void> {
+    await this.globalState.update(ENTITLEMENTS_CACHE_KEY, undefined);
+  }
+
+  // ===========================================================================
+  // Connection Status
+  // ===========================================================================
+
+  /**
+   * Set the cloud connection status
+   *
+   * @param status - Current connection status
+   */
+  async setConnectionStatus(status: CloudConnectionStatus): Promise<void> {
+    await this.globalState.update(CONNECTION_STATUS_KEY, status);
+  }
+
+  /**
+   * Get the cloud connection status
+   *
+   * @returns Current connection status
+   */
+  async getConnectionStatus(): Promise<CloudConnectionStatus> {
+    return this.globalState.get<CloudConnectionStatus>(CONNECTION_STATUS_KEY) ?? 'unknown';
   }
 }

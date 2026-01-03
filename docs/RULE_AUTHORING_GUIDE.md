@@ -242,7 +242,7 @@ const ipAddresses = node.children.filter(c =>
 
 ```json
 {
-  "$schema": "https://sentriflow.io/schemas/json-rules/v1.0.json",
+  "$schema": "https://sentriflow.com.au/schemas/json-rules/v1.0.json",
   "version": "1.0",
   "meta": {
     "name": "Rule Pack Name",

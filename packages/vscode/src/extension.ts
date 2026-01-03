@@ -692,10 +692,11 @@ async function initializePacks(
     );
   }
 
-  // Initialize cloud client
-  log(`[Packs] API URL for updates: ${licenseInfo.payload.api}`);
+  // Initialize cloud client - use JWT api claim or default production URL
+  const apiUrl = licenseInfo.payload.api ?? 'https://api.sentriflow.com.au/api/v1';
+  log(`[Packs] API URL for updates: ${apiUrl}`);
   cloudClient = new CloudClient({
-    apiUrl: licenseInfo.payload.api,
+    apiUrl,
     licenseKey: licenseInfo.jwt,
   });
 
@@ -1347,7 +1348,12 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand(
         'sentriflow.showPackStatus',
         cmdShowEncryptedPackStatus
-      )
+      ),
+      vscode.commands.registerCommand('sentriflow.openLicensingPage', () => {
+        vscode.env.openExternal(
+          vscode.Uri.parse('https://sentriflow.com.au/pricing')
+        );
+      })
     );
 
     // Register IP TreeView commands
