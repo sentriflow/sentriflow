@@ -68,7 +68,7 @@ declare const __CLOUD_API_URL__: string;
 /** Default cloud API URL (injected at build time, can override via SENTRIFLOW_API_URL env var) */
 export const DEFAULT_CLOUD_API_URL = typeof __CLOUD_API_URL__ !== 'undefined'
   ? __CLOUD_API_URL__
-  : 'https://sentriflow-api-lrk3cekqta-as.a.run.app';
+  : 'https://api.sentriflow.com.au';
 
 /** Cloud license key format regex (XXXX-XXXX-XXXX-XXXX) */
 const CLOUD_LICENSE_FORMAT = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i;

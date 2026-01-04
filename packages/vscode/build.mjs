@@ -7,7 +7,8 @@ const isWatch = process.argv.includes('--watch');
 const isDev = process.argv.includes('--dev');
 
 // Cloud API URL - can be overridden via SENTRIFLOW_API_URL environment variable
-const cloudApiUrl = process.env.SENTRIFLOW_API_URL || 'https://sentriflow-api-lrk3cekqta-as.a.run.app';
+// Default: public production API. Use env var for development/testing.
+const cloudApiUrl = process.env.SENTRIFLOW_API_URL || 'https://api.sentriflow.com.au';
 
 const buildOptions = {
   entryPoints: ['./src/extension.ts'],
