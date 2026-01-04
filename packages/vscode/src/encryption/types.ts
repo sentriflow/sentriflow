@@ -78,6 +78,9 @@ export interface FeedInfo {
 
   /** Last updated timestamp */
   updatedAt: string;
+
+  /** SHA-256 hash for change detection */
+  hash?: string;
 }
 
 /**
@@ -129,7 +132,12 @@ export interface UpdateCheckResult {
     feedId: string;
     currentVersion: string;
     newVersion: string;
+    /** Server hash for cache comparison */
+    serverHash?: string;
   }[];
+
+  /** Number of packs skipped because cache has matching hash */
+  skippedByCacheHash?: number;
 
   /** Last check timestamp */
   checkedAt: string;
@@ -180,3 +188,171 @@ export interface CachedEntitlements {
  * Connection status for cloud API
  */
 export type CloudConnectionStatus = 'online' | 'offline' | 'unknown';
+
+/**
+ * Cache manifest entry for a downloaded pack
+ */
+export interface CacheManifestEntry {
+  /** Feed ID */
+  feedId: string;
+
+  /** Version string */
+  version: string;
+
+  /** SHA-256 hash of pack content */
+  hash: string;
+
+  /** Path to cached file (relative to cache dir) */
+  fileName: string;
+
+  /** When the pack was downloaded (ISO timestamp) */
+  downloadedAt: string;
+}
+
+/**
+ * Cache manifest - tracks downloaded packs to avoid re-downloading
+ */
+export interface CacheManifest {
+  /** Manifest version */
+  version: number;
+
+  /** Map of feedId -> entry */
+  entries: Record<string, CacheManifestEntry>;
+
+  /** Last updated timestamp */
+  updatedAt: string;
+}
+
+// =============================================================================
+// Cloud License Activation Types
+// =============================================================================
+
+/**
+ * License key type
+ */
+export type LicenseKeyType = 'jwt' | 'cloud';
+
+/**
+ * Cloud activation request
+ */
+export interface CloudActivationRequest {
+  /** License key (XXXX-XXXX-XXXX-XXXX format) */
+  licenseKey: string;
+
+  /** Machine ID for binding */
+  machineId: string;
+
+  /** Hostname */
+  hostname: string;
+
+  /** Operating system */
+  os: string;
+
+  /** Client version */
+  cliVersion: string;
+
+  /** Unique nonce for replay protection */
+  nonce: string;
+
+  /** Request timestamp */
+  timestamp: string;
+}
+
+/**
+ * Wrapped TMK structure from cloud activation
+ * Matches the cloud-api WrappedTMK type
+ */
+export interface CloudWrappedTMK {
+  /** AES-256-GCM encrypted TMK (base64) */
+  encryptedKey: string;
+
+  /** 96-bit initialization vector (base64) */
+  iv: string;
+
+  /** 128-bit GCM auth tag (base64) */
+  authTag: string;
+
+  /** TMK version for rotation tracking */
+  tmkVersion: number;
+
+  /** Salt for LDK derivation (base64) */
+  ldkSalt: string;
+}
+
+/**
+ * Cloud activation response
+ */
+export interface CloudActivationResponse {
+  /** Whether activation was successful */
+  valid: boolean;
+
+  /** JWT for API authentication */
+  jwt: string;
+
+  /** Wrapped TMK for pack decryption */
+  wrappedTMK: CloudWrappedTMK;
+
+  /** Wrapped customer TMK (if customer has custom feeds) */
+  wrappedCustomerTMK?: CloudWrappedTMK | null;
+
+  /** Customer tier */
+  tier: 'community' | 'professional' | 'enterprise';
+
+  /** License expiry */
+  expiresAt: string;
+
+  /** Activation ID */
+  activationId: string;
+
+  /** Entitled feeds */
+  allowedFeeds: string[];
+
+  /** Current feed versions */
+  feedVersions: {
+    feedId: string;
+    version: string;
+    hash: string;
+    keyType: 'tier-master-key' | 'customer-tmk';
+  }[];
+
+  /** How long client can cache activation (seconds) */
+  cacheValiditySeconds: number;
+
+  /** Server time for clock synchronization */
+  serverTime: string;
+}
+
+/**
+ * Stored cloud license (persisted in global state)
+ */
+export interface StoredCloudLicense {
+  /** Original cloud license key (XXXX-XXXX-XXXX-XXXX) */
+  licenseKey: string;
+
+  /** JWT from activation */
+  jwt: string;
+
+  /** Wrapped TMK from activation */
+  wrappedTMK: CloudWrappedTMK;
+
+  /** Wrapped customer TMK (if applicable) */
+  wrappedCustomerTMK?: CloudWrappedTMK | null;
+
+  /** Activation ID */
+  activationId: string;
+
+  /** When the license was activated */
+  activatedAt: string;
+
+  /** API URL used for activation */
+  apiUrl: string;
+
+  /** Cache validity from server */
+  cacheValiditySeconds: number;
+
+  /** License/subscription expiry (ISO 8601) - when subscription ends */
+  licenseExpiresAt?: string;
+
+  /** Customer tier */
+  tier?: 'community' | 'professional' | 'enterprise';
+}

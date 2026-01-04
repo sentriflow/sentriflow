@@ -6,6 +6,9 @@ const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 const isWatch = process.argv.includes('--watch');
 const isDev = process.argv.includes('--dev');
 
+// Cloud API URL - can be overridden via SENTRIFLOW_API_URL environment variable
+const cloudApiUrl = process.env.SENTRIFLOW_API_URL || 'https://sentriflow-api-lrk3cekqta-as.a.run.app';
+
 const buildOptions = {
   entryPoints: ['./src/extension.ts'],
   bundle: true,
@@ -15,6 +18,7 @@ const buildOptions = {
   platform: 'node',
   define: {
     __VERSION__: JSON.stringify(pkg.version),
+    __CLOUD_API_URL__: JSON.stringify(cloudApiUrl),
   },
   alias: {
     // Core package sub-paths (more specific first)

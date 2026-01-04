@@ -25,8 +25,20 @@ import type {
   UpdateCheckResult,
   CachedEntitlements,
   CloudConnectionStatus,
+  CacheManifest,
+  CacheManifestEntry,
 } from './types';
 import { EncryptedPackError, CACHE_DIRECTORY } from './types';
+
+/**
+ * Cache manifest filename
+ */
+const CACHE_MANIFEST_FILE = 'manifest.json';
+
+/**
+ * Current cache manifest version
+ */
+const CACHE_MANIFEST_VERSION = 1;
 
 // =============================================================================
 // Constants
@@ -125,6 +137,146 @@ export class CloudClient {
   }
 
   /**
+   * Load cache manifest from disk
+   *
+   * @returns Manifest or null if not found/invalid
+   */
+  async loadCacheManifest(): Promise<CacheManifest | null> {
+    const manifestPath = join(this.cacheDir, CACHE_MANIFEST_FILE);
+
+    if (!existsSync(manifestPath)) {
+      return null;
+    }
+
+    try {
+      const content = await readFile(manifestPath, 'utf-8');
+      const manifest = JSON.parse(content) as CacheManifest;
+
+      // Validate manifest version
+      if (manifest.version !== CACHE_MANIFEST_VERSION) {
+        // Incompatible version, return null to force re-download
+        return null;
+      }
+
+      return manifest;
+    } catch {
+      // Invalid manifest, return null
+      return null;
+    }
+  }
+
+  /**
+   * Save cache manifest to disk
+   *
+   * @param manifest - Manifest to save
+   */
+  async saveCacheManifest(manifest: CacheManifest): Promise<void> {
+    // Ensure cache directory exists with restrictive permissions (owner only)
+    if (!existsSync(this.cacheDir)) {
+      await mkdir(this.cacheDir, { recursive: true, mode: 0o700 });
+    }
+
+    const manifestPath = join(this.cacheDir, CACHE_MANIFEST_FILE);
+    const { writeFile } = await import('node:fs/promises');
+    // Write with restrictive permissions (owner read/write only)
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2), { mode: 0o600 });
+  }
+
+  /**
+   * Get manifest entry for a feed
+   *
+   * @param feedId - Feed ID to look up
+   * @returns Entry or null if not found
+   */
+  async getCacheEntry(feedId: string): Promise<CacheManifestEntry | null> {
+    const manifest = await this.loadCacheManifest();
+    return manifest?.entries[feedId] ?? null;
+  }
+
+  /**
+   * Check if a pack is already cached with matching hash
+   *
+   * @param feedId - Feed ID
+   * @param serverHash - Expected hash from server
+   * @returns True if cached and hash matches
+   */
+  async isCachedWithHash(feedId: string, serverHash: string): Promise<boolean> {
+    const entry = await this.getCacheEntry(feedId);
+    if (!entry || entry.hash !== serverHash) {
+      return false;
+    }
+
+    // Verify file still exists
+    const filePath = join(this.cacheDir, entry.fileName);
+    return existsSync(filePath);
+  }
+
+  /**
+   * Update manifest with a downloaded pack
+   *
+   * @param feedId - Feed ID
+   * @param version - Pack version
+   * @param hash - SHA-256 hash
+   * @param fileName - Cached file name
+   */
+  async updateCacheEntry(
+    feedId: string,
+    version: string,
+    hash: string,
+    fileName: string
+  ): Promise<void> {
+    let manifest = await this.loadCacheManifest();
+
+    if (!manifest) {
+      manifest = {
+        version: CACHE_MANIFEST_VERSION,
+        entries: {},
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    // Remove old file if different
+    const existingEntry = manifest.entries[feedId];
+    if (existingEntry && existingEntry.fileName !== fileName) {
+      const oldPath = join(this.cacheDir, existingEntry.fileName);
+      try {
+        if (existsSync(oldPath)) {
+          await unlink(oldPath);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+
+    manifest.entries[feedId] = {
+      feedId,
+      version,
+      hash,
+      fileName,
+      downloadedAt: new Date().toISOString(),
+    };
+    manifest.updatedAt = new Date().toISOString();
+
+    await this.saveCacheManifest(manifest);
+  }
+
+  /**
+   * Get path to cached pack file
+   *
+   * @param feedId - Feed ID
+   * @returns File path or null if not cached
+   */
+  async getCachedPackPath(feedId: string): Promise<string | null> {
+    const entry = await this.getCacheEntry(feedId);
+    if (!entry) {
+      return null;
+    }
+
+    const filePath = join(this.cacheDir, entry.fileName);
+    return existsSync(filePath) ? filePath : null;
+  }
+
+  /**
    * Make an authenticated API request
    */
   private async fetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
@@ -205,11 +357,14 @@ export class CloudClient {
   /**
    * Fetch entitlements from cloud API
    *
+   * Calls /api/v1/feeds/versions and maps response to EntitlementsResponse format.
+   *
    * @returns Entitlements response with feed list
    */
   async getEntitlements(): Promise<EntitlementsResponse> {
     try {
-      const response = await this.fetch('/api/v1/entitlements');
+      // Call the feeds/versions endpoint (not /entitlements which doesn't exist)
+      const response = await this.fetch('/api/v1/feeds/versions');
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -230,8 +385,28 @@ export class CloudClient {
         );
       }
 
-      const data = await response.json();
-      return data as EntitlementsResponse;
+      // API returns: { feeds: [{ feedId, version, hash, keyType }], serverTime }
+      const data = await response.json() as {
+        feeds: { feedId: string; version: string; hash: string; keyType: string }[];
+        serverTime?: string;
+      };
+
+      // Map to EntitlementsResponse format
+      // Note: customerId, tier, expiresAt are not in this endpoint response,
+      // but they're not needed for update checking (already available from JWT/activation)
+      return {
+        customerId: '', // Not needed for update check
+        tier: 'community', // Safe default - actual tier is in JWT, not used here
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // Far future
+        feeds: data.feeds.map((feed) => ({
+          id: feed.feedId,
+          name: feed.feedId, // Use feedId as name
+          version: feed.version,
+          sizeBytes: 0, // Not provided by this endpoint
+          updatedAt: data.serverTime ?? new Date().toISOString(),
+          hash: feed.hash, // Include hash for cache comparison
+        })),
+      };
     } catch (error) {
       if (error instanceof EncryptedPackError) {
         throw error;
@@ -273,10 +448,19 @@ export class CloudClient {
         );
       }
 
-      const data = (await response.json()) as Omit<PackDownloadInfo, 'feedId'>;
+      const data = (await response.json()) as {
+        signedUrl: string;
+        expiresAt: string;
+        sizeBytes: number;
+        sha256?: string;
+        hash?: string;
+      };
       return {
         feedId,
-        ...data,
+        url: data.signedUrl,
+        expiresAt: data.expiresAt,
+        sizeBytes: data.sizeBytes,
+        sha256: data.sha256 ?? data.hash ?? '',
       };
     } catch (error) {
       if (error instanceof EncryptedPackError) {
@@ -317,9 +501,9 @@ export class CloudClient {
       );
     }
 
-    // Ensure cache directory exists
+    // Ensure cache directory exists with restrictive permissions (owner only)
     if (!existsSync(this.cacheDir)) {
-      await mkdir(this.cacheDir, { recursive: true });
+      await mkdir(this.cacheDir, { recursive: true, mode: 0o700 });
     }
 
     // SECURITY: Use random filename instead of feedId to prevent path traversal
@@ -361,6 +545,14 @@ export class CloudClient {
         }
       }
 
+      // Validate response body exists
+      if (!response.body) {
+        throw new EncryptedPackError(
+          'Download failed: Server returned empty response body',
+          'NETWORK_ERROR'
+        );
+      }
+
       // Stream to file
       const fileStream = createWriteStream(tempFilePath);
       await pipeline(
@@ -393,6 +585,16 @@ export class CloudClient {
       const { rename } = await import('node:fs/promises');
       await rename(tempFilePath, filePath);
 
+      // Update cache manifest with this download
+      // We pass version as empty since downloadInfo doesn't have version,
+      // but the hash is the important part for cache validation
+      await this.updateCacheEntry(
+        downloadInfo.feedId,
+        '', // Version is tracked separately by checkForUpdates
+        computedHash,
+        fileName
+      );
+
       return filePath;
     } catch (error) {
       // Clean up temp file if exists
@@ -418,6 +620,9 @@ export class CloudClient {
   /**
    * Check for available updates
    *
+   * Now includes cache hash checking: if a pack is already cached with
+   * matching hash, it's excluded from updates (no re-download needed).
+   *
    * @param localPacks - Map of feedId to local version
    * @returns Update check result
    */
@@ -426,9 +631,18 @@ export class CloudClient {
       const entitlements = await this.getEntitlements();
 
       const updatesAvailable: UpdateCheckResult['updatesAvailable'] = [];
+      let skippedByCacheHash = 0;
 
       for (const feed of entitlements.feeds) {
         const localVersion = localPacks.get(feed.id);
+        const serverHash = feed.hash;
+
+        // Check if pack is already cached with matching hash
+        // This prevents re-downloading packs that haven't changed
+        if (serverHash && await this.isCachedWithHash(feed.id, serverHash)) {
+          skippedByCacheHash++;
+          continue;
+        }
 
         // New pack (not local)
         if (!localVersion) {
@@ -436,6 +650,7 @@ export class CloudClient {
             feedId: feed.id,
             currentVersion: 'none',
             newVersion: feed.version,
+            serverHash,
           });
           continue;
         }
@@ -446,6 +661,7 @@ export class CloudClient {
             feedId: feed.id,
             currentVersion: localVersion,
             newVersion: feed.version,
+            serverHash,
           });
         }
       }
@@ -453,6 +669,7 @@ export class CloudClient {
       return {
         hasUpdates: updatesAvailable.length > 0,
         updatesAvailable,
+        skippedByCacheHash: skippedByCacheHash > 0 ? skippedByCacheHash : undefined,
         checkedAt: new Date().toISOString(),
       };
     } catch (error) {
@@ -470,15 +687,18 @@ export class CloudClient {
   /**
    * Download all available updates
    *
+   * Checks cache before downloading - if a pack is already cached with
+   * matching hash, returns the cached path instead of re-downloading.
+   *
    * @param updates - Updates to download
    * @param progress - Progress callback
-   * @returns Array of downloaded file paths
+   * @returns Array of file paths (downloaded or cached)
    */
   async downloadUpdates(
     updates: UpdateCheckResult['updatesAvailable'],
     progress?: (current: number, total: number, feedId: string) => void
   ): Promise<string[]> {
-    const downloadedPaths: string[] = [];
+    const resultPaths: string[] = [];
     const total = updates.length;
 
     for (let i = 0; i < updates.length; i++) {
@@ -486,16 +706,29 @@ export class CloudClient {
       progress?.(i + 1, total, update.feedId);
 
       try {
+        // Double-check cache before downloading (defense in depth)
+        if (update.serverHash) {
+          const cachedPath = await this.getCachedPackPath(update.feedId);
+          if (cachedPath) {
+            const entry = await this.getCacheEntry(update.feedId);
+            if (entry?.hash === update.serverHash) {
+              // Already cached with matching hash, skip download
+              resultPaths.push(cachedPath);
+              continue;
+            }
+          }
+        }
+
         const downloadInfo = await this.getDownloadInfo(update.feedId);
         const filePath = await this.downloadPack(downloadInfo);
-        downloadedPaths.push(filePath);
+        resultPaths.push(filePath);
       } catch (error) {
         // Log but continue with other downloads
         console.error(`Failed to download ${update.feedId}:`, error);
       }
     }
 
-    return downloadedPaths;
+    return resultPaths;
   }
 
   /**
@@ -715,11 +948,19 @@ export async function checkForUpdatesWithFallback(
           onEntitlementsFetched?.(entitlementsResult.entitlements);
         }
 
-        // Build update result from entitlements
+        // Build update result from entitlements with cache hash checking
         const updatesAvailable: UpdateCheckResult['updatesAvailable'] = [];
+        let skippedByCacheHash = 0;
 
         for (const feed of entitlementsResult.entitlements.feeds) {
           const localVersion = localPacks.get(feed.id);
+          const serverHash = feed.hash;
+
+          // Check if pack is already cached with matching hash
+          if (serverHash && await cloudClient.isCachedWithHash(feed.id, serverHash)) {
+            skippedByCacheHash++;
+            continue;
+          }
 
           if (!localVersion) {
             // New pack not installed locally
@@ -727,6 +968,7 @@ export async function checkForUpdatesWithFallback(
               feedId: feed.id,
               currentVersion: 'none',
               newVersion: feed.version,
+              serverHash,
             });
           } else if (feed.version !== localVersion) {
             // Version differs
@@ -734,6 +976,7 @@ export async function checkForUpdatesWithFallback(
               feedId: feed.id,
               currentVersion: localVersion,
               newVersion: feed.version,
+              serverHash,
             });
           }
         }
@@ -741,6 +984,7 @@ export async function checkForUpdatesWithFallback(
         const result: UpdateCheckResult = {
           hasUpdates: updatesAvailable.length > 0,
           updatesAvailable,
+          skippedByCacheHash: skippedByCacheHash > 0 ? skippedByCacheHash : undefined,
           checkedAt: new Date().toISOString(),
         };
 

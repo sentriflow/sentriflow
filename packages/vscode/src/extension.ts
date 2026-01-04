@@ -47,8 +47,10 @@ import {
   downloadUpdatesWithProgress,
   type UpdateCheckResult,
   type EncryptedPackInfo,
+  type CloudPackContext,
   DEFAULT_PACKS_DIRECTORY,
   CACHE_DIRECTORY,
+  DEFAULT_CLOUD_API_URL,
 } from './encryption';
 
 // ============================================================================
@@ -687,18 +689,44 @@ async function initializePacks(
 
   // Warn if expiring soon
   if (licenseInfo.daysUntilExpiry <= 14) {
+    // Format remaining time - use hours/minutes if less than 1 day
+    let timeText: string;
+    if (licenseInfo.daysUntilExpiry <= 0) {
+      const now = Math.floor(Date.now() / 1000);
+      const secondsRemaining = Math.max(0, licenseInfo.payload.exp - now);
+      const hoursRemaining = Math.floor(secondsRemaining / 3600);
+      const minutesRemaining = Math.floor((secondsRemaining % 3600) / 60);
+
+      if (hoursRemaining > 0) {
+        timeText = hoursRemaining === 1 ? '1 hour' : `${hoursRemaining} hours`;
+      } else if (minutesRemaining > 0) {
+        timeText = minutesRemaining === 1 ? '1 minute' : `${minutesRemaining} minutes`;
+      } else {
+        timeText = 'moments';
+      }
+    } else if (licenseInfo.daysUntilExpiry === 1) {
+      timeText = '1 day';
+    } else {
+      timeText = `${licenseInfo.daysUntilExpiry} days`;
+    }
     vscode.window.showWarningMessage(
-      `SentriFlow license expires in ${licenseInfo.daysUntilExpiry} days (${licenseInfo.expiryDate}).`
+      `SentriFlow license expires in ${timeText} (${licenseInfo.expiryDate}).`
     );
   }
 
-  // Initialize cloud client - use JWT api claim or default production URL
-  const apiUrl = licenseInfo.payload.api ?? 'https://api.sentriflow.com.au/api/v1';
-  log(`[Packs] API URL for updates: ${apiUrl}`);
-  cloudClient = new CloudClient({
-    apiUrl,
-    licenseKey: licenseInfo.jwt,
-  });
+  // Initialize cloud client for update checks (requires cloud license JWT, not offline)
+  const cloudLicense = await licenseManager.getStoredCloudLicense();
+  if (cloudLicense?.jwt) {
+    const apiUrl = cloudLicense.apiUrl ?? DEFAULT_CLOUD_API_URL;
+    log('[Packs] Cloud license available');
+    cloudClient = new CloudClient({
+      apiUrl,
+      licenseKey: cloudLicense.jwt,
+    });
+  } else {
+    log('[Packs] No cloud license - update checks disabled');
+    cloudClient = null;
+  }
 
   // Check auto-update setting
   const autoUpdate = config.get<string>(
@@ -742,29 +770,24 @@ async function checkAndDownloadUpdates(): Promise<void> {
     }
   }
 
-  // Check for updates (errors logged silently, continues with cached packs)
+  // Check for updates (errors always logged for visibility)
   lastUpdateCheck = await checkForUpdatesWithProgress(
     cloudClient,
     localVersions,
-    log
+    logInfo
   );
 
   if (lastUpdateCheck?.hasUpdates) {
     const updateCount = lastUpdateCheck.updatesAvailable.length;
-    const action = await vscode.window.showInformationMessage(
-      `SentriFlow: ${updateCount} pack update(s) available`,
-      'Download Now',
-      'Later'
-    );
+    logInfo(`[Packs] ${updateCount} pack update(s) available - downloading automatically`);
 
-    if (action === 'Download Now') {
-      await downloadUpdatesWithProgress(
-        cloudClient,
-        lastUpdateCheck.updatesAvailable
-      );
-      // Reload packs after download
-      await loadPacks();
-    }
+    // Auto-download updates without asking
+    await downloadUpdatesWithProgress(
+      cloudClient,
+      lastUpdateCheck.updatesAvailable
+    );
+    // Reload packs after download
+    await loadPacks();
   }
 
   // Record last check time
@@ -792,49 +815,71 @@ async function loadPacks(): Promise<void> {
     return;
   }
 
-  const licenseInfo = await licenseManager.getLicenseInfo();
-  if (!licenseInfo) {
-    log('[Packs] No license key configured');
+  // Get all available license keys (cloud + offline)
+  const allLicenseKeys = await licenseManager.getAllLicenseKeys();
+
+  // Get license info from both sources
+  const cloudLicenseInfo = await licenseManager.getLicenseInfo();
+  const offlineLicenseInfo = await licenseManager.getOfflineLicenseInfo();
+
+  // Check if any valid license exists
+  const hasValidCloudLicense = cloudLicenseInfo && !cloudLicenseInfo.isExpired;
+  const hasValidOfflineLicense = offlineLicenseInfo && !offlineLicenseInfo.isExpired;
+
+  if (allLicenseKeys.length === 0 || (!hasValidCloudLicense && !hasValidOfflineLicense)) {
+    log('[Packs] No valid license key configured');
     return;
   }
-  if (licenseInfo.isExpired) {
-    log(`[Packs] License expired on ${licenseInfo.expiryDate}`);
-    return;
+
+  // Combine entitled feeds from all valid licenses
+  const entitledFeeds = new Set<string>();
+  if (hasValidCloudLicense) {
+    for (const feed of cloudLicenseInfo.payload.feeds) {
+      entitledFeeds.add(feed);
+    }
+    log(
+      `[Packs] Cloud license valid - tier: ${
+        cloudLicenseInfo.payload.tier
+      }, feeds: ${cloudLicenseInfo.payload.feeds.join(', ')}`
+    );
   }
-  log(
-    `[Packs] License valid - tier: ${
-      licenseInfo.payload.tier
-    }, feeds: ${licenseInfo.payload.feeds.join(', ')}`
-  );
+  if (hasValidOfflineLicense) {
+    for (const feed of offlineLicenseInfo.payload.feeds) {
+      entitledFeeds.add(feed);
+    }
+    log(
+      `[Packs] Offline license valid - tier: ${
+        offlineLicenseInfo.payload.tier
+      }, feeds: ${offlineLicenseInfo.payload.feeds.join(', ')}`
+    );
+  }
+  log(`[Packs] Combined entitled feeds: ${Array.from(entitledFeeds).join(', ')}`);
 
   const configDirectory = config.get<string>('packs.directory', '');
   const directory = configDirectory || DEFAULT_PACKS_DIRECTORY;
   log(`[Packs] Scanning directory: ${directory}`);
 
-  // Use machine ID only if license is bound to a specific machine
-  // Portable licenses (no 'mid' in JWT) use 'portable-pack' convention
-  let machineId: string;
-  const actualMachineId = await licenseManager.getMachineId();
-  log(`[Packs] This machine's ID: ${actualMachineId}`);
+  // Get actual machine ID for pack decryption
+  // Note: With multi-license support, we always use the actual machine ID.
+  // The pack loader will try each license key - packs bound to this machine
+  // will decrypt, portable packs will also decrypt (they use empty machineId in salt).
+  const machineId = await licenseManager.getMachineId();
+  log(`[Packs] Machine ID: ${machineId.substring(0, 8)}...`);
 
-  if (licenseInfo.payload.mid) {
-    if (licenseInfo.payload.mid !== actualMachineId) {
-      logInfo(`[Packs] ERROR: License bound to different machine`);
+  // Check for machine-bound license mismatches (warning only, not blocking)
+  if (hasValidCloudLicense && cloudLicenseInfo.payload.mid) {
+    if (cloudLicenseInfo.payload.mid !== machineId) {
       log(
-        `[Packs] Machine ID mismatch! License: ${licenseInfo.payload.mid}, this machine: ${actualMachineId}`
+        `[Packs] Warning: Cloud license bound to different machine (${cloudLicenseInfo.payload.mid.substring(0, 8)})`
       );
-      vscode.window.showErrorMessage(
-        'SentriFlow: This license is bound to a different machine. Packs will not load.'
-      );
-      return;
     }
-    machineId = actualMachineId;
-    log(
-      `[Packs] Machine ID verified: ${machineId.substring(0, 8)}...`
-    );
-  } else {
-    machineId = 'portable-pack';
-    log('[Packs] Machine ID binding: portable (portable-pack)');
+  }
+  if (hasValidOfflineLicense && offlineLicenseInfo.payload.mid) {
+    if (offlineLicenseInfo.payload.mid !== machineId) {
+      log(
+        `[Packs] Warning: Offline license bound to different machine (${offlineLicenseInfo.payload.mid.substring(0, 8)})`
+      );
+    }
   }
 
   // Clear existing packs
@@ -845,13 +890,30 @@ async function loadPacks(): Promise<void> {
   }
   encryptedPacksInfo = [];
 
+  // Build cloud pack context for standard GRX2 packs (cloud packs require external TMK)
+  let cloudContext: CloudPackContext | undefined;
+  const storedCloudLicense = await licenseManager.getStoredCloudLicense();
+  if (storedCloudLicense?.licenseKey && storedCloudLicense?.wrappedTMK) {
+    cloudContext = {
+      licenseKey: storedCloudLicense.licenseKey,
+      wrappedTMK: storedCloudLicense.wrappedTMK,
+      wrappedCustomerTMK: storedCloudLicense.wrappedCustomerTMK,
+    };
+    log(`[Packs] Cloud context available - can load standard GRX2 packs`);
+  } else {
+    log(`[Packs] No cloud context - only extended GRX2/GRPX packs will load`);
+  }
+
   // Load from main directory using unified loader (supports GRX2 + GRPX)
+  // Note: Passes all license keys - loader will try each until one works
   log(`[Packs] Loading from main directory: ${directory}`);
+  log(`[Packs] Using ${allLicenseKeys.length} license key(s) for decryption`);
   const mainResult = await loadAllPacksUnified(
     directory,
-    licenseInfo.jwt,
+    allLicenseKeys,
     machineId,
-    licenseInfo.payload.feeds,
+    Array.from(entitledFeeds),
+    cloudContext,
     log
   );
   log(
@@ -873,13 +935,14 @@ async function loadPacks(): Promise<void> {
     );
   }
 
-  // Load from cache directory
+  // Load from cache directory (uses same multi-license approach)
   log(`[Packs] Loading from cache directory: ${CACHE_DIRECTORY}`);
   const cacheResult = await loadAllPacksUnified(
     CACHE_DIRECTORY,
-    licenseInfo.jwt,
+    allLicenseKeys,
     machineId,
-    licenseInfo.payload.feeds,
+    Array.from(entitledFeeds),
+    cloudContext,
     log
   );
   log(
@@ -964,12 +1027,16 @@ async function updateLicenseTree(): Promise<void> {
     return;
   }
 
-  const hasKey = licenseManager ? await licenseManager.hasLicenseKey() : false;
-  const licenseInfo = licenseManager
-    ? await licenseManager.getLicenseInfo()
+  // Get cloud and offline license info separately for dual-license display
+  const cloudLicenseInfo = licenseManager
+    ? await licenseManager.getCloudLicenseInfo()
+    : null;
+  const offlineLicenseInfo = licenseManager
+    ? await licenseManager.getOfflineLicenseInfo()
     : null;
 
-  licenseTreeProvider.setLicenseInfo(licenseInfo, hasKey);
+  licenseTreeProvider.setCloudLicense(cloudLicenseInfo);
+  licenseTreeProvider.setOfflineLicense(offlineLicenseInfo);
   licenseTreeProvider.setEncryptedPacks(encryptedPacksInfo);
 }
 
@@ -983,19 +1050,45 @@ async function cmdEnterLicenseKey(): Promise<void> {
 
   const success = await licenseManager.promptForLicenseKey();
   if (success) {
-    // Initialize cloud client for update checks
-    const licenseInfo = await licenseManager.getLicenseInfo();
-    if (licenseInfo && !licenseInfo.isExpired && licenseInfo.payload.api) {
-      log(`[EncryptedPacks] API URL for updates: ${licenseInfo.payload.api}`);
+    // Initialize cloud client for update checks (requires cloud license JWT)
+    const cloudLicense = await licenseManager.getStoredCloudLicense();
+    if (cloudLicense?.jwt) {
+      const apiUrl = cloudLicense.apiUrl ?? DEFAULT_CLOUD_API_URL;
+      log('[License] Cloud license activated');
       cloudClient = new CloudClient({
-        apiUrl: licenseInfo.payload.api,
-        licenseKey: licenseInfo.jwt,
+        apiUrl,
+        licenseKey: cloudLicense.jwt,
       });
+
+      // Check for updates and download automatically
+      const localVersions = new Map<string, string>();
+      for (const pack of encryptedPacksInfo) {
+        if (pack.loaded) {
+          localVersions.set(pack.feedId, pack.version);
+        }
+      }
+
+      const updateCheck = await checkForUpdatesWithProgress(
+        cloudClient,
+        localVersions,
+        logInfo
+      );
+
+      if (updateCheck?.hasUpdates) {
+        const updateCount = updateCheck.updatesAvailable.length;
+        logInfo(`[License] ${updateCount} pack update(s) available - downloading automatically`);
+        await downloadUpdatesWithProgress(cloudClient, updateCheck.updatesAvailable);
+      }
+    } else {
+      log('[License] No cloud license - update checks disabled');
+      cloudClient = null;
     }
 
-    // Reload encrypted packs with new license
+    // Reload encrypted packs with new license (or after download)
     await loadPacks();
     updateLicenseTree();
+
+    vscode.window.showInformationMessage('SentriFlow: License activated successfully');
   }
 }
 
@@ -1069,7 +1162,7 @@ async function cmdCheckForUpdates(): Promise<void> {
   lastUpdateCheck = await checkForUpdatesWithProgress(
     cloudClient,
     localVersions,
-    log
+    logInfo
   );
 
   if (lastUpdateCheck) {
@@ -1077,8 +1170,17 @@ async function cmdCheckForUpdates(): Promise<void> {
 
     if (lastUpdateCheck.hasUpdates) {
       const updateCount = lastUpdateCheck.updatesAvailable.length;
+      logInfo(`[Packs] ${updateCount} pack update(s) available - downloading automatically`);
+
+      // Auto-download updates
+      await downloadUpdatesWithProgress(
+        cloudClient,
+        lastUpdateCheck.updatesAvailable
+      );
+      // Reload packs after download
+      await loadPacks();
       vscode.window.showInformationMessage(
-        `SentriFlow: ${updateCount} pack update(s) available. Use "Download Pack Updates" to download.`
+        `SentriFlow: Downloaded ${updateCount} pack update(s)`
       );
     } else {
       vscode.window.showInformationMessage(

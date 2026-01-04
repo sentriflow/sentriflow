@@ -229,7 +229,8 @@ export type EncryptedPackErrorCode =
   | 'DECRYPTION_FAILED'
   | 'MACHINE_MISMATCH'
   | 'NETWORK_ERROR'
-  | 'API_ERROR';
+  | 'API_ERROR'
+  | 'ACTIVATION_FAILED';
 
 /**
  * Encrypted pack error
