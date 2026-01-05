@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { LicenseInfo, EncryptedPackInfo } from '../encryption/types';
+import type { LicenseInfo, EncryptedPackInfo, CloudConnectionStatus } from '../encryption/types';
 
 /**
  * Tree item for license information display
@@ -30,23 +30,78 @@ class LicenseTreeItem extends vscode.TreeItem {
 }
 
 /**
+ * Compact license summary for display
+ */
+interface LicenseSummary {
+  type: 'cloud' | 'offline';
+  isExpired: boolean;
+  tier: string;
+  expiryDate: string;
+  daysUntilExpiry: number;
+  customerName?: string;
+}
+
+/**
  * Provides tree data for license status display
+ *
+ * Supports displaying both cloud and offline licenses with clear differentiation:
+ * - Cloud License: For cloud-delivered packs (XXXX-XXXX-XXXX-XXXX format)
+ * - Offline License: For extended GRX2 packs (JWT format)
  */
 export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<LicenseTreeItem | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private licenseInfo: LicenseInfo | null = null;
+  private cloudLicense: LicenseSummary | null = null;
+  private offlineLicense: LicenseSummary | null = null;
   private encryptedPacks: EncryptedPackInfo[] = [];
-  private hasLicenseKey = false;
+  private connectionStatus: CloudConnectionStatus = 'unknown';
+  private cacheHoursRemaining = 0;
 
   /**
-   * Update the license info and refresh tree
+   * Update cloud license info and refresh tree
    */
-  setLicenseInfo(info: LicenseInfo | null, hasKey: boolean): void {
-    this.licenseInfo = info;
-    this.hasLicenseKey = hasKey;
+  setCloudLicense(info: LicenseInfo | null): void {
+    if (info) {
+      this.cloudLicense = {
+        type: 'cloud',
+        isExpired: info.isExpired,
+        tier: info.payload.tier,
+        expiryDate: info.expiryDate,
+        daysUntilExpiry: info.daysUntilExpiry,
+        customerName: info.payload.name,
+      };
+    } else {
+      this.cloudLicense = null;
+    }
     this._onDidChangeTreeData.fire(undefined);
+  }
+
+  /**
+   * Update offline license info and refresh tree
+   */
+  setOfflineLicense(info: LicenseInfo | null): void {
+    if (info) {
+      this.offlineLicense = {
+        type: 'offline',
+        isExpired: info.isExpired,
+        tier: info.payload.tier,
+        expiryDate: info.expiryDate,
+        daysUntilExpiry: info.daysUntilExpiry,
+        customerName: info.payload.name,
+      };
+    } else {
+      this.offlineLicense = null;
+    }
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * Sets the primary license (cloud if available, otherwise treats as cloud)
+   */
+  setLicenseInfo(info: LicenseInfo | null, _hasKey: boolean): void {
+    this.setCloudLicense(info);
   }
 
   /**
@@ -54,6 +109,15 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
    */
   setEncryptedPacks(packs: EncryptedPackInfo[]): void {
     this.encryptedPacks = packs;
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
+  /**
+   * Update connection status and cache info
+   */
+  setConnectionStatus(status: CloudConnectionStatus, cacheHoursRemaining = 0): void {
+    this.connectionStatus = status;
+    this.cacheHoursRemaining = cacheHoursRemaining;
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -68,13 +132,66 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
     return element;
   }
 
+  /**
+   * Format tier for compact display
+   */
+  private formatTier(tier: string): string {
+    const tierMap: Record<string, string> = {
+      enterprise: 'Enterprise',
+      professional: 'Pro',
+      community: 'Community',
+    };
+    return tierMap[tier] || tier;
+  }
+
+  /**
+   * Build compact status string for license
+   */
+  private buildLicenseStatus(license: LicenseSummary): string {
+    const parts: string[] = [];
+
+    // Status
+    if (license.isExpired) {
+      parts.push('Expired');
+    } else if (license.daysUntilExpiry <= 14) {
+      parts.push(`${license.daysUntilExpiry}d left`);
+    } else {
+      parts.push('Active');
+    }
+
+    // Tier
+    parts.push(this.formatTier(license.tier));
+
+    // Expiry (compact format)
+    parts.push(license.expiryDate);
+
+    return parts.join(' • ');
+  }
+
+  /**
+   * Get icon for license based on status
+   */
+  private getLicenseIcon(license: LicenseSummary, isCloud: boolean): vscode.ThemeIcon {
+    const baseIcon = isCloud ? 'cloud' : 'key';
+
+    if (license.isExpired) {
+      return new vscode.ThemeIcon(baseIcon, new vscode.ThemeColor('errorForeground'));
+    } else if (license.daysUntilExpiry <= 14) {
+      return new vscode.ThemeIcon(baseIcon, new vscode.ThemeColor('warningForeground'));
+    }
+    return new vscode.ThemeIcon(baseIcon, new vscode.ThemeColor('testing.iconPassed'));
+  }
+
   getChildren(element?: LicenseTreeItem): LicenseTreeItem[] {
     if (element) {
       return element.children || [];
     }
 
-    // Root level
-    if (!this.hasLicenseKey) {
+    const items: LicenseTreeItem[] = [];
+    const hasAnyLicense = this.cloudLicense || this.offlineLicense;
+
+    // No licenses configured
+    if (!hasAnyLicense) {
       return [
         new LicenseTreeItem(
           'no-license-key',
@@ -92,131 +209,65 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
       ];
     }
 
-    if (!this.licenseInfo) {
-      return [
-        new LicenseTreeItem(
-          'invalid-license',
-          'Invalid License',
-          vscode.TreeItemCollapsibleState.None,
-          'invalid-license',
-          'Click to re-enter',
-          new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground')),
-          undefined,
-          {
-            command: 'sentriflow.enterLicenseKey',
-            title: 'Enter License Key',
-          }
-        ),
-      ];
-    }
+    // === LICENSES SECTION ===
 
-    const items: LicenseTreeItem[] = [];
-
-    // Status section
-    const statusIcon = this.licenseInfo.isExpired
-      ? new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'))
-      : this.licenseInfo.daysUntilExpiry <= 14
-        ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('warningForeground'))
-        : new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
-
-    const statusLabel = this.licenseInfo.isExpired
-      ? 'Expired'
-      : this.licenseInfo.daysUntilExpiry <= 14
-        ? `Expires in ${this.licenseInfo.daysUntilExpiry} days`
-        : 'Active';
-
-    items.push(
-      new LicenseTreeItem(
-        'license-status',
-        'Status',
-        vscode.TreeItemCollapsibleState.None,
-        'license-status',
-        statusLabel,
-        statusIcon
-      )
-    );
-
-    // Tier
-    const tierIcon = this.licenseInfo.payload.tier === 'enterprise'
-      ? new vscode.ThemeIcon('star-full')
-      : this.licenseInfo.payload.tier === 'professional'
-        ? new vscode.ThemeIcon('star-half')
-        : new vscode.ThemeIcon('star-empty');
-
-    items.push(
-      new LicenseTreeItem(
-        'license-tier',
-        'Tier',
-        vscode.TreeItemCollapsibleState.None,
-        'license-tier',
-        this.licenseInfo.payload.tier.charAt(0).toUpperCase() + this.licenseInfo.payload.tier.slice(1),
-        tierIcon
-      )
-    );
-
-    // Expiry date
-    items.push(
-      new LicenseTreeItem(
-        'license-expiry',
-        'Expires',
-        vscode.TreeItemCollapsibleState.None,
-        'license-expiry',
-        this.licenseInfo.expiryDate,
-        new vscode.ThemeIcon('calendar')
-      )
-    );
-
-    // Customer (if name available)
-    if (this.licenseInfo.payload.name) {
+    // Cloud License (for cloud-delivered packs)
+    if (this.cloudLicense) {
       items.push(
         new LicenseTreeItem(
-          'license-customer',
-          'Customer',
+          'cloud-license',
+          'Cloud License',
           vscode.TreeItemCollapsibleState.None,
-          'license-customer',
-          this.licenseInfo.payload.name,
-          new vscode.ThemeIcon('account')
+          'cloud-license',
+          this.buildLicenseStatus(this.cloudLicense),
+          this.getLicenseIcon(this.cloudLicense, true)
         )
       );
     }
 
-    // Entitled feeds section
-    if (this.licenseInfo.payload.feeds.length > 0) {
-      const feedChildren = this.licenseInfo.payload.feeds.map((feedId, index) => {
-        const pack = this.encryptedPacks.find((p) => p.feedId === feedId);
-        const loadedIcon = pack?.loaded
-          ? new vscode.ThemeIcon('check', new vscode.ThemeColor('testing.iconPassed'))
-          : new vscode.ThemeIcon('circle-outline');
-        const description = pack
-          ? pack.loaded
-            ? `${pack.ruleCount} rules`
-            : pack.error || 'Not loaded'
-          : 'Not installed';
-
-        return new LicenseTreeItem(
-          `feed-${index}-${feedId}`,
-          feedId,
-          vscode.TreeItemCollapsibleState.None,
-          'feed-item',
-          description,
-          loadedIcon
-        );
-      });
-
+    // Offline License (for extended GRX2 packs)
+    if (this.offlineLicense) {
       items.push(
         new LicenseTreeItem(
-          'license-feeds',
-          'Entitled Feeds',
-          vscode.TreeItemCollapsibleState.Expanded,
-          'license-feeds',
-          `${this.licenseInfo.payload.feeds.length}`,
-          new vscode.ThemeIcon('package'),
-          feedChildren
+          'offline-license',
+          'Offline License',
+          vscode.TreeItemCollapsibleState.None,
+          'offline-license',
+          this.buildLicenseStatus(this.offlineLicense),
+          this.getLicenseIcon(this.offlineLicense, false)
         )
       );
     }
 
-    // Loaded packs section
+    // === CONNECTION STATUS ===
+    if (this.cloudLicense && this.connectionStatus !== 'unknown') {
+      const isOnline = this.connectionStatus === 'online';
+      const connectionIcon = isOnline
+        ? new vscode.ThemeIcon('cloud', new vscode.ThemeColor('testing.iconPassed'))
+        : new vscode.ThemeIcon('cloud-offline', new vscode.ThemeColor('warningForeground'));
+
+      let connectionDescription: string;
+      if (isOnline) {
+        connectionDescription = 'Connected';
+      } else if (this.cacheHoursRemaining > 0) {
+        connectionDescription = `Offline (${this.cacheHoursRemaining}h cache)`;
+      } else {
+        connectionDescription = 'Offline';
+      }
+
+      items.push(
+        new LicenseTreeItem(
+          'connection-status',
+          'Cloud Status',
+          vscode.TreeItemCollapsibleState.None,
+          'connection-status',
+          connectionDescription,
+          connectionIcon
+        )
+      );
+    }
+
+    // === RULE PACKS SECTION ===
     const loadedPacks = this.encryptedPacks.filter((p) => p.loaded);
     if (loadedPacks.length > 0) {
       const packChildren = loadedPacks.map((pack, index) => {
@@ -245,22 +296,24 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
       );
     }
 
-    // Actions section
-    items.push(
-      new LicenseTreeItem(
-        'action-check-updates',
-        'Check for Updates',
-        vscode.TreeItemCollapsibleState.None,
-        'action-check-updates',
-        undefined,
-        new vscode.ThemeIcon('cloud-download'),
-        undefined,
-        {
-          command: 'sentriflow.checkForUpdates',
-          title: 'Check for Updates',
-        }
-      )
-    );
+    // === ACTIONS SECTION ===
+    if (this.cloudLicense) {
+      items.push(
+        new LicenseTreeItem(
+          'action-check-updates',
+          'Check for Updates',
+          vscode.TreeItemCollapsibleState.None,
+          'action-check-updates',
+          undefined,
+          new vscode.ThemeIcon('cloud-download'),
+          undefined,
+          {
+            command: 'sentriflow.checkForUpdates',
+            title: 'Check for Updates',
+          }
+        )
+      );
+    }
 
     items.push(
       new LicenseTreeItem(

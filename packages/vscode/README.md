@@ -279,6 +279,43 @@ api?.registerRulePack({
 
 See the [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md) for details.
 
+## Cloud Licensing (Commercial)
+
+SentriFlow supports cloud-based rule pack distribution for commercial customers. This enables automatic updates and access to premium rule packs.
+
+### License Panel
+
+The License panel in the Activity Bar shows:
+- **License Status**: Active, expiring soon, or expired
+- **Cloud Connection**: Online or offline (with cache time remaining)
+- **Tier**: Community, Professional, or Enterprise
+- **Entitled Feeds**: Which rule packs your license includes
+- **Loaded Packs**: Currently loaded rule packs with rule counts
+
+### License Commands
+
+| Command | Description |
+|---------|-------------|
+| `SENTRIFLOW: Enter License Key` | Enter or update your license key |
+| `SENTRIFLOW: Clear License Key` | Remove stored license key |
+| `SENTRIFLOW: Show License Status` | View license details and options |
+| `SENTRIFLOW: Check for Updates` | Check for rule pack updates |
+| `SENTRIFLOW: Download Updates` | Download available pack updates |
+| `SENTRIFLOW: Reload Packs` | Reload all encrypted rule packs |
+
+### Offline Mode
+
+SentriFlow supports offline operation with a 72-hour grace period:
+
+- **Entitlement Caching**: Entitlements are cached locally for 72 hours
+- **Graceful Degradation**: When offline, cached entitlements are used automatically
+- **Status Indicator**: The License panel shows connection status and cache time remaining
+- **Cached Packs**: Previously downloaded packs work offline indefinitely
+
+### Getting a License
+
+Visit [sentriflow.com.au/pricing](https://sentriflow.com.au/pricing) or click "Get License" in the License panel.
+
 ## Architecture Notes
 
 ### GRX2 Loader

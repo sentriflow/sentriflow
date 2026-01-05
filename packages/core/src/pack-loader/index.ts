@@ -14,7 +14,7 @@
  */
 
 export * from './types';
-export { loadEncryptedPack, validatePackFormat } from './PackLoader';
+export { loadEncryptedPack, validatePackFormat, compileNativeCheckFunction } from './PackLoader';
 
 // Pack format detection (shared with CLI and VS Code)
 export {

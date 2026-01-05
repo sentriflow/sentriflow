@@ -151,6 +151,41 @@ sentriflow --show-machine-id
 # Output: Machine ID: a1b2c3d4...
 ```
 
+### Cloud Licensing Commands
+
+Cloud licensing features require the `@sentriflow/licensing` package, which is provided to customers after purchasing a license. Visit [sentriflow.com.au/pricing](https://sentriflow.com.au/pricing) for more information.
+
+| Command | Description |
+|---------|-------------|
+| `sentriflow activate --license-key <key>` | Activate license and download entitled packs |
+| `sentriflow update` | Check for and download pack updates |
+| `sentriflow offline --bundle <path>` | Create offline bundle for air-gapped environments |
+| `sentriflow license` | Show license status and entitled feeds |
+
+**Activate a license:**
+
+```bash
+# Activate license and download all entitled packs
+sentriflow activate --license-key eyJhbGciOiJIUzI1Ni...
+
+# Or use environment variable
+export SENTRIFLOW_LICENSE_KEY=eyJhbGciOiJIUzI1Ni...
+sentriflow activate
+```
+
+**Check for updates:**
+
+```bash
+# Check and download available pack updates
+sentriflow update
+```
+
+**Offline mode:**
+
+Downloaded packs are cached in `~/.sentriflow/cache/` and work offline for 72 hours (entitlement cache). The pack files themselves work indefinitely once downloaded.
+
+If `@sentriflow/licensing` is not installed, these commands display a message with information on how to obtain access.
+
 ### Directory Scanning
 
 | Option | Description |

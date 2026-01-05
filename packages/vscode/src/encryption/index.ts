@@ -30,10 +30,11 @@ export {
   type PackLoadResult,
   type LoadedPackData,
   type UnifiedPackLoadResult,
+  type CloudPackContext,
 } from './UnifiedPackLoader';
 
 // License Manager
-export { LicenseManager } from './LicenseManager';
+export { LicenseManager, DEFAULT_CLOUD_API_URL } from './LicenseManager';
 
 // Cloud Client
 export {
@@ -41,3 +42,12 @@ export {
   checkForUpdatesWithProgress,
   downloadUpdatesWithProgress,
 } from './CloudClient';
+
+// Cloud Pack Loader (for standard GRX2 packs with cloud TMK)
+export {
+  isStandardGRX2,
+  isExtendedGRX2 as isExtendedGRX2Cloud,
+  unwrapCloudTMK,
+  loadStandardPackWithTMK,
+  loadCloudPack,
+} from './CloudPackLoader';

@@ -23,8 +23,9 @@ import {
   type PackFormat,
   loadEncryptedPack as loadGrpxPack,
 } from '@sentriflow/core';
-import { loadExtendedPack as loadGrx2Pack } from './GRX2ExtendedLoader';
-import type { EncryptedPackInfo, GRX2PackLoadResult } from './types';
+import { loadExtendedPack as loadGrx2Pack, isExtendedGRX2 } from './GRX2ExtendedLoader';
+import { loadCloudPack, isStandardGRX2 } from './CloudPackLoader';
+import type { EncryptedPackInfo, GRX2PackLoadResult, CloudWrappedTMK } from './types';
 
 /**
  * Pack info with format detection
@@ -155,74 +156,195 @@ export async function scanForPackFiles(
 }
 
 /**
+ * Context for loading cloud packs (standard GRX2)
+ */
+export interface CloudPackContext {
+  /** Cloud license key (XXXX-XXXX-XXXX-XXXX format) */
+  licenseKey: string;
+  /** Wrapped tier TMK from cloud activation */
+  wrappedTMK: CloudWrappedTMK;
+  /** Wrapped customer TMK (for custom feeds) */
+  wrappedCustomerTMK?: CloudWrappedTMK | null;
+}
+
+/**
  * Load a single pack file based on detected format
  *
+ * Supports multi-license mode: tries each provided license key until
+ * one successfully decrypts the pack. This enables both cloud and
+ * offline licenses to work independently.
+ *
+ * For GRX2 format, automatically detects standard vs extended:
+ * - Extended GRX2: Has embedded TMK, uses license key (JWT) for decryption
+ * - Standard GRX2: Requires external TMK from cloud activation
+ *
  * @param fileInfo - Pack file info with format
- * @param licenseKey - License key for decryption
+ * @param licenseKeys - License key(s) for decryption (single or array)
  * @param machineId - Machine ID for key derivation
+ * @param cloudContext - Optional cloud pack context (for standard GRX2)
  * @param debug - Optional debug logger
  * @returns Pack load result
  */
 export async function loadPackFile(
   fileInfo: PackFileInfo,
-  licenseKey: string,
+  licenseKeys: string | string[],
   machineId: string,
+  cloudContext?: CloudPackContext,
   debug?: (msg: string) => void
 ): Promise<PackLoadResult> {
   const { filePath, format, feedId } = fileInfo;
 
+  // Normalize to array for multi-license support
+  const keys = Array.isArray(licenseKeys) ? licenseKeys : [licenseKeys];
+
+  if (keys.length === 0 && !cloudContext) {
+    return {
+      info: fileInfo,
+      loaded: false,
+      error: 'No license keys provided',
+    };
+  }
+
   // Handle based on format
   switch (format) {
-    case 'grx2':
-      try {
-        const pack = await loadGrx2Pack(filePath, licenseKey, machineId, debug);
-        return {
-          info: fileInfo,
-          pack,
-          loaded: true,
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          info: fileInfo,
-          loaded: false,
-          error: message,
-        };
+    case 'grx2': {
+      // Read file to detect standard vs extended format
+      const packData = await readFile(filePath);
+
+      // Check if this is a standard GRX2 (cloud pack) or extended GRX2 (offline pack)
+      if (isStandardGRX2(packData)) {
+        // Standard GRX2 requires cloud context (wrapped TMK)
+        if (!cloudContext) {
+          debug?.(`[UnifiedLoader] ${feedId} is standard GRX2 but no cloud context available`);
+          return {
+            info: fileInfo,
+            loaded: false,
+            error: 'Standard GRX2 pack requires cloud license activation',
+          };
+        }
+
+        debug?.(`[UnifiedLoader] Loading standard GRX2 (cloud pack): ${feedId}`);
+        try {
+          const pack = await loadCloudPack(
+            filePath,
+            cloudContext.wrappedTMK,
+            cloudContext.licenseKey,
+            machineId,
+            debug
+          );
+          return {
+            info: fileInfo,
+            pack,
+            loaded: true,
+          };
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          debug?.(`[UnifiedLoader] Cloud pack load failed: ${errorMsg}`);
+
+          // If tier TMK failed and we have customer TMK, try that
+          if (cloudContext.wrappedCustomerTMK) {
+            debug?.(`[UnifiedLoader] Trying customer TMK for ${feedId}`);
+            try {
+              const pack = await loadCloudPack(
+                filePath,
+                cloudContext.wrappedCustomerTMK,
+                cloudContext.licenseKey,
+                machineId,
+                debug
+              );
+              return {
+                info: fileInfo,
+                pack,
+                loaded: true,
+              };
+            } catch (customerError) {
+              const customerErrorMsg = customerError instanceof Error ? customerError.message : String(customerError);
+              debug?.(`[UnifiedLoader] Customer TMK also failed: ${customerErrorMsg}`);
+            }
+          }
+
+          return {
+            info: fileInfo,
+            loaded: false,
+            error: errorMsg,
+          };
+        }
       }
 
-    case 'grpx':
-      try {
-        const packData = await readFile(filePath);
-        const loadedPack = await loadGrpxPack(packData, {
-          licenseKey,
-          machineId,
-        });
-
-        // Convert to RulePack format
-        // GRPX packs use FORMAT_PRIORITIES.grpx (200) as default priority
-        const pack: RulePack = {
-          name: feedId,
-          version: loadedPack.metadata.version,
-          publisher: loadedPack.metadata.publisher,
-          description: loadedPack.metadata.description,
-          license: loadedPack.metadata.license,
-          priority: 200, // GRPX format tier priority
-          rules: loadedPack.rules,
-        };
-
-        return {
-          info: fileInfo,
-          pack,
-          loaded: true,
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          info: fileInfo,
-          loaded: false,
-          error: message,
-        };
+      // Extended GRX2 - try each license key (JWT) until one works
+      debug?.(`[UnifiedLoader] Loading extended GRX2 (offline pack): ${feedId}`);
+      let lastError: string = 'Unknown error';
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i]!;
+        try {
+          debug?.(`[UnifiedLoader] Trying license key ${i + 1}/${keys.length} for ${feedId}`);
+          const pack = await loadGrx2Pack(filePath, key, machineId, debug);
+          return {
+            info: fileInfo,
+            pack,
+            loaded: true,
+          };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+          debug?.(`[UnifiedLoader] License key ${i + 1} failed: ${lastError}`);
+          // Continue to try next key
+        }
       }
+      // All keys failed
+      return {
+        info: fileInfo,
+        loaded: false,
+        error: keys.length > 1
+          ? `Failed with all ${keys.length} license keys. Last error: ${lastError}`
+          : lastError,
+      };
+    }
+
+    case 'grpx': {
+      // Try each license key until one works
+      let lastError: string = 'Unknown error';
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i]!;
+        try {
+          debug?.(`[UnifiedLoader] Trying license key ${i + 1}/${keys.length} for ${feedId}`);
+          const packData = await readFile(filePath);
+          const loadedPack = await loadGrpxPack(packData, {
+            licenseKey: key,
+            machineId,
+          });
+
+          // Convert to RulePack format
+          // GRPX packs use FORMAT_PRIORITIES.grpx (200) as default priority
+          const pack: RulePack = {
+            name: feedId,
+            version: loadedPack.metadata.version,
+            publisher: loadedPack.metadata.publisher,
+            description: loadedPack.metadata.description,
+            license: loadedPack.metadata.license,
+            priority: 200, // GRPX format tier priority
+            rules: loadedPack.rules,
+          };
+
+          return {
+            info: fileInfo,
+            pack,
+            loaded: true,
+          };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+          debug?.(`[UnifiedLoader] License key ${i + 1} failed: ${lastError}`);
+          // Continue to try next key
+        }
+      }
+      // All keys failed
+      return {
+        info: fileInfo,
+        loaded: false,
+        error: keys.length > 1
+          ? `Failed with all ${keys.length} license keys. Last error: ${lastError}`
+          : lastError,
+      };
+    }
 
     case 'unencrypted':
       // Skip unencrypted packs in VS Code extension
@@ -247,18 +369,28 @@ export async function loadPackFile(
  * Scans for .grx2 and .grpx files, auto-detects format, and loads
  * using the appropriate loader. Unencrypted packs are skipped.
  *
+ * For GRX2 packs, automatically detects standard vs extended format:
+ * - Standard GRX2 (cloud packs): Requires cloudContext with wrapped TMK
+ * - Extended GRX2 (offline packs): Uses license keys (JWT) for embedded TMK
+ *
+ * Supports multi-license mode: when multiple license keys are provided,
+ * each pack is tried with all keys until one succeeds. This enables
+ * both cloud and offline licenses to work independently.
+ *
  * @param directory - Directory containing pack files
- * @param licenseKey - License key for decryption
+ * @param licenseKeys - License key(s) for decryption (single or array)
  * @param machineId - Machine ID for key derivation
  * @param entitledFeeds - Optional list of entitled feed IDs (filter)
+ * @param cloudContext - Optional cloud pack context (for standard GRX2)
  * @param debug - Optional debug logger
  * @returns Unified pack load result
  */
 export async function loadAllPacksUnified(
   directory: string,
-  licenseKey: string,
+  licenseKeys: string | string[],
   machineId: string,
   entitledFeeds?: string[],
+  cloudContext?: CloudPackContext,
   debug?: (msg: string) => void
 ): Promise<UnifiedPackLoadResult> {
   const packs: EncryptedPackInfo[] = [];
@@ -285,27 +417,41 @@ export async function loadAllPacksUnified(
 
   // Load each pack
   for (const fileInfo of packFiles) {
-    const { feedId, format, filePath } = fileInfo;
-
-    // Check entitlement if filter provided
-    if (entitledFeeds && !entitledFeeds.includes(feedId)) {
-      debug?.(`[UnifiedLoader] Skipping ${feedId}: not in entitled feeds`);
-      continue;
-    }
+    const { feedId: filenameFeedId, format, filePath } = fileInfo;
 
     // Skip unencrypted packs
     if (format === 'unencrypted') {
-      debug?.(`[UnifiedLoader] Skipping ${feedId}: unencrypted format not supported`);
+      debug?.(`[UnifiedLoader] Skipping ${filenameFeedId}: unencrypted format not supported`);
       skipped.push(fileInfo);
       continue;
     }
 
-    // Load the pack
-    const result = await loadPackFile(fileInfo, licenseKey, machineId, debug);
+    // Pre-check entitlement if filename looks like a valid feedId (not random hex)
+    // Random hex filenames (32+ chars) are from cloud cache - check entitlement post-load
+    const isRandomFilename = /^[a-f0-9]{32,}$/i.test(filenameFeedId);
+    if (!isRandomFilename && entitledFeeds && !entitledFeeds.includes(filenameFeedId)) {
+      debug?.(`[UnifiedLoader] Skipping ${filenameFeedId}: not in entitled feeds`);
+      continue;
+    }
+
+    // Load the pack (tries cloud context first for standard GRX2, then license keys)
+    const result = await loadPackFile(fileInfo, licenseKeys, machineId, cloudContext, debug);
 
     if (result.loaded && result.pack) {
+      // Use the pack's internal name as the actual feedId
+      // This is critical for random-named cache files
+      const actualFeedId = result.pack.name;
+
+      // For cached packs (random filenames), skip entitlement check:
+      // - Cloud API only serves packs user is entitled to
+      // - TMK decryption ensures only authorized users can decrypt
+      // - Pack's internal name may differ from feedId used in publishing
+      // (e.g., pack name "sf-essentials" but published as feedId "enterprise")
+      //
+      // For regular packs, entitlement was already checked pre-load based on filename
+
       const packInfo: EncryptedPackInfo = {
-        feedId,
+        feedId: actualFeedId, // Use pack's name, not filename
         name: result.pack.name,
         version: result.pack.version,
         publisher: result.pack.publisher,
@@ -320,21 +466,27 @@ export async function loadAllPacksUnified(
       loadedPacks.push({ info: packInfo, pack: result.pack });
 
       totalRules += result.pack.rules.length;
-      debug?.(`[UnifiedLoader] Loaded ${feedId} (${format}): ${result.pack.rules.length} rules`);
+      debug?.(`[UnifiedLoader] Loaded ${actualFeedId} (${format}): ${result.pack.rules.length} rules`);
     } else {
-      errors.push(`${feedId}: ${result.error}`);
-      packs.push({
-        feedId,
-        name: feedId,
-        version: 'unknown',
-        publisher: 'unknown',
-        ruleCount: 0,
-        filePath,
-        loaded: false,
-        error: result.error,
-        source: 'local',
-        format,
-      });
+      // For failed loads with random filenames, don't add to errors list
+      // (likely just wrong license key for this pack)
+      if (!isRandomFilename) {
+        errors.push(`${filenameFeedId}: ${result.error}`);
+        packs.push({
+          feedId: filenameFeedId,
+          name: filenameFeedId,
+          version: 'unknown',
+          publisher: 'unknown',
+          ruleCount: 0,
+          filePath,
+          loaded: false,
+          error: result.error,
+          source: 'local',
+          format,
+        });
+      } else {
+        debug?.(`[UnifiedLoader] Cache file ${filenameFeedId} failed to load: ${result.error}`);
+      }
     }
   }
 

@@ -30,8 +30,8 @@ export interface LicensePayload {
   /** Entitled feed IDs */
   feeds: string[];
 
-  /** API URL for cloud updates */
-  api: string;
+  /** API URL for cloud updates (optional - derived from domain at runtime if not set) */
+  api?: string;
 
   /** Expiration timestamp (Unix seconds) */
   exp: number;
@@ -229,7 +229,8 @@ export type EncryptedPackErrorCode =
   | 'DECRYPTION_FAILED'
   | 'MACHINE_MISMATCH'
   | 'NETWORK_ERROR'
-  | 'API_ERROR';
+  | 'API_ERROR'
+  | 'ACTIVATION_FAILED';
 
 /**
  * Encrypted pack error

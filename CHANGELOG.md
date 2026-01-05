@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Cloud Licensing Integration** (VS Code & CLI):
+  - 24-hour offline mode with entitlement caching for uninterrupted scanning
+  - Cloud connection status indicator in VS Code License panel (online/offline with cache time remaining)
+  - Graceful degradation when cloud API is unreachable - uses cached entitlements automatically
+  - "Get License" link in VS Code sidebar for easy access to licensing page
+  - CLI fallback commands (`activate`, `update`, `offline`, `license`) with helpful installation message when `@sentriflow/licensing` not installed
+
 - Unified `--pack <path...>` argument that auto-detects pack format from magic bytes
   - Supports GRX2 (.grx2), GRPX (.grpx), and unencrypted (.js/.ts) packs
   - Format is detected from file content, not extension
