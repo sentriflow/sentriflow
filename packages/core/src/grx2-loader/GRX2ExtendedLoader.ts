@@ -359,7 +359,6 @@ export async function loadExtendedPack(
   debug?: (msg: string) => void
 ): Promise<RulePack> {
   debug?.(`[GRX2Loader] Loading pack: ${filePath}`);
-  debug?.(`[GRX2Loader] License key length: ${licenseKey.length}, first 20 chars: ${licenseKey.substring(0, 20)}...`);
   debug?.(`[GRX2Loader] Machine ID: "${machineId}" (length: ${machineId.length})`);
 
   // Read pack file
