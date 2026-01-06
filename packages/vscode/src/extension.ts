@@ -793,8 +793,14 @@ async function handleLicenseRevocation(reason: 'revoked' | 'expired'): Promise<v
   }
 
   // 6. Refresh rules tree and rescan editor (rules from revoked packs should disappear)
-  rulesTreeProvider?.refresh();
-  rescanActiveEditor();
+  try {
+    rulesTreeProvider?.refresh();
+    rescanActiveEditor();
+  } catch (error) {
+    // Log but don't block - user notification is more important
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    log(`[License] Error refreshing UI after revocation: ${msg}`);
+  }
 
   // 7. Show user notification
   const message = reason === 'revoked'
@@ -805,7 +811,12 @@ async function handleLicenseRevocation(reason: 'revoked' | 'expired'): Promise<v
     if (action === 'Enter New License') {
       // Use cmdEnterLicenseKey instead of promptForLicenseKey directly
       // This ensures cloudClient is reinitialized, packs are reloaded, and UI is updated
-      await cmdEnterLicenseKey();
+      try {
+        await cmdEnterLicenseKey();
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        vscode.window.showErrorMessage(`Failed to activate license: ${msg}`);
+      }
     }
   });
 }
@@ -1163,7 +1174,14 @@ async function cmdEnterLicenseKey(): Promise<void> {
           await downloadUpdatesWithProgress(cloudClient, updateCheck.updatesAvailable);
         }
       } catch (error) {
-        // Log error but don't block the flow - user can manually check for updates later
+        // Handle license revocation/expiration from server during activation
+        if (error instanceof EncryptedPackError) {
+          if (error.code === 'LICENSE_EXPIRED' || error.code === 'LICENSE_INVALID') {
+            await handleLicenseRevocation(error.code === 'LICENSE_EXPIRED' ? 'expired' : 'revoked');
+            return; // Don't show success message - license is invalid
+          }
+        }
+        // Log other errors but don't block the flow - user can manually check for updates later
         const message = error instanceof Error ? error.message : 'Unknown error';
         log(`[License] Update check failed after activation: ${message}`);
       }
