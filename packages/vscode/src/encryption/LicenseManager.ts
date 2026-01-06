@@ -1022,6 +1022,96 @@ export class LicenseManager {
   }
 
   // ===========================================================================
+  // License Revocation Handling
+  // ===========================================================================
+
+  /**
+   * Mark cloud license as revoked or expired
+   *
+   * Called when API returns LICENSE_REVOKED or LICENSE_EXPIRED error.
+   * This updates the stored license status and clears security-sensitive data.
+   *
+   * @param reason - 'revoked' when server indicates license was revoked,
+   *                 'expired' when server indicates license has expired
+   */
+  async markLicenseInvalid(reason: 'revoked' | 'expired'): Promise<void> {
+    const storedLicense = await this.getStoredCloudLicense();
+    if (!storedLicense) {
+      return;
+    }
+
+    // SECURITY: Clear TMK FIRST to prevent TOCTOU race condition
+    // This ensures pack decryption fails immediately, before status is updated
+    await this.clearSecurityData();
+
+    // Clear cached license to force re-read
+    this.cachedLicense = null;
+
+    // Then update status in global state
+    const updatedLicense: StoredCloudLicense = {
+      ...storedLicense,
+      status: reason,
+      invalidatedAt: new Date().toISOString(),
+    };
+    const { wrappedTMK, wrappedCustomerTMK, ...licenseWithoutTMK } = updatedLicense;
+    await this.globalState.update(CLOUD_LICENSE_KEY, licenseWithoutTMK);
+  }
+
+  /**
+   * Check if stored cloud license is marked as revoked
+   *
+   * @returns true if license is marked as revoked
+   */
+  async isLicenseRevoked(): Promise<boolean> {
+    const storedLicense = await this.getStoredCloudLicense();
+    return storedLicense?.status === 'revoked';
+  }
+
+  /**
+   * Check if stored cloud license is marked as expired by server
+   *
+   * Note: This is different from checking JWT expiry or license expiry date.
+   * This flag is set when the server explicitly returns LICENSE_EXPIRED.
+   *
+   * @returns true if license is marked as expired by server
+   */
+  async isLicenseExpiredByServer(): Promise<boolean> {
+    const storedLicense = await this.getStoredCloudLicense();
+    return storedLicense?.status === 'expired';
+  }
+
+  /**
+   * Check if license has any invalidation status (revoked or expired)
+   *
+   * @returns true if license is invalidated
+   */
+  async isLicenseInvalidated(): Promise<boolean> {
+    const storedLicense = await this.getStoredCloudLicense();
+    return storedLicense?.status === 'revoked' || storedLicense?.status === 'expired';
+  }
+
+  /**
+   * Get license status
+   *
+   * @returns License status or undefined if no license
+   */
+  async getLicenseStatus(): Promise<'active' | 'revoked' | 'expired' | undefined> {
+    const storedLicense = await this.getStoredCloudLicense();
+    return storedLicense?.status;
+  }
+
+  /**
+   * Clear security-sensitive data (TMKs from secrets)
+   *
+   * Called when license is invalidated to prevent pack decryption.
+   */
+  async clearSecurityData(): Promise<void> {
+    await this.secrets.delete(CLOUD_WRAPPED_TMK_KEY);
+    // Note: We don't clear the license key itself to preserve the revoked status
+    // and allow the user to see that their license was revoked
+  }
+
+  // ===========================================================================
   // Connection Status
   // ===========================================================================
 
@@ -1112,6 +1202,7 @@ export class LicenseManager {
       }
 
       // Store cloud license info
+      // Explicitly set status to 'active' to ensure any previous revoked/expired status is cleared
       const storedLicense: StoredCloudLicense = {
         licenseKey: licenseKey.toUpperCase(),
         jwt: data.jwt,
@@ -1123,6 +1214,7 @@ export class LicenseManager {
         cacheValiditySeconds: data.cacheValiditySeconds,
         licenseExpiresAt: data.expiresAt, // Store actual license expiry
         tier: data.tier,
+        status: 'active', // Explicitly set to clear any previous revoked/expired status
       };
 
       await this.storeCloudLicense(storedLicense);
@@ -1246,7 +1338,7 @@ export class LicenseManager {
 
     const license: StoredCloudLicense = {
       ...licenseBase,
-      wrappedTMK: tmks?.tier ?? { encryptedKey: '', iv: '', authTag: '', tmkVersion: 0, ldkSalt: '' },
+      wrappedTMK: tmks?.tier ?? null,
       wrappedCustomerTMK: tmks?.customer,
     };
 

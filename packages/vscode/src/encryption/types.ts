@@ -323,6 +323,11 @@ export interface CloudActivationResponse {
 }
 
 /**
+ * License status
+ */
+export type LicenseStatus = 'active' | 'revoked' | 'expired';
+
+/**
  * Stored cloud license (persisted in global state)
  */
 export interface StoredCloudLicense {
@@ -333,7 +338,7 @@ export interface StoredCloudLicense {
   jwt: string;
 
   /** Wrapped TMK from activation */
-  wrappedTMK: CloudWrappedTMK;
+  wrappedTMK: CloudWrappedTMK | null;
 
   /** Wrapped customer TMK (if applicable) */
   wrappedCustomerTMK?: CloudWrappedTMK | null;
@@ -355,4 +360,10 @@ export interface StoredCloudLicense {
 
   /** Customer tier */
   tier?: 'community' | 'professional' | 'enterprise';
+
+  /** License status - set when server returns LICENSE_REVOKED or LICENSE_EXPIRED */
+  status?: LicenseStatus;
+
+  /** ISO timestamp when license was marked as revoked/expired */
+  invalidatedAt?: string;
 }

@@ -35,6 +35,8 @@ class LicenseTreeItem extends vscode.TreeItem {
 interface LicenseSummary {
   type: 'cloud' | 'offline';
   isExpired: boolean;
+  /** Whether the license has been revoked by the server */
+  isRevoked?: boolean;
   tier: string;
   expiryDate: string;
   daysUntilExpiry: number;
@@ -60,12 +62,16 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
 
   /**
    * Update cloud license info and refresh tree
+   *
+   * @param info - License info or null
+   * @param isRevoked - Whether the license has been revoked by the server
    */
-  setCloudLicense(info: LicenseInfo | null): void {
+  setCloudLicense(info: LicenseInfo | null, isRevoked = false): void {
     if (info) {
       this.cloudLicense = {
         type: 'cloud',
         isExpired: info.isExpired,
+        isRevoked,
         tier: info.payload.tier,
         expiryDate: info.expiryDate,
         daysUntilExpiry: info.daysUntilExpiry,
@@ -150,8 +156,10 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
   private buildLicenseStatus(license: LicenseSummary): string {
     const parts: string[] = [];
 
-    // Status
-    if (license.isExpired) {
+    // Status - Revoked takes highest priority
+    if (license.isRevoked) {
+      parts.push('Revoked');
+    } else if (license.isExpired) {
       parts.push('Expired');
     } else if (license.daysUntilExpiry <= 14) {
       parts.push(`${license.daysUntilExpiry}d left`);
@@ -162,8 +170,10 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
     // Tier
     parts.push(this.formatTier(license.tier));
 
-    // Expiry (compact format)
-    parts.push(license.expiryDate);
+    // Expiry (compact format) - only show if not revoked
+    if (!license.isRevoked) {
+      parts.push(license.expiryDate);
+    }
 
     return parts.join(' • ');
   }
@@ -174,7 +184,8 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
   private getLicenseIcon(license: LicenseSummary, isCloud: boolean): vscode.ThemeIcon {
     const baseIcon = isCloud ? 'cloud' : 'key';
 
-    if (license.isExpired) {
+    // Revoked and expired both get error color
+    if (license.isRevoked || license.isExpired) {
       return new vscode.ThemeIcon(baseIcon, new vscode.ThemeColor('errorForeground'));
     } else if (license.daysUntilExpiry <= 14) {
       return new vscode.ThemeIcon(baseIcon, new vscode.ThemeColor('warningForeground'));

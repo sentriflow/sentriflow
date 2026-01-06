@@ -241,6 +241,14 @@ export function unwrapCloudTMK(
   licenseKey: string,
   machineId: string
 ): Buffer {
+  // SECURITY: Validate TMK fields are present before attempting decryption
+  if (!wrappedTMK.encryptedKey || !wrappedTMK.iv || !wrappedTMK.authTag) {
+    throw new EncryptedPackError(
+      'Invalid TMK: missing required encryption fields',
+      'LICENSE_INVALID'
+    );
+  }
+
   // Derive LDK from license key, salt, and machine ID
   const ldk = deriveLDK(licenseKey, wrappedTMK.ldkSalt, machineId);
 

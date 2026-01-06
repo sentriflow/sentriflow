@@ -5,6 +5,46 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2025-01-06
+
+### Added
+- **Bulk Scanning from Explorer** - Right-click context menu support for scanning folders and multiple files:
+  - Scan entire folders recursively for network configuration files
+  - Multi-select support for scanning multiple files at once
+  - Progress notification with cancel button
+  - Results displayed in Problems panel with summary toast
+  - Supports 15 config file extensions (.cfg, .conf, .ios, .junos, .nx-os, etc.)
+
+### Changed
+- **External Packs Settings UI** - Improved settings interface:
+  - Renamed "Encrypted Packs" to "External Packs" throughout settings
+  - Added directory picker (Browse button) for packs directory
+  - Added blocked packs input field to External Packs section
+  - Blocked packs now reload immediately on setting change
+
+## [0.3.2] - 2025-12-29
+
+### Added
+- **IP Address Range Filtering** - Filter out special IP ranges from extraction results:
+  - New `sentriflow.ipAddresses.filterSpecialRanges` setting
+  - Toggle in Settings webview panel
+  - When enabled, filters out loopback, multicast, reserved, broadcast, and documentation ranges
+  - Keeps only public, private, and CGNAT addresses
+
+## [0.3.0] - 2025-12-29
+
+### Added
+- **Unified Pack Loading** - Support for multiple pack formats (GRX2 + GRPX):
+  - Automatic format detection based on file content
+  - Format indicator [GRX2]/[GRPX] shown in License panel
+  - Shared validation across CLI and VS Code extension
+
+### Fixed
+- **Tags View Pack Filtering** - Tags section now only shows rules from enabled packs, properly respecting `enableDefaultRules` and `blockedPacks` settings
+
+### Changed
+- **BREAKING**: VS Code settings renamed from `sentriflow.encryptedPacks.*` to `sentriflow.packs.*`
+
 ## [0.2.3] - 2025-12-27
 
 ### Added

@@ -898,7 +898,15 @@ export async function checkForUpdatesWithProgress(
       try {
         return await cloudClient.checkForUpdates(localPacks);
       } catch (error) {
-        // Log error silently - don't bother users with connection issues
+        // Re-throw license errors so they can be handled by callers
+        // These indicate the license has been revoked or expired on the server
+        if (error instanceof EncryptedPackError) {
+          if (error.code === 'LICENSE_EXPIRED' || error.code === 'LICENSE_INVALID') {
+            throw error;
+          }
+        }
+
+        // Log other errors silently - don't bother users with connection issues
         // Extension will continue using existing/cached packs
         const errorMessage = (error as Error).message;
         logger?.(
@@ -994,6 +1002,14 @@ export async function checkForUpdatesWithFallback(
           fromCache: entitlementsResult.fromCache,
         };
       } catch (error) {
+        // Re-throw license errors so they can be handled by callers
+        // These indicate the license has been revoked or expired on the server
+        if (error instanceof EncryptedPackError) {
+          if (error.code === 'LICENSE_EXPIRED' || error.code === 'LICENSE_INVALID') {
+            throw error;
+          }
+        }
+
         const errorMessage = (error as Error).message;
         logger?.(
           `[EncryptedPacks] Update check failed for ${cloudClient.getApiUrl()}: ${errorMessage}`

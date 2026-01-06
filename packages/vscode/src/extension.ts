@@ -45,6 +45,7 @@ import {
   loadAllPacksUnified,
   checkForUpdatesWithProgress,
   downloadUpdatesWithProgress,
+  EncryptedPackError,
   type UpdateCheckResult,
   type EncryptedPackInfo,
   type CloudPackContext,
@@ -755,6 +756,55 @@ async function initializePacks(
 }
 
 /**
+ * Handle license revocation or expiration from the server.
+ *
+ * This is called when the cloud API returns LICENSE_EXPIRED or LICENSE_INVALID,
+ * indicating the license has been revoked or has expired on the server side.
+ *
+ * @param reason - 'revoked' or 'expired'
+ */
+async function handleLicenseRevocation(reason: 'revoked' | 'expired'): Promise<void> {
+  if (!licenseManager) {
+    return;
+  }
+
+  logInfo(`[License] License ${reason} - clearing caches and updating status`);
+
+  // 1. Mark the license as invalid (updates stored status, clears TMK)
+  await licenseManager.markLicenseInvalid(reason);
+
+  // 2. Clear entitlements cache (prevents offline entitlement use)
+  await licenseManager.clearEntitlementsCache();
+
+  // 3. Clear pack cache (removes downloaded packs)
+  if (cloudClient) {
+    await cloudClient.clearCache();
+  }
+
+  // 4. Clear in-memory pack state
+  encryptedPacksInfo.length = 0;
+  registeredPacks.clear();
+
+  // 5. Update UI to show revoked status
+  if (licenseTreeProvider) {
+    const cloudLicenseInfo = await licenseManager.getCloudLicenseInfo();
+    licenseTreeProvider.setCloudLicense(cloudLicenseInfo, true); // isRevoked = true
+    licenseTreeProvider.setEncryptedPacks([]);
+  }
+
+  // 6. Show user notification
+  const message = reason === 'revoked'
+    ? 'Your SentriFlow license has been revoked. Please contact support or obtain a new license.'
+    : 'Your SentriFlow license has expired. Please renew your license.';
+
+  vscode.window.showErrorMessage(message, 'Enter New License').then(async (action) => {
+    if (action === 'Enter New License') {
+      await licenseManager?.promptForLicenseKey();
+    }
+  });
+}
+
+/**
  * Check for and download pack updates from cloud.
  */
 async function checkAndDownloadUpdates(): Promise<void> {
@@ -770,28 +820,39 @@ async function checkAndDownloadUpdates(): Promise<void> {
     }
   }
 
-  // Check for updates (errors always logged for visibility)
-  lastUpdateCheck = await checkForUpdatesWithProgress(
-    cloudClient,
-    localVersions,
-    logInfo
-  );
-
-  if (lastUpdateCheck?.hasUpdates) {
-    const updateCount = lastUpdateCheck.updatesAvailable.length;
-    logInfo(`[Packs] ${updateCount} pack update(s) available - downloading automatically`);
-
-    // Auto-download updates without asking
-    await downloadUpdatesWithProgress(
+  try {
+    // Check for updates (license errors are re-thrown)
+    lastUpdateCheck = await checkForUpdatesWithProgress(
       cloudClient,
-      lastUpdateCheck.updatesAvailable
+      localVersions,
+      logInfo
     );
-    // Reload packs after download
-    await loadPacks();
-  }
 
-  // Record last check time
-  await licenseManager.setLastUpdateCheck(new Date().toISOString());
+    if (lastUpdateCheck?.hasUpdates) {
+      const updateCount = lastUpdateCheck.updatesAvailable.length;
+      logInfo(`[Packs] ${updateCount} pack update(s) available - downloading automatically`);
+
+      // Auto-download updates without asking
+      await downloadUpdatesWithProgress(
+        cloudClient,
+        lastUpdateCheck.updatesAvailable
+      );
+      // Reload packs after download
+      await loadPacks();
+    }
+
+    // Record last check time
+    await licenseManager.setLastUpdateCheck(new Date().toISOString());
+  } catch (error) {
+    // Handle license revocation/expiration from server
+    if (error instanceof EncryptedPackError) {
+      if (error.code === 'LICENSE_EXPIRED' || error.code === 'LICENSE_INVALID') {
+        await handleLicenseRevocation(error.code === 'LICENSE_EXPIRED' ? 'expired' : 'revoked');
+      }
+    }
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 /**
@@ -822,12 +883,20 @@ async function loadPacks(): Promise<void> {
   const cloudLicenseInfo = await licenseManager.getLicenseInfo();
   const offlineLicenseInfo = await licenseManager.getOfflineLicenseInfo();
 
+  // Check if cloud license has been invalidated by server (revoked or expired)
+  const isCloudLicenseInvalidated = await licenseManager.isLicenseInvalidated();
+
   // Check if any valid license exists
-  const hasValidCloudLicense = cloudLicenseInfo && !cloudLicenseInfo.isExpired;
+  // Cloud license is invalid if expired OR if server has invalidated it
+  const hasValidCloudLicense = cloudLicenseInfo && !cloudLicenseInfo.isExpired && !isCloudLicenseInvalidated;
   const hasValidOfflineLicense = offlineLicenseInfo && !offlineLicenseInfo.isExpired;
 
   if (allLicenseKeys.length === 0 || (!hasValidCloudLicense && !hasValidOfflineLicense)) {
-    log('[Packs] No valid license key configured');
+    if (isCloudLicenseInvalidated) {
+      log('[Packs] Cloud license has been revoked or expired by server');
+    } else {
+      log('[Packs] No valid license key configured');
+    }
     return;
   }
 
@@ -893,7 +962,11 @@ async function loadPacks(): Promise<void> {
   // Build cloud pack context for standard GRX2 packs (cloud packs require external TMK)
   let cloudContext: CloudPackContext | undefined;
   const storedCloudLicense = await licenseManager.getStoredCloudLicense();
-  if (storedCloudLicense?.licenseKey && storedCloudLicense?.wrappedTMK) {
+  // SECURITY: Don't use cloud context if license is revoked or expired by server
+  if (storedCloudLicense?.licenseKey &&
+      storedCloudLicense?.wrappedTMK &&
+      storedCloudLicense?.status !== 'revoked' &&
+      storedCloudLicense?.status !== 'expired') {
     cloudContext = {
       licenseKey: storedCloudLicense.licenseKey,
       wrappedTMK: storedCloudLicense.wrappedTMK,
@@ -1035,7 +1108,10 @@ async function updateLicenseTree(): Promise<void> {
     ? await licenseManager.getOfflineLicenseInfo()
     : null;
 
-  licenseTreeProvider.setCloudLicense(cloudLicenseInfo);
+  // Check if license is revoked or expired by server
+  const isRevoked = licenseManager ? await licenseManager.isLicenseInvalidated() : false;
+
+  licenseTreeProvider.setCloudLicense(cloudLicenseInfo, isRevoked);
   licenseTreeProvider.setOfflineLicense(offlineLicenseInfo);
   licenseTreeProvider.setEncryptedPacks(encryptedPacksInfo);
 }
@@ -1060,31 +1136,37 @@ async function cmdEnterLicenseKey(): Promise<void> {
         licenseKey: cloudLicense.jwt,
       });
 
-      // Check for updates and download automatically
-      const localVersions = new Map<string, string>();
-      for (const pack of encryptedPacksInfo) {
-        if (pack.loaded) {
-          localVersions.set(pack.feedId, pack.version);
+      // Check for updates and download automatically (wrapped in try-catch to not block UI refresh)
+      try {
+        const localVersions = new Map<string, string>();
+        for (const pack of encryptedPacksInfo) {
+          if (pack.loaded) {
+            localVersions.set(pack.feedId, pack.version);
+          }
         }
-      }
 
-      const updateCheck = await checkForUpdatesWithProgress(
-        cloudClient,
-        localVersions,
-        logInfo
-      );
+        const updateCheck = await checkForUpdatesWithProgress(
+          cloudClient,
+          localVersions,
+          logInfo
+        );
 
-      if (updateCheck?.hasUpdates) {
-        const updateCount = updateCheck.updatesAvailable.length;
-        logInfo(`[License] ${updateCount} pack update(s) available - downloading automatically`);
-        await downloadUpdatesWithProgress(cloudClient, updateCheck.updatesAvailable);
+        if (updateCheck?.hasUpdates) {
+          const updateCount = updateCheck.updatesAvailable.length;
+          logInfo(`[License] ${updateCount} pack update(s) available - downloading automatically`);
+          await downloadUpdatesWithProgress(cloudClient, updateCheck.updatesAvailable);
+        }
+      } catch (error) {
+        // Log error but don't block the flow - user can manually check for updates later
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        log(`[License] Update check failed after activation: ${message}`);
       }
     } else {
       log('[License] No cloud license - update checks disabled');
       cloudClient = null;
     }
 
-    // Reload encrypted packs with new license (or after download)
+    // Always reload packs and update UI, even if update check failed
     await loadPacks();
     updateLicenseTree();
 
