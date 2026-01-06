@@ -792,14 +792,20 @@ async function handleLicenseRevocation(reason: 'revoked' | 'expired'): Promise<v
     licenseTreeProvider.setEncryptedPacks([]);
   }
 
-  // 6. Show user notification
+  // 6. Refresh rules tree and rescan editor (rules from revoked packs should disappear)
+  rulesTreeProvider?.refresh();
+  rescanActiveEditor();
+
+  // 7. Show user notification
   const message = reason === 'revoked'
     ? 'Your SentriFlow license has been revoked. Please contact support or obtain a new license.'
     : 'Your SentriFlow license has expired. Please renew your license.';
 
   vscode.window.showErrorMessage(message, 'Enter New License').then(async (action) => {
     if (action === 'Enter New License') {
-      await licenseManager?.promptForLicenseKey();
+      // Use cmdEnterLicenseKey instead of promptForLicenseKey directly
+      // This ensures cloudClient is reinitialized, packs are reloaded, and UI is updated
+      await cmdEnterLicenseKey();
     }
   });
 }
@@ -1168,7 +1174,10 @@ async function cmdEnterLicenseKey(): Promise<void> {
 
     // Always reload packs and update UI, even if update check failed
     await loadPacks();
-    updateLicenseTree();
+    await updateLicenseTree();
+
+    // Force refresh the tree view to ensure UI is updated
+    licenseTreeProvider?.refresh();
 
     vscode.window.showInformationMessage('SentriFlow: License activated successfully');
   }
@@ -1241,34 +1250,47 @@ async function cmdCheckForUpdates(): Promise<void> {
     }
   }
 
-  lastUpdateCheck = await checkForUpdatesWithProgress(
-    cloudClient,
-    localVersions,
-    logInfo
-  );
+  try {
+    lastUpdateCheck = await checkForUpdatesWithProgress(
+      cloudClient,
+      localVersions,
+      logInfo
+    );
 
-  if (lastUpdateCheck) {
-    await licenseManager.setLastUpdateCheck(new Date().toISOString());
+    if (lastUpdateCheck) {
+      await licenseManager.setLastUpdateCheck(new Date().toISOString());
 
-    if (lastUpdateCheck.hasUpdates) {
-      const updateCount = lastUpdateCheck.updatesAvailable.length;
-      logInfo(`[Packs] ${updateCount} pack update(s) available - downloading automatically`);
+      if (lastUpdateCheck.hasUpdates) {
+        const updateCount = lastUpdateCheck.updatesAvailable.length;
+        logInfo(`[Packs] ${updateCount} pack update(s) available - downloading automatically`);
 
-      // Auto-download updates
-      await downloadUpdatesWithProgress(
-        cloudClient,
-        lastUpdateCheck.updatesAvailable
-      );
-      // Reload packs after download
-      await loadPacks();
-      vscode.window.showInformationMessage(
-        `SentriFlow: Downloaded ${updateCount} pack update(s)`
-      );
-    } else {
-      vscode.window.showInformationMessage(
-        'SentriFlow: All packs are up to date'
-      );
+        // Auto-download updates
+        await downloadUpdatesWithProgress(
+          cloudClient,
+          lastUpdateCheck.updatesAvailable
+        );
+        // Reload packs after download
+        await loadPacks();
+        vscode.window.showInformationMessage(
+          `SentriFlow: Downloaded ${updateCount} pack update(s)`
+        );
+      } else {
+        vscode.window.showInformationMessage(
+          'SentriFlow: All packs are up to date'
+        );
+      }
     }
+  } catch (error) {
+    // Handle license revocation/expiration from server
+    if (error instanceof EncryptedPackError) {
+      if (error.code === 'LICENSE_EXPIRED' || error.code === 'LICENSE_INVALID') {
+        await handleLicenseRevocation(error.code === 'LICENSE_EXPIRED' ? 'expired' : 'revoked');
+        return; // Don't show generic error after handling revocation
+      }
+    }
+    // Show error for other failures
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    vscode.window.showErrorMessage(`Update check failed: ${message}`);
   }
 }
 

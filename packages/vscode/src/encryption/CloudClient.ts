@@ -626,7 +626,9 @@ export class CloudClient {
    * @param localPacks - Map of feedId to local version
    * @returns Update check result
    */
-  async checkForUpdates(localPacks: Map<string, string>): Promise<UpdateCheckResult> {
+  async checkForUpdates(
+    localPacks: Map<string, string>
+  ): Promise<UpdateCheckResult> {
     try {
       const entitlements = await this.getEntitlements();
 
