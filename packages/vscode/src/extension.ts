@@ -49,6 +49,8 @@ import {
   type UpdateCheckResult,
   type EncryptedPackInfo,
   type CloudPackContext,
+  type EntitlementInfo,
+  type CloudConnectionStatus,
   DEFAULT_PACKS_DIRECTORY,
   CACHE_DIRECTORY,
   DEFAULT_CLOUD_API_URL,
@@ -626,8 +628,8 @@ const CONFIG_EXTENSIONS = new Set([
   '.voss',
 ]);
 
-// Debug mode - only log when explicitly enabled
-let debugMode = false;
+// Debug mode - only log when explicitly enabled (read from settings on activation)
+let debugMode = vscode.workspace.getConfiguration('sentriflow').get<boolean>('debug', false);
 
 // ============================================================================
 // Encrypted Pack Functions
@@ -893,12 +895,14 @@ async function loadPacks(): Promise<void> {
     return;
   }
 
-  // Get all available license keys (cloud + offline)
-  const allLicenseKeys = await licenseManager.getAllLicenseKeys();
-
   // Get license info from both sources
   const cloudLicenseInfo = await licenseManager.getLicenseInfo();
   const offlineLicenseInfo = await licenseManager.getOfflineLicenseInfo();
+
+  // Get offline license key separately (for extended GRX2/GRPX packs)
+  // Cloud packs use cloudContext with wrapped TMK, not the license key array
+  const offlineLicenseKey = await licenseManager.getOfflineLicenseKey();
+  const offlineLicenseKeys = offlineLicenseKey ? [offlineLicenseKey] : [];
 
   // Check if cloud license has been invalidated by server (revoked or expired)
   const isCloudLicenseInvalidated = await licenseManager.isLicenseInvalidated();
@@ -908,7 +912,7 @@ async function loadPacks(): Promise<void> {
   const hasValidCloudLicense = cloudLicenseInfo && !cloudLicenseInfo.isExpired && !isCloudLicenseInvalidated;
   const hasValidOfflineLicense = offlineLicenseInfo && !offlineLicenseInfo.isExpired;
 
-  if (allLicenseKeys.length === 0 || (!hasValidCloudLicense && !hasValidOfflineLicense)) {
+  if (!hasValidCloudLicense && !hasValidOfflineLicense) {
     if (isCloudLicenseInvalidated) {
       log('[Packs] Cloud license has been revoked or expired by server');
     } else {
@@ -995,12 +999,15 @@ async function loadPacks(): Promise<void> {
   }
 
   // Load from main directory using unified loader (supports GRX2 + GRPX)
-  // Note: Passes all license keys - loader will try each until one works
+  // - Standard GRX2 (cloud packs): uses cloudContext with wrapped TMK
+  // - Extended GRX2 (offline packs): uses offlineLicenseKeys (JWT with embedded TMK)
+  // - GRPX: uses offlineLicenseKeys
   log(`[Packs] Loading from main directory: ${directory}`);
-  log(`[Packs] Using ${allLicenseKeys.length} license key(s) for decryption`);
+  log(`[Packs] Using ${offlineLicenseKeys.length} offline license key(s) for extended GRX2/GRPX`);
+  log(`[Packs] Cloud context: ${cloudContext ? 'available' : 'not available'}`);
   const mainResult = await loadAllPacksUnified(
     directory,
-    allLicenseKeys,
+    offlineLicenseKeys,
     machineId,
     Array.from(entitledFeeds),
     cloudContext,
@@ -1025,11 +1032,154 @@ async function loadPacks(): Promise<void> {
     );
   }
 
-  // Load from cache directory (uses same multi-license approach)
+  // Clean up unentitled cached packs before loading (only when online)
+  // This ensures stale packs from revoked/changed entitlements are removed
+  // Use a timeout to prevent blocking activation if cloud is slow/unreachable
+  if (cloudClient) {
+    const CONNECTIVITY_CHECK_TIMEOUT_MS = 10000; // 10 seconds max for connectivity check
+
+    // Result type for connectivity check
+    interface ConnectivityResult {
+      status: CloudConnectionStatus;
+      cloudEntitledFeedIds: string[]; // Feed IDs from cloud API (authoritative source)
+    }
+
+    // Helper to run connectivity check with timeout
+    const checkConnectivityWithTimeout = async (): Promise<ConnectivityResult> => {
+      return new Promise((resolve) => {
+        const timeoutId = setTimeout(() => {
+          log('[Cloud] Connectivity check timed out - assuming offline');
+          resolve({ status: 'offline', cloudEntitledFeedIds: [] });
+        }, CONNECTIVITY_CHECK_TIMEOUT_MS);
+
+        (async () => {
+          try {
+            log('[Cloud] Checking cloud connectivity...');
+            const cachedEntitlements = await licenseManager.getCachedEntitlements();
+            log(`[Cloud] Cached entitlements: ${cachedEntitlements ? 'present' : 'none'}`);
+            if (cachedEntitlements) {
+              const expiresIn = Math.floor((new Date(cachedEntitlements.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60));
+              log(`[Cloud] Cache expires in ${expiresIn} hours`);
+            }
+
+            const result = await cloudClient.getEntitlementsWithFallback(cachedEntitlements);
+            clearTimeout(timeoutId);
+
+            log(`[Cloud] Connection status: ${result.status}, fromCache: ${result.fromCache}`);
+
+            // Extract feed IDs from cloud entitlements (this is the authoritative source)
+            const cloudFeedIds = result.entitlements?.feeds.map(f => f.id) ?? [];
+
+            if (result.entitlements) {
+              log(`[Cloud] Entitlements received: ${result.entitlements.feeds.length} feeds, tier: ${result.entitlements.tier}`);
+              log(`[Cloud] Cloud entitled feed IDs: ${cloudFeedIds.join(', ')}`);
+            }
+
+            // Cache entitlements if fetched fresh
+            if (!result.fromCache && result.entitlements) {
+              await licenseManager.cacheEntitlements(result.entitlements);
+              log('[Cloud] Cached fresh entitlements');
+            }
+
+            // Update tree provider with connection status
+            if (licenseTreeProvider) {
+              const cacheHours = cachedEntitlements
+                ? Math.max(0, Math.floor((new Date(cachedEntitlements.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)))
+                : 0;
+              licenseTreeProvider.setConnectionStatus(result.status, cacheHours);
+            }
+
+            // Log connection status for user visibility
+            if (result.status === 'online') {
+              logInfo('[Cloud] Connected to SentriFlow cloud');
+            } else {
+              logInfo(`[Cloud] Offline mode - using cached entitlements (${cachedEntitlements ? 'valid' : 'expired/none'})`);
+            }
+
+            resolve({ status: result.status, cloudEntitledFeedIds: cloudFeedIds });
+          } catch (error) {
+            clearTimeout(timeoutId);
+
+            // If license is invalid/expired, we still know we're "online" (got a response)
+            if (error instanceof EncryptedPackError && (error.code === 'LICENSE_INVALID' || error.code === 'LICENSE_EXPIRED')) {
+              log(`[Cloud] License error but connection confirmed: ${error.code}`);
+              logInfo(`[Cloud] License ${error.code === 'LICENSE_EXPIRED' ? 'expired' : 'invalid'} - cache cleanup will proceed`);
+              // No valid entitlements when license is invalid - only keep offline packs
+              resolve({ status: 'online', cloudEntitledFeedIds: [] });
+            } else {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              log(`[Cloud] Connection failed: ${errorMsg}`);
+              logInfo('[Cloud] Cannot reach cloud API - operating in offline mode');
+
+              // Update tree provider with offline status
+              if (licenseTreeProvider) {
+                const cachedEntitlements = await licenseManager.getCachedEntitlements();
+                const cacheHours = cachedEntitlements
+                  ? Math.max(0, Math.floor((new Date(cachedEntitlements.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)))
+                  : 0;
+                licenseTreeProvider.setConnectionStatus('offline', cacheHours);
+              }
+
+              resolve({ status: 'offline', cloudEntitledFeedIds: [] });
+            }
+          }
+        })();
+      });
+    };
+
+    const connectivityResult = await checkConnectivityWithTimeout();
+
+    // Run cache cleanup if we're online
+    // Use cloud entitlements (authoritative) combined with offline license feeds
+    if (connectivityResult.status === 'online') {
+      // Combine cloud entitlements with offline license feeds for cleanup
+      // Cloud API is authoritative for cloud packs, offline license is authoritative for offline packs
+      const allEntitledForCleanup = new Set<string>(connectivityResult.cloudEntitledFeedIds);
+
+      // Add offline license feeds (these should never be cleaned from cache)
+      if (hasValidOfflineLicense && offlineLicenseInfo) {
+        for (const feed of offlineLicenseInfo.payload.feeds) {
+          allEntitledForCleanup.add(feed);
+        }
+      }
+
+      log(`[Cache] Running cache cleanup. Cloud entitled: [${connectivityResult.cloudEntitledFeedIds.join(', ')}], Combined: [${Array.from(allEntitledForCleanup).join(', ')}]`);
+      const cleanupResult = await cloudClient.cleanupUnentitledCache(
+        Array.from(allEntitledForCleanup),
+        connectivityResult.status,
+        log
+      );
+      if (cleanupResult.deletedCount > 0) {
+        logInfo(`[Cache] Removed ${cleanupResult.deletedCount} unentitled pack(s): ${cleanupResult.removedFeedIds?.join(', ')}`);
+      } else {
+        log('[Cache] No unentitled packs to clean up');
+      }
+
+      // Also clean up orphaned files
+      const orphanedCount = await cloudClient.cleanupOrphanedFiles(log);
+      if (orphanedCount > 0) {
+        logInfo(`[Cache] Removed ${orphanedCount} orphaned file(s)`);
+      }
+
+      // Update entitledFeeds with cloud entitlements for pack loading
+      // This ensures we load all packs we're entitled to from cloud
+      for (const feedId of connectivityResult.cloudEntitledFeedIds) {
+        entitledFeeds.add(feedId);
+      }
+      log(`[Packs] Updated entitled feeds with cloud entitlements: ${Array.from(entitledFeeds).join(', ')}`);
+    } else {
+      log(`[Cache] Skipping cache cleanup - connection status: ${connectivityResult.status}`);
+    }
+  } else {
+    log('[Cloud] No cloud client - skipping connectivity check and cache cleanup');
+  }
+
+  // Load from cache directory
+  // Cache contains cloud packs (standard GRX2) which use cloudContext
   log(`[Packs] Loading from cache directory: ${CACHE_DIRECTORY}`);
   const cacheResult = await loadAllPacksUnified(
     CACHE_DIRECTORY,
-    allLicenseKeys,
+    offlineLicenseKeys,  // Only offline keys - cloud packs use cloudContext
     machineId,
     Array.from(entitledFeeds),
     cloudContext,
@@ -1128,9 +1278,58 @@ async function updateLicenseTree(): Promise<void> {
   // Check if license is revoked or expired by server
   const isRevoked = licenseManager ? await licenseManager.isLicenseInvalidated() : false;
 
+  // Build entitlement info from both licenses
+  const entitlements: EntitlementInfo[] = [];
+  const seenFeedIds = new Set<string>();
+
+  // Get cache manifest for cached status
+  const cacheManifest = cloudClient ? await cloudClient.loadCacheManifest() : null;
+
+  // Add cloud license feeds (if not revoked)
+  if (cloudLicenseInfo && !isRevoked) {
+    for (const feedId of cloudLicenseInfo.payload.feeds) {
+      if (seenFeedIds.has(feedId)) continue;
+      seenFeedIds.add(feedId);
+
+      const packInfo = encryptedPacksInfo.find((p) => p.feedId === feedId);
+      const cacheEntry = cacheManifest?.entries[feedId];
+
+      entitlements.push({
+        feedId,
+        name: packInfo?.name || feedId,
+        source: 'cloud',
+        loaded: packInfo?.loaded ?? false,
+        cached: !!cacheEntry,
+        version: packInfo?.version ?? cacheEntry?.version,
+        ruleCount: packInfo?.ruleCount,
+      });
+    }
+  }
+
+  // Add offline license feeds
+  if (offlineLicenseInfo && !offlineLicenseInfo.isExpired) {
+    for (const feedId of offlineLicenseInfo.payload.feeds) {
+      if (seenFeedIds.has(feedId)) continue;
+      seenFeedIds.add(feedId);
+
+      const packInfo = encryptedPacksInfo.find((p) => p.feedId === feedId);
+
+      entitlements.push({
+        feedId,
+        name: packInfo?.name || feedId,
+        source: 'offline',
+        loaded: packInfo?.loaded ?? false,
+        cached: false, // Offline packs aren't cloud-cached
+        version: packInfo?.version,
+        ruleCount: packInfo?.ruleCount,
+      });
+    }
+  }
+
   licenseTreeProvider.setCloudLicense(cloudLicenseInfo, isRevoked);
   licenseTreeProvider.setOfflineLicense(offlineLicenseInfo);
   licenseTreeProvider.setEncryptedPacks(encryptedPacksInfo);
+  licenseTreeProvider.setEntitlements(entitlements);
 }
 
 /**
@@ -2475,8 +2674,11 @@ async function cmdSetLanguage() {
   }
 }
 
-function cmdToggleDebug() {
+async function cmdToggleDebug() {
   debugMode = !debugMode;
+  // Update the setting to keep in sync
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  await config.update('debug', debugMode, vscode.ConfigurationTarget.Global);
   vscode.window.showInformationMessage(
     `SENTRIFLOW: Debug logging ${debugMode ? 'enabled' : 'disabled'}`
   );
@@ -4180,6 +4382,15 @@ function onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
     // Re-extract IPs with new filter setting
     ipAddressesTreeProvider.updateFromDocument(vscode.window.activeTextEditor?.document);
     settingsWebviewProvider.refresh();
+  }
+
+  if (event.affectsConfiguration('sentriflow.debug')) {
+    const config = vscode.workspace.getConfiguration('sentriflow');
+    debugMode = config.get<boolean>('debug', false);
+    logInfo(`Debug logging ${debugMode ? 'enabled' : 'disabled'}`);
+    if (debugMode) {
+      outputChannel.show();
+    }
   }
 }
 

@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "license": "Apache-2.0",
   "qna": "marketplace",
   "privacy": {
@@ -616,6 +616,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show external packs in the rules tree view"
+        },
+        "sentriflow.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging in the SentriFlow output channel"
         }
       }
     },
