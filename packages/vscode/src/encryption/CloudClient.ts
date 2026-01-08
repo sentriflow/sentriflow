@@ -27,6 +27,7 @@ import type {
   CloudConnectionStatus,
   CacheManifest,
   CacheManifestEntry,
+  CacheCleanupResult,
 } from './types';
 import { EncryptedPackError, CACHE_DIRECTORY } from './types';
 
@@ -797,6 +798,134 @@ export class CloudClient {
       } catch {
         // Ignore stat/deletion errors
       }
+    }
+
+    return deletedCount;
+  }
+
+  /**
+   * Clean up cached packs that are no longer entitled
+   *
+   * SAFETY: Only runs when online to prevent accidental deletion when
+   * network is unavailable. Cached packs are essential for offline operation.
+   *
+   * @param entitledFeedIds - Array of feed IDs the user is entitled to
+   * @param connectionStatus - Current network connection status
+   * @param logger - Optional logger for debug messages
+   * @returns Cleanup result with counts and removed feed IDs
+   */
+  async cleanupUnentitledCache(
+    entitledFeedIds: string[],
+    connectionStatus: CloudConnectionStatus,
+    logger?: (message: string) => void
+  ): Promise<CacheCleanupResult> {
+    // CRITICAL: Never delete cached packs when offline
+    // Cached packs are the user's only access to rules when network is unavailable
+    if (connectionStatus !== 'online') {
+      logger?.('[Cache] Skipping cleanup - not online');
+      return { deletedCount: 0, skippedReason: 'offline' };
+    }
+
+    const manifest = await this.loadCacheManifest();
+    if (!manifest) {
+      logger?.('[Cache] Skipping cleanup - no manifest found');
+      return { deletedCount: 0, skippedReason: 'no-manifest' };
+    }
+
+    const entitledSet = new Set(entitledFeedIds);
+    const toRemove: string[] = [];
+
+    // Find entries that are no longer entitled
+    for (const feedId of Object.keys(manifest.entries)) {
+      if (!entitledSet.has(feedId)) {
+        toRemove.push(feedId);
+      }
+    }
+
+    if (toRemove.length === 0) {
+      logger?.('[Cache] No unentitled packs to clean up');
+      return { deletedCount: 0, removedFeedIds: [] };
+    }
+
+    logger?.(`[Cache] Cleaning up ${toRemove.length} unentitled pack(s): ${toRemove.join(', ')}`);
+
+    let deletedCount = 0;
+    for (const feedId of toRemove) {
+      const entry = manifest.entries[feedId];
+      if (!entry) continue;
+
+      const filePath = join(this.cacheDir, entry.fileName);
+
+      try {
+        if (existsSync(filePath)) {
+          await unlink(filePath);
+          deletedCount++;
+          logger?.(`[Cache] Deleted ${entry.fileName} (${feedId})`);
+        }
+      } catch {
+        // Ignore deletion errors - file may already be gone
+      }
+
+      // Remove from manifest regardless of file deletion result
+      delete manifest.entries[feedId];
+    }
+
+    // Save updated manifest
+    manifest.updatedAt = new Date().toISOString();
+    await this.saveCacheManifest(manifest);
+
+    logger?.(`[Cache] Cleanup complete: ${deletedCount} file(s) deleted`);
+
+    return {
+      deletedCount,
+      removedFeedIds: toRemove,
+    };
+  }
+
+  /**
+   * Clean up orphaned files in cache that are not tracked in manifest
+   *
+   * Orphaned files can occur from interrupted downloads, manifest corruption,
+   * or version upgrades. This ensures cache only contains tracked packs.
+   *
+   * @param logger - Optional logger for debug messages
+   * @returns Number of orphaned files deleted
+   */
+  async cleanupOrphanedFiles(logger?: (message: string) => void): Promise<number> {
+    if (!existsSync(this.cacheDir)) {
+      return 0;
+    }
+
+    const manifest = await this.loadCacheManifest();
+    const validFileNames = new Set(
+      Object.values(manifest?.entries ?? {}).map((e) => e.fileName)
+    );
+
+    const files = await this.getCachedPacks();
+    let deletedCount = 0;
+
+    for (const filePath of files) {
+      const fileName = basename(filePath);
+
+      // Skip manifest file
+      if (fileName === CACHE_MANIFEST_FILE) {
+        continue;
+      }
+
+      // Delete if not in manifest
+      if (!validFileNames.has(fileName)) {
+        try {
+          await unlink(filePath);
+          deletedCount++;
+          logger?.(`[Cache] Deleted orphaned file: ${fileName}`);
+        } catch {
+          // Ignore deletion errors
+        }
+      }
+    }
+
+    if (deletedCount > 0) {
+      logger?.(`[Cache] Cleaned up ${deletedCount} orphaned file(s)`);
     }
 
     return deletedCount;

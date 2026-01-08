@@ -367,3 +367,49 @@ export interface StoredCloudLicense {
   /** ISO timestamp when license was marked as revoked/expired */
   invalidatedAt?: string;
 }
+
+// =============================================================================
+// Entitlement Display Types
+// =============================================================================
+
+/**
+ * Entitlement information for display in License TreeView
+ *
+ * Combines information from cloud/offline licenses with load and cache status.
+ */
+export interface EntitlementInfo {
+  /** Feed ID */
+  feedId: string;
+
+  /** Display name */
+  name: string;
+
+  /** Source of entitlement */
+  source: 'cloud' | 'offline';
+
+  /** Whether the pack is currently loaded */
+  loaded: boolean;
+
+  /** Whether the pack is cached locally */
+  cached: boolean;
+
+  /** Pack version (if loaded or cached) */
+  version?: string;
+
+  /** Number of rules (if loaded) */
+  ruleCount?: number;
+}
+
+/**
+ * Result of cache cleanup operation
+ */
+export interface CacheCleanupResult {
+  /** Number of files deleted */
+  deletedCount: number;
+
+  /** Reason cleanup was skipped (if any) */
+  skippedReason?: 'offline' | 'no-manifest';
+
+  /** Feed IDs that were removed */
+  removedFeedIds?: string[];
+}

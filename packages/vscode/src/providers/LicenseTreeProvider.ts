@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { LicenseInfo, EncryptedPackInfo, CloudConnectionStatus } from '../encryption/types';
+import type { LicenseInfo, EncryptedPackInfo, CloudConnectionStatus, EntitlementInfo } from '../encryption/types';
 
 /**
  * Tree item for license information display
@@ -57,6 +57,7 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
   private cloudLicense: LicenseSummary | null = null;
   private offlineLicense: LicenseSummary | null = null;
   private encryptedPacks: EncryptedPackInfo[] = [];
+  private entitlements: EntitlementInfo[] = [];
   private connectionStatus: CloudConnectionStatus = 'unknown';
   private cacheHoursRemaining = 0;
 
@@ -124,6 +125,16 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
   setConnectionStatus(status: CloudConnectionStatus, cacheHoursRemaining = 0): void {
     this.connectionStatus = status;
     this.cacheHoursRemaining = cacheHoursRemaining;
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
+  /**
+   * Update entitlements info and refresh tree
+   *
+   * Displays all feeds the user is entitled to from both cloud and offline licenses.
+   */
+  setEntitlements(entitlements: EntitlementInfo[]): void {
+    this.entitlements = entitlements;
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -274,6 +285,50 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
           'connection-status',
           connectionDescription,
           connectionIcon
+        )
+      );
+    }
+
+    // === ENTITLED FEEDS SECTION ===
+    if (this.entitlements.length > 0) {
+      const entitlementChildren = this.entitlements.map((ent, index) => {
+        // Icon based on load status
+        const statusIcon = ent.loaded
+          ? new vscode.ThemeIcon('check', new vscode.ThemeColor('testing.iconPassed'))
+          : new vscode.ThemeIcon('cloud-download', new vscode.ThemeColor('foreground'));
+
+        // Source indicator
+        const sourceLabel = ent.source === 'cloud' ? 'Cloud' : 'Offline';
+
+        // Build description
+        let description: string;
+        if (ent.loaded && ent.version && ent.ruleCount !== undefined) {
+          description = `v${ent.version} • ${ent.ruleCount} rules • ${sourceLabel}`;
+        } else if (ent.cached && ent.version) {
+          description = `v${ent.version} • Cached • ${sourceLabel}`;
+        } else {
+          description = `Available • ${sourceLabel}`;
+        }
+
+        return new LicenseTreeItem(
+          `entitlement-${index}-${ent.feedId}`,
+          ent.name || ent.feedId,
+          vscode.TreeItemCollapsibleState.None,
+          'entitlement-item',
+          description,
+          statusIcon
+        );
+      });
+
+      items.push(
+        new LicenseTreeItem(
+          'entitled-feeds',
+          'Entitled Feeds',
+          vscode.TreeItemCollapsibleState.Collapsed,
+          'entitled-feeds',
+          `${this.entitlements.length}`,
+          new vscode.ThemeIcon('list-unordered'),
+          entitlementChildren
         )
       );
     }

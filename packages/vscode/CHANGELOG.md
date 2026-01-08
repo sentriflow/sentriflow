@@ -5,6 +5,17 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2025-01-08
+
+### Added
+- **Persistent Debug Setting** - New `sentriflow.debug` setting that persists across window reloads:
+  - Enable via Settings UI or "Toggle Debug Logging" command
+  - Setting and command stay synchronized
+  - Output channel auto-opens when debug is enabled
+
+### Fixed
+- **Entitled Feeds Display** - License panel now shows entitled feeds section with load status and source indicators
+
 ## [0.3.5] - 2025-01-06
 
 ### Added
