@@ -127,8 +127,10 @@ describe('DRY-002: Comma-Separated Parsing Utility', () => {
   test('parseCommaSeparated function is exported', () => {
     const source = readFileSync(extensionPath, 'utf-8');
 
-    // Verify the function is exported
-    expect(source).toContain('export function parseCommaSeparated');
+    // Verify the function is exported (either directly or re-exported from utils/helpers)
+    const hasDirectExport = source.includes('export function parseCommaSeparated');
+    const hasReExport = source.includes("export { parseCommaSeparated }");
+    expect(hasDirectExport || hasReExport).toBe(true);
   });
 
   test('getDisabledRulesSet uses parseCommaSeparated', () => {
