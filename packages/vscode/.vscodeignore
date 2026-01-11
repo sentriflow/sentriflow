@@ -39,3 +39,4 @@ tests/**
 !LICENSE*
 !README*
 !language-configuration.json
+!schemas/**

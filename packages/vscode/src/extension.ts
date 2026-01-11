@@ -367,11 +367,11 @@ function rescanActiveEditor(): void {
   // Increment rules version to trigger index rebuild
   rulesVersion++;
 
-  // Rescan all open documents with supported languages
-  // This ensures config files are rescanned even when editing custom rules JSON
-  for (const editor of vscode.window.visibleTextEditors) {
-    if (SUPPORTED_LANGUAGES.includes(editor.document.languageId)) {
-      scheduleScan(editor.document, 0);
+  // Rescan all open documents with supported languages (not just visible ones)
+  // This ensures config files are rescanned even when in background tabs
+  for (const doc of vscode.workspace.textDocuments) {
+    if (SUPPORTED_LANGUAGES.includes(doc.languageId)) {
+      scheduleScan(doc, 0);
     }
   }
 }
@@ -3989,7 +3989,8 @@ async function cmdCreateCustomRulesFile(): Promise<void> {
     // File doesn't exist, good to create
   }
 
-  // Create template file
+  // Create template file with example rule
+  // See: https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md
   const template = {
     version: '1.0',
     meta: {
@@ -3997,7 +3998,41 @@ async function cmdCreateCustomRulesFile(): Promise<void> {
       description: 'Custom rules for organization-specific checks',
       author: ''
     },
-    rules: []
+    rules: [
+      {
+        id: 'CUSTOM-EXAMPLE-001',
+        selector: 'interface',
+        vendor: 'cisco-ios',
+        metadata: {
+          level: 'warning',
+          obu: 'Network Engineering',
+          owner: 'NetOps',
+          description: 'Non-loopback interfaces should have a description',
+          remediation: "Add 'description <text>' to document interface purpose"
+        },
+        check: {
+          type: 'and',
+          conditions: [
+            {
+              type: 'not_match',
+              pattern: 'loopback',
+              flags: 'i'
+            },
+            {
+              type: 'helper',
+              helper: 'isShutdown',
+              args: [{ $ref: 'node' }],
+              negate: true
+            },
+            {
+              type: 'child_not_exists',
+              selector: 'description'
+            }
+          ]
+        },
+        failureMessage: 'Interface {nodeId} is missing a description'
+      }
+    ]
   };
 
   const content = new TextEncoder().encode(JSON.stringify(template, null, 2));
