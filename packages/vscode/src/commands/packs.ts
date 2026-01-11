@@ -23,7 +23,7 @@ import {
 // Constants
 // ============================================================================
 
-export const DEFAULT_PACK_NAME = 'sentriflow-default';
+export const DEFAULT_PACK_NAME = 'sf-default';
 
 // ============================================================================
 // Logging Helpers

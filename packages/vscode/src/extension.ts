@@ -441,7 +441,7 @@ export function activate(context: vscode.ExtensionContext) {
       getDisabledRulesSet,
       (packName: string) =>
         encryptedPacksInfo.some((p) => p.feedId === packName && p.loaded),
-      () => customRulesLoader?.getRules(true) ?? [] // true = include disabled for tree display
+      () => customRulesLoader?.getRulesForDisplay() ?? [] // ignores enabled setting for tree display
     );
     const rulesTreeView = vscode.window.createTreeView('sentriflowRules', {
       treeDataProvider: rulesTreeProvider,

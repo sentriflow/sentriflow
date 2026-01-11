@@ -19,6 +19,9 @@ import { rescanActiveEditor, scheduleScan } from '../services/scanner';
 import { getUniqueCategoriesFromRules } from '../utils/helpers';
 import { DEFAULT_PACK_NAME } from './packs';
 
+/** Pack name for custom rules (must match RulesTreeProvider.CUSTOM_RULES_PACK) */
+const CUSTOM_RULES_PACK = 'Custom Rules';
+
 // ============================================================================
 // Logging Helpers
 // ============================================================================
@@ -57,6 +60,15 @@ export async function cmdDisableTreeItem(item: RuleTreeItem): Promise<void> {
         );
         vscode.window.showInformationMessage(
           `SENTRIFLOW: Default rules disabled`
+        );
+      } else if (packName === CUSTOM_RULES_PACK) {
+        await config.update(
+          'customRules.enabled',
+          false,
+          vscode.ConfigurationTarget.Workspace
+        );
+        vscode.window.showInformationMessage(
+          `SENTRIFLOW: Custom rules disabled`
         );
       } else {
         const blockedPacks = config.get<string[]>('blockedPacks', []);
@@ -132,6 +144,15 @@ export async function cmdEnableTreeItem(item: RuleTreeItem): Promise<void> {
         );
         vscode.window.showInformationMessage(
           `SENTRIFLOW: Default rules enabled`
+        );
+      } else if (packName === CUSTOM_RULES_PACK) {
+        await config.update(
+          'customRules.enabled',
+          true,
+          vscode.ConfigurationTarget.Workspace
+        );
+        vscode.window.showInformationMessage(
+          `SENTRIFLOW: Custom rules enabled`
         );
       } else {
         const blockedPacks = config.get<string[]>('blockedPacks', []);
