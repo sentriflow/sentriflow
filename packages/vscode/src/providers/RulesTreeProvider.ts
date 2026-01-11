@@ -383,10 +383,10 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
       ));
     }
 
-    // Custom rules pack (only show if custom rules are loaded)
+    // Custom rules pack (show if custom rules exist, even if disabled)
     const customRulesEnabled = config.get<boolean>('customRules.enabled', true);
     const customRules = this._getCustomRules();
-    if (customRulesEnabled && customRules.length > 0) {
+    if (customRules.length > 0) {
       items.push(new RuleTreeItem(
         `${RulesTreeProvider.CUSTOM_RULES_PACK} (${customRules.length} rules)`,
         vscode.TreeItemCollapsibleState.Collapsed,
@@ -395,7 +395,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
         undefined,
         undefined,
         undefined,
-        true, // Custom rules are always enabled if the setting is on
+        customRulesEnabled, // Reflect actual enabled state
       ));
     }
 

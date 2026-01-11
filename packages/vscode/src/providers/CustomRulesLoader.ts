@@ -179,6 +179,23 @@ export class CustomRulesLoader {
     if (!config.get<boolean>('customRules.enabled', true)) {
       return [];
     }
+    return this.getMergedRules(includeDisabled);
+  }
+
+  /**
+   * Get all loaded custom rules for display purposes (ignores enabled setting).
+   * Used by tree view to show the pack even when disabled.
+   */
+  getRulesForDisplay(): JsonRule[] {
+    return this.getMergedRules(true);
+  }
+
+  /**
+   * Internal method to merge rules from all files.
+   * @param includeDisabled If true, includes disabled rules
+   */
+  private getMergedRules(includeDisabled: boolean): JsonRule[] {
+    const config = vscode.workspace.getConfiguration('sentriflow');
 
     // Get disabled rules set
     const disabledRules = includeDisabled

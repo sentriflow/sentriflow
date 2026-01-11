@@ -269,6 +269,7 @@ const ipAddresses = node.children.filter(c =>
   "id": "SEC-001",
   "selector": "interface",
   "vendor": "cisco-ios",
+  "category": "NIST-AC",
   "metadata": {
     "level": "error",
     "obu": "Security Team",
@@ -311,9 +312,35 @@ Tag objects support:
 | `id` | Yes | Unique identifier (pattern: `^[A-Z][A-Z0-9_-]{2,49}$`) |
 | `selector` | No | Node prefix to match (e.g., "interface", "router bgp") |
 | `vendor` | No | Vendor identifier or "common" for all vendors |
+| `category` | No | Category for tree view grouping (string or array of strings) |
 | `metadata` | Yes | Rule metadata (level, obu, owner required) |
 | `check` | Yes | The validation logic |
-| `failureMessage` | No | Custom message for failures |
+| `failureMessage` | No | Custom message for failures (supports `{nodeId}`, `{ruleId}` placeholders) |
+| `successMessage` | No | Custom message for passes (supports `{nodeId}`, `{ruleId}` placeholders) |
+
+### Category Field
+
+The `category` field groups rules in the VS Code tree view. Useful for compliance frameworks:
+
+```json
+{
+  "id": "CMP-NIST-001",
+  "category": "NIST-AC",
+  ...
+}
+```
+
+Multiple categories are supported:
+
+```json
+{
+  "id": "CMP-MULTI-001",
+  "category": ["NIST-AC-3", "PCI-DSS-8.1", "CIS-4.2"],
+  ...
+}
+```
+
+When omitted, rules are grouped under "Uncategorized" if category grouping is enabled in VS Code settings.
 
 ### Supported Vendors
 
@@ -420,11 +447,14 @@ Tag objects support:
 |-----------|-------------|
 | `{ "$ref": "node" }` | Full ConfigNode object |
 | `{ "$ref": "node.id" }` | Node identifier string |
+| `{ "$ref": "node.type" }` | Node type (`section`, `command`, `comment`) |
 | `{ "$ref": "node.children" }` | Array of child nodes |
 | `{ "$ref": "node.params" }` | Array of parameters |
+| `{ "$ref": "node.rawText" }` | Original raw text from config |
 | `"literal"` | Literal string value |
 | `123` | Literal number |
 | `true` / `false` | Literal boolean |
+| `null` | Null value |
 
 #### Expressions
 
@@ -625,10 +655,13 @@ interface IRule {
   id: string;                              // Unique rule ID
   selector?: string;                       // Node prefix to match
   vendor?: RuleVendor | RuleVendor[];      // Target vendor(s)
+  category?: string | string[];            // Category for tree view grouping
   check: (node: ConfigNode, context: Context) => RuleResult;
   metadata: RuleMetadata;
 }
 ```
+
+The `category` field works the same as in JSON rules - use it to group rules by compliance framework or custom categories in the VS Code tree view.
 
 ### RuleResult Return Type
 
@@ -817,6 +850,7 @@ export const RootAuthRequired: IRule = {
   id: 'JUN-SYS-001',
   selector: 'system',
   vendor: 'juniper-junos',
+  category: ['NIST-IA-5', 'CIS-5.1'],  // Compliance framework categories
   metadata: {
     level: 'error',
     obu: 'Security',
