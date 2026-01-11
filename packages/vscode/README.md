@@ -260,9 +260,74 @@ The extension shows three status bar items:
 
 **Rich Tooltips**: Hover over any status bar item for detailed information with clickable links to common actions.
 
-## Custom Rules
+## Custom JSON Rules
 
-External extensions can register rule packs via the SentriFlow API:
+Create organization-specific validation rules without writing TypeScript. Custom rules are stored in `.sentriflow/rules/*.json` files in your workspace.
+
+### Quick Start
+
+1. Open Command Palette (`Ctrl+Shift+P`)
+2. Run `SENTRIFLOW: Create Custom Rules File`
+3. Edit the generated file with your rules
+
+### Example Rule
+
+```json
+{
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "ACME-TRUNK-001",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "Trunk ports should have explicit allowed VLAN list",
+        "remediation": "Add 'switchport trunk allowed vlan <list>'"
+      },
+      "check": {
+        "type": "and",
+        "conditions": [
+          { "type": "helper", "helper": "cisco.isTrunkPort", "args": [{ "$ref": "node" }] },
+          { "type": "helper", "helper": "isShutdown", "args": [{ "$ref": "node" }], "negate": true },
+          { "type": "child_not_exists", "selector": "switchport trunk allowed vlan" }
+        ]
+      }
+    }
+  ]
+}
+```
+
+### Features
+
+- **IntelliSense**: Auto-completion for vendors, check types, and helper functions
+- **Live Reload**: Rules apply immediately when you save the file
+- **Validation**: JSON schema validation catches errors as you type
+- **Priority**: Custom rules override built-in rules with the same ID
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `SENTRIFLOW: Create Custom Rules File` | Create a new rules file with example |
+| `SENTRIFLOW: Copy Rule to Custom` | Copy any rule to your custom file (right-click menu) |
+| `SENTRIFLOW: Edit Custom Rule` | Jump to rule definition in JSON file |
+| `SENTRIFLOW: Delete Custom Rule` | Remove a custom rule |
+
+### Documentation
+
+See the **[Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md)** for complete documentation including:
+
+- All check types (`match`, `child_exists`, `helper`, `expr`, etc.)
+- Logical combinators (`and`, `or`, `not`)
+- Helper function reference (vendor-specific and common)
+- Security metadata and tagging
+
+## Extension API
+
+External extensions can register rule packs programmatically:
 
 ```typescript
 const sentriflow = vscode.extensions.getExtension('sentriflow.sentriflow-vscode');
@@ -276,8 +341,6 @@ api?.registerRulePack({
   rules: [/* IRule objects */],
 });
 ```
-
-See the [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md) for details.
 
 ## Cloud Licensing (Commercial)
 

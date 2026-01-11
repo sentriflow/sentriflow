@@ -1,5 +1,23 @@
 import * as vscode from 'vscode';
-import type { IRule, RulePack, RuleVendor, Tag, TagType } from '@sentriflow/core';
+import type { IRule, RulePack, RuleVendor, Tag, TagType, JsonRule } from '@sentriflow/core';
+
+// ============================================================================
+// Utility Functions (DRY)
+// ============================================================================
+
+/** Severity order for sorting: errors first, then warnings, then info */
+const LEVEL_ORDER: Record<string, number> = { error: 0, warning: 1, info: 2 };
+
+/**
+ * Compare function for sorting rules by severity level, then by ID.
+ * DRY-001: Extracted to avoid duplication in tree building.
+ */
+export function compareRulesByLevel(a: IRule, b: IRule): number {
+  const aLevel = LEVEL_ORDER[a.metadata.level] ?? 3;
+  const bLevel = LEVEL_ORDER[b.metadata.level] ?? 3;
+  if (aLevel !== bLevel) return aLevel - bLevel;
+  return a.id.localeCompare(b.id);
+}
 
 /**
  * Tree grouping modes for the rules hierarchy
@@ -39,14 +57,15 @@ export class RuleTreeItem extends vscode.TreeItem {
     public readonly isEncrypted: boolean = false,
   ) {
     super(label, collapsibleState);
-    // Encode enabled state in contextValue for conditional menu icons
-    this.contextValue = `${itemType}-${isEnabled ? 'enabled' : 'disabled'}`;
+    // Encode enabled state and custom status in contextValue for conditional menus
+    const customMarker = packName === 'Custom Rules' ? '-custom' : '';
+    this.contextValue = `${itemType}${customMarker}-${isEnabled ? 'enabled' : 'disabled'}`;
     this.updateAppearance();
   }
 
   private updateAppearance(): void {
     switch (this.itemType) {
-      case 'pack':
+      case 'pack': {
         // Use lock icon for encrypted packs, package icon for regular packs
         const packIcon = this.isEncrypted ? 'lock' : 'package';
         this.iconPath = this.isEnabled
@@ -57,6 +76,7 @@ export class RuleTreeItem extends vscode.TreeItem {
           ? `Pack: ${this.packName}${encryptedLabel} (enabled)`
           : `Pack: ${this.packName}${encryptedLabel} (disabled)`;
         break;
+      }
 
       case 'vendor':
         this.iconPath = this.isEnabled
@@ -76,7 +96,7 @@ export class RuleTreeItem extends vscode.TreeItem {
           : `Category: ${this.categoryId} (disabled)`;
         break;
 
-      case 'rule':
+      case 'rule': {
         if (!this.rule) break;
         // Use severity icon with appropriate color
         // State (enabled/disabled) is shown via toggle button on the right
@@ -96,6 +116,7 @@ export class RuleTreeItem extends vscode.TreeItem {
           this.tooltip.appendMarkdown(`*Remediation:* ${this.rule.metadata.remediation}`);
         }
         break;
+      }
 
       case 'tags-section':
         this.iconPath = new vscode.ThemeIcon('symbol-keyword', new vscode.ThemeColor('testing.iconQueued'));
@@ -151,6 +172,13 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
   private _getAllRules: () => IRule[] = () => [];
   private _getDisabledRulesSet: () => Set<string> = () => new Set();
   private _isPackEncrypted: (packName: string) => boolean = () => false;
+  private _getCustomRules: () => JsonRule[] = () => [];
+
+  /** Pack name used for custom rules */
+  private static readonly CUSTOM_RULES_PACK = 'Custom Rules';
+
+  /** PERF-001: Cache for getAllTags() results to avoid recalculation */
+  private _tagsCache: Map<string, { rules: IRule[]; tagMeta: TagMeta }> | null = null;
 
   constructor() {}
 
@@ -163,18 +191,22 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
     getAllRules: () => IRule[],
     getDisabledRulesSet: () => Set<string>,
     isPackEncrypted?: (packName: string) => boolean,
+    getCustomRules?: () => JsonRule[],
   ): void {
     this._getDefaultPack = getDefaultPack;
     this._getRegisteredPacks = getRegisteredPacks;
     this._getAllRules = getAllRules;
     this._getDisabledRulesSet = getDisabledRulesSet;
     this._isPackEncrypted = isPackEncrypted ?? (() => false);
+    this._getCustomRules = getCustomRules ?? (() => []);
   }
 
   /**
    * Refresh the entire tree
    */
   refresh(): void {
+    // PERF-001: Invalidate tags cache on refresh
+    this._tagsCache = null;
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -297,6 +329,13 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
    * Get rules for this pack
    */
   private getPackRules(packName: string): IRule[] {
+    // Handle custom rules pack
+    if (packName === RulesTreeProvider.CUSTOM_RULES_PACK) {
+      // Cast JsonRule[] to IRule[] for display purposes
+      // The check property type differs but is not used for tree display
+      return this._getCustomRules() as unknown as IRule[];
+    }
+
     const defaultPack = this._getDefaultPack();
     const registeredPacks = this._getRegisteredPacks();
     const isDefault = packName === defaultPack.name;
@@ -341,6 +380,22 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
         undefined,
         isEnabled,
         isEncrypted,
+      ));
+    }
+
+    // Custom rules pack (only show if custom rules are loaded)
+    const customRulesEnabled = config.get<boolean>('customRules.enabled', true);
+    const customRules = this._getCustomRules();
+    if (customRulesEnabled && customRules.length > 0) {
+      items.push(new RuleTreeItem(
+        `${RulesTreeProvider.CUSTOM_RULES_PACK} (${customRules.length} rules)`,
+        vscode.TreeItemCollapsibleState.Collapsed,
+        'pack',
+        RulesTreeProvider.CUSTOM_RULES_PACK,
+        undefined,
+        undefined,
+        undefined,
+        true, // Custom rules are always enabled if the setting is on
       ));
     }
 
@@ -572,13 +627,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
     }
 
     // Sort by level (errors first), then by ID
-    filteredRules.sort((a, b) => {
-      const levelOrder = { error: 0, warning: 1, info: 2 };
-      const aLevel = levelOrder[a.metadata.level as keyof typeof levelOrder] ?? 3;
-      const bLevel = levelOrder[b.metadata.level as keyof typeof levelOrder] ?? 3;
-      if (aLevel !== bLevel) return aLevel - bLevel;
-      return a.id.localeCompare(b.id);
-    });
+    filteredRules.sort(compareRulesByLevel);
 
     // Create rule nodes
     for (const rule of filteredRules) {
@@ -633,8 +682,14 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
    * Rules with multiple tags will appear under each tag they have
    * Returns both the rules and the first Tag object found for metadata display
    * Only includes rules from enabled packs (respects enableDefaultRules and blockedPacks)
+   * PERF-001: Results are cached and invalidated on refresh()
    */
   private getAllTags(): Map<string, { rules: IRule[]; tagMeta: TagMeta }> {
+    // Return cached result if available
+    if (this._tagsCache) {
+      return this._tagsCache;
+    }
+
     const tagMap = new Map<string, { rules: IRule[]; tagMeta: TagMeta }>();
     const config = vscode.workspace.getConfiguration('sentriflow');
     const enableDefaultRules = config.get<boolean>('enableDefaultRules', true);
@@ -669,6 +724,9 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
         tagMap.get(tag.label)!.rules.push(rule);
       }
     }
+
+    // Cache the result
+    this._tagsCache = tagMap;
     return tagMap;
   }
 
@@ -725,13 +783,7 @@ export class RulesTreeProvider implements vscode.TreeDataProvider<RuleTreeItem> 
     const disabledRules = this._getDisabledRulesSet();
 
     // Sort by level (errors first), then by ID
-    const sortedRules = [...rules].sort((a, b) => {
-      const levelOrder = { error: 0, warning: 1, info: 2 };
-      const aLevel = levelOrder[a.metadata.level as keyof typeof levelOrder] ?? 3;
-      const bLevel = levelOrder[b.metadata.level as keyof typeof levelOrder] ?? 3;
-      if (aLevel !== bLevel) return aLevel - bLevel;
-      return a.id.localeCompare(b.id);
-    });
+    const sortedRules = [...rules].sort(compareRulesByLevel);
 
     return sortedRules.map(rule => {
       const isEnabled = !disabledRules.has(rule.id);

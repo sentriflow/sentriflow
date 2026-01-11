@@ -20,6 +20,8 @@ import {
   validateRulePack,
   isValidRulePack,
   ruleAppliesToVendor,
+  // JSON Rules compilation
+  compileJsonRules,
 } from '@sentriflow/core';
 import type {
   IRule,
@@ -39,6 +41,8 @@ import {
   IPTreeItem,
 } from './providers/IPAddressesTreeProvider';
 import { LicenseTreeProvider } from './providers/LicenseTreeProvider';
+import { CustomRulesLoader } from './providers/CustomRulesLoader';
+import { CustomRulesCompletionProvider } from './providers/CustomRulesCompletionProvider';
 import {
   LicenseManager,
   CloudClient,
@@ -55,6 +59,13 @@ import {
   CACHE_DIRECTORY,
   DEFAULT_CLOUD_API_URL,
 } from './encryption';
+
+// ============================================================================
+// Configuration Constants
+// ============================================================================
+
+/** Supported language IDs for network config scanning */
+const SUPPORTED_LANGUAGES = ['network-config', 'plaintext'];
 
 // ============================================================================
 // Rule Pack Management
@@ -149,26 +160,36 @@ interface RegisteredPackState {
  * @param checkPackDisables Whether to check pack disable configs (for default rules only)
  */
 /**
- * Parse disabledRules setting, handling comma-separated values.
- * Users might enter "NET-001,NET-002" as a single item instead of separate items.
+ * DRY-002: Parse an array of potentially comma-separated values into individual items.
+ * Handles cases where users enter "NET-001,NET-002" as a single item.
+ * Exported for testing.
  */
-function getDisabledRulesSet(): Set<string> {
-  const config = vscode.workspace.getConfiguration('sentriflow');
-  const disabledRules = config.get<string[]>('disabledRules', []);
-  const ruleSet = new Set<string>();
-
-  for (const item of disabledRules) {
-    // Handle comma-separated values in a single item
+export function parseCommaSeparated(items: string[]): string[] {
+  const result: string[] = [];
+  for (const item of items) {
     const parts = item
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    for (const part of parts) {
-      ruleSet.add(part);
-    }
+    result.push(...parts);
   }
+  return result;
+}
 
-  return ruleSet;
+/**
+ * Parse disabledRules setting, handling comma-separated values.
+ * Users might enter "NET-001,NET-002" as a single item instead of separate items.
+ * Also includes disabled custom rules from customRules.disabledRules setting.
+ */
+function getDisabledRulesSet(): Set<string> {
+  const config = vscode.workspace.getConfiguration('sentriflow');
+  const disabledRules = config.get<string[]>('disabledRules', []);
+  const disabledCustomRules = config.get<string[]>('customRules.disabledRules', []);
+
+  return new Set([
+    ...parseCommaSeparated(disabledRules),
+    ...parseCommaSeparated(disabledCustomRules),
+  ]);
 }
 
 function isRuleDisabled(
@@ -252,13 +273,19 @@ function getAllRules(vendorId?: string): IRule[] {
     (a, b) => a.priority - b.priority
   );
 
-  // Get per-pack vendor overrides
+  // Get per-pack vendor overrides and blocked packs
   const packVendorOverrides = config.get<
     Record<string, { disabledVendors?: string[] }>
   >('packVendorOverrides', {});
+  const blockedPacks = new Set(config.get<string[]>('blockedPacks', []));
 
   // 3. Process each pack's rules
   for (const pack of sortedPacks) {
+    // Skip blocked packs entirely
+    if (blockedPacks.has(pack.name)) {
+      continue;
+    }
+
     // Get disabled vendors for this pack
     const packOverride = packVendorOverrides[pack.name];
     const disabledVendors = new Set(packOverride?.disabledVendors ?? []);
@@ -304,6 +331,29 @@ function getAllRules(vendorId?: string): IRule[] {
     }
   }
 
+  // 4. Add custom rules with highest priority (1000)
+  const CUSTOM_RULES_PRIORITY = 1000;
+  const customRulesEnabled = config.get<boolean>('customRules.enabled', true);
+  if (customRulesEnabled && customRulesLoader) {
+    try {
+      const jsonRules = customRulesLoader.getRules();
+      if (jsonRules.length > 0) {
+        const compiledRules = compileJsonRules(jsonRules);
+        for (const rule of compiledRules) {
+          // Filter by vendor if specified
+          if (vendorId && !ruleAppliesToVendor(rule, vendorId)) {
+            continue;
+          }
+          // Custom rules always override with highest priority
+          ruleMap.set(rule.id, { rule, priority: CUSTOM_RULES_PRIORITY });
+        }
+      }
+    } catch (error) {
+      // Log but don't fail - custom rules compilation errors shouldn't break scanning
+      log(`Custom rules compilation error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   const rules = Array.from(ruleMap.values()).map((entry) => entry.rule);
 
   // Update module-level rule map for O(1) lookup in diagnostics
@@ -312,12 +362,17 @@ function getAllRules(vendorId?: string): IRule[] {
   return rules;
 }
 
-/** Re-scan active editor after rule changes */
+/** Re-scan all open config documents after rule changes */
 function rescanActiveEditor(): void {
   // Increment rules version to trigger index rebuild
   rulesVersion++;
-  if (vscode.window.activeTextEditor) {
-    scheduleScan(vscode.window.activeTextEditor.document, 0);
+
+  // Rescan all open documents with supported languages (not just visible ones)
+  // This ensures config files are rescanned even when in background tabs
+  for (const doc of vscode.workspace.textDocuments) {
+    if (SUPPORTED_LANGUAGES.includes(doc.languageId)) {
+      scheduleScan(doc, 0);
+    }
   }
 }
 
@@ -597,6 +652,7 @@ let rulesTreeProvider: RulesTreeProvider;
 let settingsWebviewProvider: SettingsWebviewProvider;
 let ipAddressesTreeProvider: IPAddressesTreeProvider;
 let licenseTreeProvider: LicenseTreeProvider;
+let customRulesLoader: CustomRulesLoader;
 
 // Debounce timers per document URI
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -605,7 +661,6 @@ const debounceTimers = new Map<string, NodeJS.Timeout>();
 const scanVersions = new Map<string, number>();
 
 // Configuration
-const SUPPORTED_LANGUAGES = ['network-config', 'plaintext'];
 const DEBOUNCE_MS = 300;
 const MAX_FILE_SIZE = 500_000; // 500KB - be conservative for real-time
 
@@ -1618,7 +1673,8 @@ export function activate(context: vscode.ExtensionContext) {
       () => allRules,
       getDisabledRulesSet,
       (packName: string) =>
-        encryptedPacksInfo.some((p) => p.feedId === packName && p.loaded)
+        encryptedPacksInfo.some((p) => p.feedId === packName && p.loaded),
+      () => customRulesLoader?.getRules(true) ?? [] // true = include disabled for tree display
     );
     const rulesTreeView = vscode.window.createTreeView('sentriflowRules', {
       treeDataProvider: rulesTreeProvider,
@@ -1659,6 +1715,19 @@ export function activate(context: vscode.ExtensionContext) {
       );
     }
 
+    // Create and initialize Custom Rules Loader
+    customRulesLoader = new CustomRulesLoader(context);
+    customRulesLoader.initialize(); // Async initialization - will complete in background
+    context.subscriptions.push({ dispose: () => customRulesLoader.dispose() });
+
+    // Re-scan when custom rules change
+    context.subscriptions.push(
+      customRulesLoader.onDidChangeRules(() => {
+        log('Custom rules changed, triggering rescan');
+        rescanActiveEditor();
+      })
+    );
+
     // Create and register License TreeView
     licenseTreeProvider = new LicenseTreeProvider();
     const licenseTreeView = vscode.window.createTreeView('sentriflowLicense', {
@@ -1674,6 +1743,17 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(
       vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider)
+    );
+
+    // Register completion provider for custom rules JSON files
+    const customRulesCompletionProvider = new CustomRulesCompletionProvider();
+    context.subscriptions.push(
+      vscode.languages.registerCompletionItemProvider(
+        { scheme: 'file', pattern: '**/.sentriflow/rules/*.json' },
+        customRulesCompletionProvider,
+        '"', // Trigger on quote
+        ':' // Trigger on colon
+      )
     );
 
     // Register commands
@@ -1777,6 +1857,26 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.Uri.parse('https://sentriflow.com.au/pricing')
         );
       })
+    );
+
+    // Register Custom Rules commands
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        'sentriflow.createCustomRulesFile',
+        cmdCreateCustomRulesFile
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.copyRuleToCustom',
+        cmdCopyRuleToCustom
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.deleteCustomRule',
+        cmdDeleteCustomRule
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.editCustomRule',
+        cmdEditCustomRule
+      )
     );
 
     // Register IP TreeView commands
@@ -3479,25 +3579,32 @@ async function showRuleActions(
 
 /**
  * Toggle a rule's disabled state in settings
+ * @param ruleId The rule ID to toggle
+ * @param currentlyDisabled Whether the rule is currently disabled
+ * @param isCustomRule Whether this is a custom rule (uses different setting)
  */
-async function toggleRule(ruleId: string, currentlyDisabled: boolean) {
+async function toggleRule(ruleId: string, currentlyDisabled: boolean, isCustomRule: boolean = false) {
   const config = vscode.workspace.getConfiguration('sentriflow');
-  const disabledRules = config.get<string[]>('disabledRules', []);
+
+  // Use the appropriate setting based on rule type
+  const settingKey = isCustomRule ? 'customRules.disabledRules' : 'disabledRules';
+  const disabledRules = config.get<string[]>(settingKey, []);
 
   let newDisabledRules: string[];
+  const ruleType = isCustomRule ? 'Custom rule' : 'Rule';
   if (currentlyDisabled) {
     // Enable: remove from list
     newDisabledRules = disabledRules.filter((id) => id !== ruleId);
-    vscode.window.showInformationMessage(`SENTRIFLOW: Rule ${ruleId} enabled`);
+    vscode.window.showInformationMessage(`SENTRIFLOW: ${ruleType} ${ruleId} enabled`);
   } else {
     // Disable: add to list
     newDisabledRules = [...disabledRules, ruleId];
-    vscode.window.showInformationMessage(`SENTRIFLOW: Rule ${ruleId} disabled`);
+    vscode.window.showInformationMessage(`SENTRIFLOW: ${ruleType} ${ruleId} disabled`);
   }
 
   await config.update(
-    'disabledRules',
-    newDisabledRules,
+    settingKey,
+    newDisabledRules.length > 0 ? newDisabledRules : undefined,
     vscode.ConfigurationTarget.Workspace
   );
 
@@ -3573,7 +3680,8 @@ async function cmdDisableTreeItem(item: RuleTreeItem) {
 
     case 'rule': {
       const ruleId = item.rule!.id;
-      await toggleRule(ruleId, false); // false = enable is false, so disable
+      const isCustomRule = item.packName === 'Custom Rules';
+      await toggleRule(ruleId, false, isCustomRule); // false = not currently disabled, so disable
       break;
     }
   }
@@ -3649,16 +3757,23 @@ async function cmdEnableTreeItem(item: RuleTreeItem) {
     case 'rule': {
       const ruleId = item.rule!.id;
       const packName = item.packName!;
-      const vendorId = item.vendorId!;
+      const vendorId = item.vendorId;
+      const isCustomRule = packName === 'Custom Rules';
 
-      // Check if parent vendor is disabled
+      // Custom rules don't have vendor hierarchy, just toggle directly
+      if (isCustomRule) {
+        await toggleRule(ruleId, true, true); // true = currently disabled, true = custom rule
+        break;
+      }
+
+      // Check if parent vendor is disabled (only for non-custom rules)
       const overrides = config.get<
         Record<string, { disabledVendors?: string[] }>
       >('packVendorOverrides', {});
       const packOverride = overrides[packName] ?? { disabledVendors: [] };
       const disabledVendors = packOverride.disabledVendors ?? [];
 
-      if (disabledVendors.includes(vendorId)) {
+      if (vendorId && disabledVendors.includes(vendorId)) {
         // Vendor is disabled - need to enable vendor but disable all other rules
         // 1. Get all rules for this vendor in this pack
         const isDefault = packName === DEFAULT_PACK_NAME;
@@ -3711,7 +3826,7 @@ async function cmdEnableTreeItem(item: RuleTreeItem) {
         );
       } else {
         // Vendor is enabled, just toggle the rule
-        await toggleRule(ruleId, true); // true = enable
+        await toggleRule(ruleId, true, false); // true = currently disabled, false = not custom
       }
       break;
     }
@@ -3819,6 +3934,396 @@ async function cmdViewRuleDetails(item: RuleTreeItem) {
   }
 
   outputChannel.appendLine('');
+}
+
+// ============================================================================
+// Custom Rules Commands
+// ============================================================================
+
+/**
+ * Create a new custom rules file in .sentriflow/rules/
+ */
+async function cmdCreateCustomRulesFile(): Promise<void> {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    vscode.window.showErrorMessage('No workspace folder open. Open a folder to create custom rules.');
+    return;
+  }
+
+  // Prompt for file name
+  const fileName = await vscode.window.showInputBox({
+    prompt: 'Enter the name for the custom rules file',
+    placeHolder: 'my_rules.json',
+    validateInput: (value) => {
+      if (!value) return 'File name is required';
+      if (!value.endsWith('.json')) return 'File name must end with .json';
+      if (!/^[a-zA-Z0-9_-]+\.json$/.test(value)) {
+        return 'File name can only contain letters, numbers, underscores, and hyphens';
+      }
+      return undefined;
+    }
+  });
+
+  if (!fileName) return;
+
+  // Ensure .sentriflow/rules directory exists
+  const rulesDir = vscode.Uri.joinPath(workspaceFolder.uri, '.sentriflow', 'rules');
+  try {
+    await vscode.workspace.fs.createDirectory(rulesDir);
+  } catch {
+    // Directory may already exist
+  }
+
+  const fileUri = vscode.Uri.joinPath(rulesDir, fileName);
+
+  // Check if file already exists
+  try {
+    await vscode.workspace.fs.stat(fileUri);
+    const overwrite = await vscode.window.showWarningMessage(
+      `File "${fileName}" already exists. Overwrite?`,
+      'Overwrite',
+      'Cancel'
+    );
+    if (overwrite !== 'Overwrite') return;
+  } catch {
+    // File doesn't exist, good to create
+  }
+
+  // Create template file with example rule
+  // See: https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md
+  const template = {
+    version: '1.0',
+    meta: {
+      name: fileName.replace('.json', ''),
+      description: 'Custom rules for organization-specific checks',
+      author: ''
+    },
+    rules: [
+      {
+        id: 'CUSTOM-EXAMPLE-001',
+        selector: 'interface',
+        vendor: 'cisco-ios',
+        metadata: {
+          level: 'warning',
+          obu: 'Network Engineering',
+          owner: 'NetOps',
+          description: 'Non-loopback interfaces should have a description',
+          remediation: "Add 'description <text>' to document interface purpose"
+        },
+        check: {
+          type: 'and',
+          conditions: [
+            {
+              type: 'not_match',
+              pattern: 'loopback',
+              flags: 'i'
+            },
+            {
+              type: 'helper',
+              helper: 'isShutdown',
+              args: [{ $ref: 'node' }],
+              negate: true
+            },
+            {
+              type: 'child_not_exists',
+              selector: 'description'
+            }
+          ]
+        },
+        failureMessage: 'Interface {nodeId} is missing a description'
+      }
+    ]
+  };
+
+  const content = new TextEncoder().encode(JSON.stringify(template, null, 2));
+  await vscode.workspace.fs.writeFile(fileUri, content);
+
+  // Open the new file
+  const doc = await vscode.workspace.openTextDocument(fileUri);
+  await vscode.window.showTextDocument(doc);
+
+  vscode.window.showInformationMessage(`Created custom rules file: ${fileName}`);
+}
+
+/**
+ * Copy an existing rule to a custom rules file
+ */
+async function cmdCopyRuleToCustom(item?: RuleTreeItem): Promise<void> {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    vscode.window.showErrorMessage('No workspace folder open. Open a folder to create custom rules.');
+    return;
+  }
+
+  // Get the rule to copy
+  let rule: IRule | undefined;
+  if (item?.rule) {
+    rule = item.rule;
+  } else {
+    // Prompt for rule ID
+    const ruleId = await vscode.window.showInputBox({
+      prompt: 'Enter the rule ID to copy',
+      placeHolder: 'e.g., NET-SEC-001'
+    });
+    if (!ruleId) return;
+
+    rule = currentRuleMap.get(ruleId);
+    if (!rule) {
+      vscode.window.showErrorMessage(`Rule "${ruleId}" not found.`);
+      return;
+    }
+  }
+
+  // Find existing custom rules files or create new one
+  const rulesDir = vscode.Uri.joinPath(workspaceFolder.uri, '.sentriflow', 'rules');
+  let existingFiles: vscode.Uri[] = [];
+  try {
+    const files = await vscode.workspace.findFiles('.sentriflow/rules/*.json', '**/node_modules/**');
+    existingFiles = files.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+  } catch {
+    // Directory may not exist
+  }
+
+  // Let user choose target file
+  interface FilePickItem extends vscode.QuickPickItem {
+    uri?: vscode.Uri;
+    isNew: boolean;
+  }
+
+  const items: FilePickItem[] = [
+    {
+      label: '$(new-file) Create New File...',
+      isNew: true
+    },
+    ...existingFiles.map(uri => ({
+      label: `$(file) ${uri.path.split('/').pop()}`,
+      description: uri.fsPath,
+      uri,
+      isNew: false
+    }))
+  ];
+
+  const selected = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select target custom rules file'
+  });
+
+  if (!selected) return;
+
+  let targetUri: vscode.Uri;
+  if (selected.isNew) {
+    // Create new file
+    const fileName = await vscode.window.showInputBox({
+      prompt: 'Enter the name for the custom rules file',
+      placeHolder: 'custom_rules.json',
+      validateInput: (value) => {
+        if (!value) return 'File name is required';
+        if (!value.endsWith('.json')) return 'File name must end with .json';
+        return undefined;
+      }
+    });
+    if (!fileName) return;
+
+    // Ensure directory exists
+    try {
+      await vscode.workspace.fs.createDirectory(rulesDir);
+    } catch {
+      // Directory may already exist
+    }
+
+    targetUri = vscode.Uri.joinPath(rulesDir, fileName);
+
+    // Create with template
+    const template = {
+      version: '1.0',
+      meta: { name: fileName.replace('.json', '') },
+      rules: []
+    };
+    await vscode.workspace.fs.writeFile(
+      targetUri,
+      new TextEncoder().encode(JSON.stringify(template, null, 2))
+    );
+  } else {
+    targetUri = selected.uri!;
+  }
+
+  // Read existing file and add rule
+  const content = await vscode.workspace.fs.readFile(targetUri);
+  const json = JSON.parse(new TextDecoder().decode(content));
+
+  // Check if this is a custom rule we can copy directly
+  const existingCustomRule = customRulesLoader?.findRuleById(rule.id);
+  let jsonRule: Record<string, unknown>;
+  let isFullCopy = false;
+
+  if (existingCustomRule) {
+    // Copy the original JSON rule as-is, just change the ID
+    jsonRule = JSON.parse(JSON.stringify(existingCustomRule.rule));
+    jsonRule.id = `COPY-${rule.id}`;
+    isFullCopy = true;
+  } else {
+    // Built-in rule: function-based checks can't be serialized
+    // Create a template with placeholder check
+    jsonRule = {
+      id: `CUSTOM-${rule.id}`,
+      metadata: {
+        level: rule.metadata.level,
+        obu: rule.metadata.obu,
+        owner: rule.metadata.owner,
+        description: rule.metadata.description || `Custom version of ${rule.id}. TODO: Update this description.`,
+        remediation: rule.metadata.remediation
+      },
+      // Placeholder check - user MUST customize this
+      check: {
+        type: 'child_not_exists',
+        selector: 'TODO: specify what command should exist'
+      }
+    };
+
+    // Add optional fields only if they exist
+    if (rule.selector) {
+      jsonRule.selector = rule.selector;
+    }
+    if (rule.vendor) {
+      jsonRule.vendor = rule.vendor;
+    }
+    if (rule.category) {
+      jsonRule.category = rule.category;
+    }
+  }
+
+  // Check for duplicate ID
+  const existingIndex = json.rules.findIndex((r: { id: string }) => r.id === jsonRule.id);
+  if (existingIndex >= 0) {
+    const replace = await vscode.window.showWarningMessage(
+      `Rule "${jsonRule.id}" already exists in this file. Replace?`,
+      'Replace',
+      'Cancel'
+    );
+    if (replace !== 'Replace') return;
+    json.rules[existingIndex] = jsonRule;
+  } else {
+    json.rules.push(jsonRule);
+  }
+
+  const newContent = JSON.stringify(json, null, 2);
+
+  // Check if file is already open and handle it
+  const existingDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === targetUri.fsPath);
+  if (existingDoc && existingDoc.isDirty) {
+    // File is open with unsaved changes - warn user
+    const choice = await vscode.window.showWarningMessage(
+      'The target file has unsaved changes. Save and update?',
+      'Save & Update',
+      'Cancel'
+    );
+    if (choice !== 'Save & Update') return;
+    await existingDoc.save();
+  }
+
+  // Write the file
+  await vscode.workspace.fs.writeFile(
+    targetUri,
+    new TextEncoder().encode(newContent)
+  );
+
+  // Open/refresh the file in editor
+  const doc = await vscode.workspace.openTextDocument(targetUri);
+  await vscode.window.showTextDocument(doc);
+
+  // Show appropriate message based on copy type
+  if (isFullCopy) {
+    vscode.window.showInformationMessage(
+      `Copied "${rule.id}" as "${jsonRule.id}" with all original settings.`
+    );
+  } else {
+    vscode.window.showInformationMessage(
+      `Copied "${rule.id}" as "${jsonRule.id}". The check is a placeholder - edit it to define your custom logic.`,
+      'OK'
+    );
+  }
+}
+
+/**
+ * Delete a custom rule from its source file
+ */
+async function cmdDeleteCustomRule(item?: RuleTreeItem): Promise<void> {
+  if (!item?.rule) {
+    vscode.window.showErrorMessage('No rule selected.');
+    return;
+  }
+
+  const ruleId = item.rule.id;
+
+  // Confirm deletion
+  const confirm = await vscode.window.showWarningMessage(
+    `Delete custom rule "${ruleId}"? This cannot be undone.`,
+    { modal: true },
+    'Delete'
+  );
+
+  if (confirm !== 'Delete') {
+    return;
+  }
+
+  // Use the CustomRulesLoader to delete the rule
+  if (!customRulesLoader) {
+    vscode.window.showErrorMessage('Custom rules loader not available.');
+    return;
+  }
+
+  const deleted = await customRulesLoader.deleteRule(ruleId);
+  if (deleted) {
+    vscode.window.showInformationMessage(`Deleted rule "${ruleId}".`);
+  } else {
+    vscode.window.showErrorMessage(`Rule "${ruleId}" not found in custom rules files.`);
+  }
+}
+
+/**
+ * Edit a custom rule - open the source file and navigate to the rule
+ */
+async function cmdEditCustomRule(item?: RuleTreeItem): Promise<void> {
+  if (!item?.rule) {
+    vscode.window.showErrorMessage('No rule selected.');
+    return;
+  }
+
+  const ruleId = item.rule.id;
+
+  // Find the file containing this rule
+  if (!customRulesLoader) {
+    vscode.window.showErrorMessage('Custom rules loader not available.');
+    return;
+  }
+
+  const found = customRulesLoader.findRuleById(ruleId);
+  if (!found) {
+    vscode.window.showErrorMessage(`Rule "${ruleId}" not found in custom rules files.`);
+    return;
+  }
+
+  const fileUri = vscode.Uri.file(found.filePath);
+
+  // Open the document
+  const doc = await vscode.workspace.openTextDocument(fileUri);
+  const editor = await vscode.window.showTextDocument(doc);
+
+  // Find the rule in the file and navigate to it
+  const text = doc.getText();
+  // Escape special regex characters in ruleId
+  const escapedRuleId = ruleId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const ruleIdPattern = new RegExp(`"id"\\s*:\\s*"${escapedRuleId}"`);
+  const match = ruleIdPattern.exec(text);
+
+  if (match) {
+    const position = doc.positionAt(match.index);
+    // Move cursor to the rule ID line and reveal it
+    editor.selection = new vscode.Selection(position, position);
+    editor.revealRange(
+      new vscode.Range(position, position),
+      vscode.TextEditorRevealType.InCenter
+    );
+  }
 }
 
 // ============================================================================

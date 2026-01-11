@@ -26,9 +26,9 @@ export class SentriFlowHoverProvider implements vscode.HoverProvider {
     }
 
     // Build markdown content for all diagnostics
+    // SEC-001: Use default isTrusted=false and supportHtml=false for security
+    // Rule metadata is trusted but we don't need HTML rendering for tooltips
     const markdown = new vscode.MarkdownString();
-    markdown.isTrusted = true;
-    markdown.supportHtml = true;
 
     // Track the union range of all diagnostics
     // Safe access since we checked length > 0 above

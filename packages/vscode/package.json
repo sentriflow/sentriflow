@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "license": "Apache-2.0",
   "qna": "marketplace",
   "privacy": {
@@ -288,6 +288,30 @@
         "title": "Scan with SentriFlow",
         "category": "SentriFlow",
         "icon": "$(search)"
+      },
+      {
+        "command": "sentriflow.createCustomRulesFile",
+        "title": "Create Custom Rules File",
+        "category": "SentriFlow",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "sentriflow.copyRuleToCustom",
+        "title": "Copy Rule to Custom Rules",
+        "category": "SentriFlow",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "sentriflow.deleteCustomRule",
+        "title": "Delete Custom Rule",
+        "category": "SentriFlow",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "sentriflow.editCustomRule",
+        "title": "Edit Custom Rule",
+        "category": "SentriFlow",
+        "icon": "$(edit)"
       }
     ],
     "menus": {
@@ -359,13 +383,34 @@
         {
           "command": "sentriflow.copyAllIPs",
           "when": "false"
+        },
+        {
+          "command": "sentriflow.createCustomRulesFile",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "sentriflow.copyRuleToCustom",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.deleteCustomRule",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.editCustomRule",
+          "when": "false"
         }
       ],
       "view/title": [
         {
+          "command": "sentriflow.createCustomRulesFile",
+          "when": "view == sentriflowRules",
+          "group": "navigation@1"
+        },
+        {
           "command": "sentriflow.refreshRulesTree",
           "when": "view == sentriflowRules",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "sentriflow.refreshIPTree",
@@ -381,12 +426,12 @@
       "view/item/context": [
         {
           "command": "sentriflow.disableTreeItem",
-          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|category|rule)-enabled$/",
+          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|category|rule)(-custom)?-enabled$/",
           "group": "inline@1"
         },
         {
           "command": "sentriflow.enableTreeItem",
-          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|category|rule)-disabled$/",
+          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|category|rule)(-custom)?-disabled$/",
           "group": "inline@1"
         },
         {
@@ -396,12 +441,12 @@
         },
         {
           "command": "sentriflow.disableTreeItem",
-          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|category|rule)-enabled$/",
+          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|category|rule)(-custom)?-enabled$/",
           "group": "1_toggle@1"
         },
         {
           "command": "sentriflow.enableTreeItem",
-          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|category|rule)-disabled$/",
+          "when": "view == sentriflowRules && viewItem =~ /^(pack|vendor|category|rule)(-custom)?-disabled$/",
           "group": "1_toggle@1"
         },
         {
@@ -423,6 +468,21 @@
           "command": "sentriflow.copyRuleId",
           "when": "view == sentriflowRules && viewItem =~ /^rule-/",
           "group": "2_copy@1"
+        },
+        {
+          "command": "sentriflow.copyRuleToCustom",
+          "when": "view == sentriflowRules && viewItem =~ /^rule-/",
+          "group": "2_copy@2"
+        },
+        {
+          "command": "sentriflow.editCustomRule",
+          "when": "view == sentriflowRules && viewItem =~ /^rule-custom-/",
+          "group": "2_copy@3"
+        },
+        {
+          "command": "sentriflow.deleteCustomRule",
+          "when": "view == sentriflowRules && viewItem =~ /^rule-custom-/",
+          "group": "2_copy@4"
         },
         {
           "command": "sentriflow.viewRuleDetails",
@@ -621,9 +681,28 @@
           "type": "boolean",
           "default": false,
           "description": "Enable debug logging in the SentriFlow output channel"
+        },
+        "sentriflow.customRules.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable loading of custom rules from workspace .sentriflow/rules/ directory"
+        },
+        "sentriflow.customRules.disabledRules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of custom rule IDs to disable"
         }
       }
     },
+    "jsonValidation": [
+      {
+        "fileMatch": ".sentriflow/rules/*.json",
+        "url": "./schemas/sentriflow-rules.schema.json"
+      }
+    ],
     "walkthroughs": [
       {
         "id": "sentriflow.welcome",
