@@ -106,7 +106,7 @@ When contributing validation rules:
 When adding a new vendor:
 
 1. Create vendor schema in `packages/core/src/parser/`
-2. Add helper functions in `packages/rule-helpers/src/<vendor>/`
+2. Add helper functions in `packages/core/src/helpers/<vendor>/`
 3. Add vendor identifier to the supported vendors list
 4. Include test configurations
 

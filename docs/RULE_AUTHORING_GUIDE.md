@@ -1013,7 +1013,7 @@ export const NoMulticastBroadcastIp: IRule = {
 
 Additional helpers available for: `arista`, `aruba`, `fortinet`, `paloalto`, `nokia`, `huawei`, `vyos`, `mikrotik`, `extreme`, `cumulus`
 
-See vendor-specific files in `packages/core/src/helpers/<vendor>/` for full documentation.
+See the [Helper Functions Reference](./helpers/README.md) for comprehensive documentation of all helper functions, including complete function signatures, parameters, return types, and usage examples.
 
 ---
 
