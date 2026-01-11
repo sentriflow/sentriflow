@@ -5,6 +5,8 @@
  * These functions do not import from state/context.ts and are easily unit-testable.
  */
 
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { IRule, RulePack } from '@sentriflow/core';
 
 // ============================================================================
@@ -250,6 +252,20 @@ export function formatPackDetails(pack: RulePack, rules: IRule[]): string {
 // ============================================================================
 // File Utilities
 // ============================================================================
+
+/**
+ * Resolve a path with tilde expansion.
+ * Handles `~` at the start of a path by replacing it with the home directory.
+ *
+ * @param path The path to resolve
+ * @returns Resolved absolute path
+ */
+export function resolvePath(path: string): string {
+  if (path.startsWith('~')) {
+    return join(homedir(), path.slice(1));
+  }
+  return path;
+}
 
 /**
  * Check if a file path has a known network configuration file extension.

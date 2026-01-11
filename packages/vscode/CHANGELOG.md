@@ -17,12 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `utils/` - Helper functions
 - **Improved Code Organization** - All 29+ command handlers extracted to specialized modules
 - **Better Maintainability** - No circular dependencies, cleaner separation of concerns
+- **Custom Rules System Directory** - Custom rules now stored in system directory instead of workspace:
+  - Unix/macOS: `~/.sentriflow/rules/`
+  - Windows: `%USERPROFILE%\.sentriflow\rules\`
+  - Rules are shared across all workspaces
+
+### Fixed
+- **Pack Toggle Icon Not Updating** - Fixed DEFAULT_PACK_NAME mismatch that caused enable/disable toggle to not update tree view icon
+- **Custom Rules Pack Toggle** - Custom Rules pack now properly responds to enable/disable toggle with correct icon state
+- **Custom Rules Pack Visibility** - Pack now shows as disabled instead of disappearing when custom rules are disabled
 
 ### Technical
 - Extension.ts reduced from 5,200+ to ~1,200 lines
 - Bundle size unchanged (within 1.5% of previous version)
 - All 1,205 tests passing
 - TypeScript strict mode compliance verified
+- Added DRY constants for system paths (SENTRIFLOW_HOME, DEFAULT_RULES_DIRECTORY, CACHE_DIRECTORY) in core package
 
 ## [0.4.0] - 2026-01-11
 

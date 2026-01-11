@@ -1,15 +1,18 @@
 // packages/vscode/src/providers/CustomRulesLoader.ts
 
 /**
- * CustomRulesLoader - Load and manage custom JSON rules from workspace
+ * CustomRulesLoader - Load and manage custom JSON rules from system directory
  *
- * Discovers and loads JSON rule files from the `.sentriflow/rules/` directory.
+ * Discovers and loads JSON rule files from the `~/.sentriflow/rules/` directory.
  * Provides file watching for live reload and validation diagnostics.
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { JsonRule, JsonRuleFile } from '@sentriflow/core';
 import { isJsonRuleFile } from '@sentriflow/core';
+import { DEFAULT_RULES_DIRECTORY } from '../encryption/types';
 
 /** Debounce delay in milliseconds for file watcher events */
 const DEBOUNCE_DELAY = 300;
@@ -59,8 +62,15 @@ export class CustomRulesLoader {
       return;
     }
 
-    // Set up file system watcher for .sentriflow/rules/*.json
-    this.watcher = vscode.workspace.createFileSystemWatcher('**/.sentriflow/rules/*.json');
+    // Ensure the rules directory exists
+    await this.ensureRulesDirectory();
+
+    // Set up file system watcher for ~/.sentriflow/rules/*.json (system directory)
+    const rulesPattern = new vscode.RelativePattern(
+      vscode.Uri.file(DEFAULT_RULES_DIRECTORY),
+      '*.json'
+    );
+    this.watcher = vscode.workspace.createFileSystemWatcher(rulesPattern);
 
     // T035: Use debounced handlers for change events to handle rapid saves
     this.watcher.onDidChange(uri => this.debouncedLoadRulesFromFile(uri));
@@ -74,6 +84,17 @@ export class CustomRulesLoader {
 
     // T037: Check for duplicate IDs after initial load
     this.checkForDuplicateIds();
+  }
+
+  /**
+   * Ensure the rules directory exists, creating it if necessary.
+   */
+  private async ensureRulesDirectory(): Promise<void> {
+    try {
+      await fs.promises.mkdir(DEFAULT_RULES_DIRECTORY, { recursive: true });
+    } catch {
+      // Directory may already exist or we don't have permissions
+    }
   }
 
   /**
@@ -100,16 +121,23 @@ export class CustomRulesLoader {
   }
 
   /**
-   * Discover all JSON files in .sentriflow/rules/ directories and load them.
+   * Discover all JSON files in ~/.sentriflow/rules/ directory and load them.
    */
   async findAndLoadRules(): Promise<void> {
-    const files = await vscode.workspace.findFiles('.sentriflow/rules/*.json', '**/node_modules/**');
+    try {
+      const entries = await fs.promises.readdir(DEFAULT_RULES_DIRECTORY, { withFileTypes: true });
 
-    // Sort alphabetically for consistent ordering
-    const sortedFiles = files.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+      // Filter to JSON files only and sort alphabetically
+      const jsonFiles = entries
+        .filter(entry => entry.isFile() && entry.name.endsWith('.json'))
+        .map(entry => path.join(DEFAULT_RULES_DIRECTORY, entry.name))
+        .sort((a, b) => a.localeCompare(b));
 
-    for (const file of sortedFiles) {
-      await this.loadRulesFromFile(file);
+      for (const filePath of jsonFiles) {
+        await this.loadRulesFromFile(vscode.Uri.file(filePath));
+      }
+    } catch {
+      // Directory may not exist yet or we don't have read permissions
     }
   }
 
@@ -227,6 +255,18 @@ export class CustomRulesLoader {
 
     // Restore original order (reverse of reverse = original)
     return allRules.reverse();
+  }
+
+  /**
+   * Reload all rules from the system directory.
+   * Call this after creating/modifying files via commands since
+   * VS Code's file watcher may not detect changes outside the workspace.
+   */
+  async reload(): Promise<void> {
+    this.rulesByFile.clear();
+    this.diagnostics.clear();
+    await this.findAndLoadRules();
+    this.checkForDuplicateIds();
   }
 
   /**

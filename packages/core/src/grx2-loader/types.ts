@@ -274,8 +274,14 @@ export const GRX2_KEY_TYPE_TMK = 1;
 /** CTMK key type */
 export const GRX2_KEY_TYPE_CTMK = 2;
 
+/** Base SentriFlow home directory (platform-aware: ~/.sentriflow or %USERPROFILE%\.sentriflow) */
+export const SENTRIFLOW_HOME = join(homedir(), '.sentriflow');
+
 /** Default packs directory (platform-aware) */
-export const DEFAULT_PACKS_DIRECTORY = join(homedir(), '.sentriflow', 'packs');
+export const DEFAULT_PACKS_DIRECTORY = join(SENTRIFLOW_HOME, 'packs');
+
+/** Default custom rules directory (platform-aware) */
+export const DEFAULT_RULES_DIRECTORY = join(SENTRIFLOW_HOME, 'rules');
 
 /** Cache directory (for downloaded packs, platform-aware) */
-export const CACHE_DIRECTORY = join(homedir(), '.sentriflow', 'cache');
+export const CACHE_DIRECTORY = join(SENTRIFLOW_HOME, 'cache');

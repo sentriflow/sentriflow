@@ -2,13 +2,16 @@
  * Custom Rules Commands
  *
  * Commands for creating, copying, editing, and deleting custom JSON rules.
- * Custom rules are stored in .sentriflow/rules/*.json files in the workspace.
+ * Custom rules are stored in ~/.sentriflow/rules/*.json (system directory).
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { IRule } from '@sentriflow/core';
 import { getState } from '../state/context';
 import { RuleTreeItem } from '../providers/RulesTreeProvider';
+import { DEFAULT_RULES_DIRECTORY } from '../encryption/types';
 
 // ============================================================================
 // Logging Helpers
@@ -29,17 +32,9 @@ function log(message: string): void {
 // ============================================================================
 
 /**
- * Command: Create a new custom rules file in .sentriflow/rules/
+ * Command: Create a new custom rules file in ~/.sentriflow/rules/
  */
 export async function cmdCreateCustomRulesFile(): Promise<void> {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    vscode.window.showErrorMessage(
-      'No workspace folder open. Open a folder to create custom rules.'
-    );
-    return;
-  }
-
   // Prompt for file name
   const fileName = await vscode.window.showInputBox({
     prompt: 'Enter the name for the custom rules file',
@@ -56,19 +51,15 @@ export async function cmdCreateCustomRulesFile(): Promise<void> {
 
   if (!fileName) return;
 
-  // Ensure .sentriflow/rules directory exists
-  const rulesDir = vscode.Uri.joinPath(
-    workspaceFolder.uri,
-    '.sentriflow',
-    'rules'
-  );
+  // Ensure ~/.sentriflow/rules directory exists
   try {
-    await vscode.workspace.fs.createDirectory(rulesDir);
+    await fs.promises.mkdir(DEFAULT_RULES_DIRECTORY, { recursive: true });
   } catch {
     // Directory may already exist
   }
 
-  const fileUri = vscode.Uri.joinPath(rulesDir, fileName);
+  const filePath = path.join(DEFAULT_RULES_DIRECTORY, fileName);
+  const fileUri = vscode.Uri.file(filePath);
 
   // Check if file already exists
   try {
@@ -132,6 +123,10 @@ export async function cmdCreateCustomRulesFile(): Promise<void> {
   const content = new TextEncoder().encode(JSON.stringify(template, null, 2));
   await vscode.workspace.fs.writeFile(fileUri, content);
 
+  // Reload custom rules to pick up the new file
+  const state = getState();
+  await state.customRulesLoader?.reload();
+
   // Open the new file
   const doc = await vscode.workspace.openTextDocument(fileUri);
   await vscode.window.showTextDocument(doc);
@@ -150,14 +145,6 @@ export async function cmdCreateCustomRulesFile(): Promise<void> {
  */
 export async function cmdCopyRuleToCustom(item?: RuleTreeItem): Promise<void> {
   const state = getState();
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-
-  if (!workspaceFolder) {
-    vscode.window.showErrorMessage(
-      'No workspace folder open. Open a folder to create custom rules.'
-    );
-    return;
-  }
 
   // Get the rule to copy
   let rule: IRule | undefined;
@@ -178,26 +165,21 @@ export async function cmdCopyRuleToCustom(item?: RuleTreeItem): Promise<void> {
     }
   }
 
-  // Find existing custom rules files or create new one
-  const rulesDir = vscode.Uri.joinPath(
-    workspaceFolder.uri,
-    '.sentriflow',
-    'rules'
-  );
-  let existingFiles: vscode.Uri[] = [];
+  // Find existing custom rules files from system directory
+  let existingFiles: string[] = [];
   try {
-    const files = await vscode.workspace.findFiles(
-      '.sentriflow/rules/*.json',
-      '**/node_modules/**'
-    );
-    existingFiles = files.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+    const entries = await fs.promises.readdir(DEFAULT_RULES_DIRECTORY, { withFileTypes: true });
+    existingFiles = entries
+      .filter(entry => entry.isFile() && entry.name.endsWith('.json'))
+      .map(entry => path.join(DEFAULT_RULES_DIRECTORY, entry.name))
+      .sort((a, b) => a.localeCompare(b));
   } catch {
     // Directory may not exist
   }
 
   // Let user choose target file
   interface FilePickItem extends vscode.QuickPickItem {
-    uri?: vscode.Uri;
+    filePath?: string;
     isNew: boolean;
   }
 
@@ -206,10 +188,10 @@ export async function cmdCopyRuleToCustom(item?: RuleTreeItem): Promise<void> {
       label: '$(new-file) Create New File...',
       isNew: true,
     },
-    ...existingFiles.map((uri) => ({
-      label: `$(file) ${uri.path.split('/').pop()}`,
-      description: uri.fsPath,
-      uri,
+    ...existingFiles.map((filePath) => ({
+      label: `$(file) ${path.basename(filePath)}`,
+      description: filePath,
+      filePath,
       isNew: false,
     })),
   ];
@@ -236,12 +218,13 @@ export async function cmdCopyRuleToCustom(item?: RuleTreeItem): Promise<void> {
 
     // Ensure directory exists
     try {
-      await vscode.workspace.fs.createDirectory(rulesDir);
+      await fs.promises.mkdir(DEFAULT_RULES_DIRECTORY, { recursive: true });
     } catch {
       // Directory may already exist
     }
 
-    targetUri = vscode.Uri.joinPath(rulesDir, fileName);
+    const targetPath = path.join(DEFAULT_RULES_DIRECTORY, fileName);
+    targetUri = vscode.Uri.file(targetPath);
 
     // Create with template
     const template = {
@@ -254,7 +237,7 @@ export async function cmdCopyRuleToCustom(item?: RuleTreeItem): Promise<void> {
       new TextEncoder().encode(JSON.stringify(template, null, 2))
     );
   } else {
-    targetUri = selected.uri!;
+    targetUri = vscode.Uri.file(selected.filePath!);
   }
 
   // Read existing file and add rule
@@ -343,6 +326,9 @@ export async function cmdCopyRuleToCustom(item?: RuleTreeItem): Promise<void> {
     new TextEncoder().encode(newContent)
   );
 
+  // Reload custom rules to pick up the changes
+  await state.customRulesLoader?.reload();
+
   // Open/refresh the file in editor
   const doc = await vscode.workspace.openTextDocument(targetUri);
   await vscode.window.showTextDocument(doc);
@@ -396,6 +382,8 @@ export async function cmdDeleteCustomRule(item?: RuleTreeItem): Promise<void> {
 
   const deleted = await state.customRulesLoader.deleteRule(ruleId);
   if (deleted) {
+    // Reload to ensure tree view is updated
+    await state.customRulesLoader.reload();
     vscode.window.showInformationMessage(`Deleted rule "${ruleId}".`);
   } else {
     vscode.window.showErrorMessage(
