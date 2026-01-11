@@ -5,6 +5,44 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-11
+
+### Added
+- **Custom JSON Rules** - Create organization-specific validation rules without TypeScript:
+  - Load custom rules from `.sentriflow/rules/*.json` files in your workspace
+  - Full JSON schema validation with IntelliSense support
+  - Auto-completion for vendors, properties, check types, and helper functions
+  - File watching with live reload on changes
+  - Custom rules override built-in rules with the same ID
+  - Duplicate rule ID warnings with detailed output panel
+  - Debounced file watcher for rapid saves
+- **Custom Rules Management Commands**:
+  - "Create Custom Rules File" - Create new rule file from command palette or tree view title bar
+  - "Copy Rule to Custom" - Copy any rule to custom rules file (context menu)
+  - "Edit Custom Rule" - Open source JSON file and navigate to rule definition (context menu)
+  - "Delete Custom Rule" - Remove rule from source file with confirmation (context menu)
+- **Enable/Disable Custom Rules** - Toggle custom rules on/off with inline icons, same as built-in rules
+- **Smart Rule Copying** - When copying a custom rule, preserves the full JSON including check logic; built-in rules get a template placeholder
+
+### Fixed
+- **Custom Rules Not Applied Immediately** - When editing a custom rules JSON file, config files are now rescanned immediately instead of waiting until you switch editors
+- **Blocked Packs Still Scanning** - Packs in `blockedPacks` setting were not being excluded from scans
+- **Custom Rules Pack Disappearing** - Pack no longer disappears from tree when all custom rules are disabled
+- **Disabled Custom Rules Not Tracked** - Custom rules now properly show disabled state in tree view
+
+### Security
+- **SEC-001: XSS Prevention** - Removed `isTrusted` and `supportHtml` from HoverProvider markdown to prevent XSS
+- **SEC-002: Secure Nonce** - Replaced `Math.random()` with `crypto.randomBytes()` for CSP nonce generation
+
+### Changed
+- **DRY-001: Rule Sorting** - Extracted `compareRulesByLevel` utility to eliminate duplicate sorting logic
+- **DRY-002: Comma Parsing** - Extracted `parseCommaSeparated` utility for disabled rules parsing
+- **PERF-001: Tags Caching** - Added caching for `getAllTags()` to improve tree view performance
+
+### New Settings
+- `sentriflow.customRules.enabled` - Enable/disable custom rules loading (default: true)
+- `sentriflow.customRules.disabledRules` - List of custom rule IDs to disable
+
 ## [0.3.6] - 2025-01-08
 
 ### Added

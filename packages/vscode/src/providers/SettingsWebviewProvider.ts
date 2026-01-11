@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import type { IRule, RulePack, RuleVendor } from '@sentriflow/core';
 import { DEFAULT_PACKS_DIRECTORY } from '../encryption/types';
 
@@ -825,12 +826,11 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
 </html>`;
   }
 
+  /**
+   * SEC-002: Generate cryptographically secure nonce for CSP.
+   * Uses crypto.randomBytes instead of Math.random for security.
+   */
   private _getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-      text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+    return crypto.randomBytes(16).toString('base64');
   }
 }
