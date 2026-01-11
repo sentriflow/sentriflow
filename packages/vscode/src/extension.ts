@@ -428,9 +428,6 @@ export function activate(context: vscode.ExtensionContext) {
     vendorStatusBarItem.tooltip = 'Click to change vendor';
     vendorStatusBarItem.show();
 
-    // Initialize status bar displays
-    updateStatusBar('ready');
-
     // Create diagnostic collection
     diagnosticCollection =
       vscode.languages.createDiagnosticCollection('sentriflow');
@@ -553,6 +550,9 @@ export function activate(context: vscode.ExtensionContext) {
       scanVersions,
       debugMode,
     });
+
+    // Initialize status bar displays (must be after initState)
+    updateStatusBar('ready');
 
     // Register hover provider for diagnostic tooltips with category and tags
     const hoverProvider = new SentriFlowHoverProvider(
