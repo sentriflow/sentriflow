@@ -8,4 +8,5 @@ export {
   hasChildCommand,
   getChildCommand,
   getChildCommands,
+  findParentSection,
 } from '../common/helpers';

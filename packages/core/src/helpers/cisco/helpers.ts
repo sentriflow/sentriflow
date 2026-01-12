@@ -10,6 +10,7 @@ import {
   includesIgnoreCase,
   startsWithIgnoreCase,
   parseInteger,
+  findParentSection,
 } from '../common/helpers';
 
 // Re-export common helpers for convenience
@@ -212,6 +213,24 @@ export const hasWeakUsernamePassword = (node: ConfigNode): boolean => {
     return true;
   }
   return false;
+};
+
+/**
+ * Check if password is under a line configuration section (vty, console, aux).
+ * Line passwords cannot be encrypted in Cisco IOS - they only support plaintext.
+ * Security for these should be enforced via AAA authentication instead.
+ *
+ * @param ast The full AST (array of ConfigNode)
+ * @param node The password node to check
+ * @returns true if the password is under a line vty/console/aux section
+ */
+export const isLineConfigPassword = (ast: ConfigNode[], node: ConfigNode): boolean => {
+  const parent = findParentSection(ast, node);
+  if (!parent) return false;
+  const parentId = parent.id.toLowerCase();
+  return parentId.startsWith('line vty') ||
+         parentId.startsWith('line console') ||
+         parentId.startsWith('line aux');
 };
 
 /**

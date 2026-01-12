@@ -203,6 +203,35 @@ export const isShutdown = (node: ConfigNode): boolean => {
 };
 
 /**
+ * Find the parent section of a node in the AST.
+ * Traverses the AST to locate the parent section containing the target node.
+ * Useful for context-aware rules that need to check parent context.
+ *
+ * @param ast The full AST (array of ConfigNode)
+ * @param targetNode The node to find the parent for
+ * @returns The parent section node, or undefined if not found
+ */
+export const findParentSection = (
+  ast: ConfigNode[],
+  targetNode: ConfigNode
+): ConfigNode | undefined => {
+  for (const node of ast) {
+    if (node.type === 'section') {
+      // Check if target is a direct child (by line number match)
+      if (node.children.some(child =>
+        child.loc.startLine === targetNode.loc.startLine
+      )) {
+        return node;
+      }
+      // Recurse into children
+      const found = findParentSection(node.children, targetNode);
+      if (found) return found;
+    }
+  }
+  return undefined;
+};
+
+/**
  * Check if a node is an actual interface definition (not a reference or sub-command).
  * Interface definitions are top-level sections that define physical/logical interfaces.
  *

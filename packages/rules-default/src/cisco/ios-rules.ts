@@ -20,6 +20,7 @@ import {
   isEndpointPort,
   isPhoneOrAP,
   isTrunkToNonCisco,
+  isLineConfigPassword,
 } from '@sentriflow/core/helpers/cisco';
 
 // ============================================================================
@@ -1171,8 +1172,13 @@ export const EnableSecretStrong: IRule = {
 };
 
 /**
- * NET-SEC-001: Detect plaintext passwords in Cisco configuration.
- * Looks for "password" commands without encryption type.
+ * NET-SEC-001: Cisco Plaintext Password Detection (Context-Aware)
+ *
+ * Detects plaintext passwords in Cisco configurations with proper context awareness:
+ * - SKIPS line vty/console/aux passwords (they can't be encrypted - use AAA instead)
+ * - FAILS for username plaintext passwords (should use "secret" or "password 7")
+ * - FAILS for other plaintext passwords in applicable contexts
+ *
  * Cisco-specific: checks for type 5/7/8/9 encryption indicators.
  */
 export const CiscoNoPlaintextPasswords: IRule = {
@@ -1185,17 +1191,18 @@ export const CiscoNoPlaintextPasswords: IRule = {
     obu: 'Security',
     owner: 'SecOps',
     remediation:
-      'Use "secret" instead of "password", or ensure password is encrypted (type 7 or higher).',
+      'Use "secret" instead of "password", or encrypt with type 7/8/9.',
   },
-  check: (node: ConfigNode): RuleResult => {
+  check: (node: ConfigNode, context: Context): RuleResult => {
     const params = node.params;
-    const nodeId = node.id;
+    const nodeId = node.id.toLowerCase();
 
     // Skip global config commands that aren't password definitions
-    if (includesIgnoreCase(nodeId, 'encryption') || includesIgnoreCase(nodeId, 'service')) {
+    // e.g., "service password-encryption", "password encryption aes"
+    if (nodeId.includes('encryption') || nodeId.includes('service')) {
       return {
         passed: true,
-        message: 'Global password configuration command.',
+        message: 'Global password configuration.',
         ruleId: 'NET-SEC-001',
         nodeId: node.id,
         level: 'info',
@@ -1203,30 +1210,33 @@ export const CiscoNoPlaintextPasswords: IRule = {
       };
     }
 
+    // Skip line passwords (vty/console/aux) - they CANNOT be encrypted in Cisco IOS
+    // The only options are:
+    //   - "password <plaintext>" (no encryption option exists)
+    //   - Use AAA authentication instead (recommended)
+    // Security for lines is enforced via transport input ssh, access-class, and AAA rules
+    const ast = context.getAst?.();
+    if (ast && isLineConfigPassword(ast, node)) {
+      return {
+        passed: true,
+        message: 'Line password - use AAA authentication for security (line passwords cannot be encrypted).',
+        ruleId: 'NET-SEC-001',
+        nodeId: node.id,
+        level: 'info',
+        loc: node.loc,
+      };
+    }
+
+    // Check for encrypted password types (5, 7, 8, 9)
+    // Format: password <type> <encrypted-string>
     if (params.length >= 2) {
       const typeOrValue = params[1];
-      if (!typeOrValue) {
-        return {
-          passed: false,
-          message:
-            'Possible plaintext password detected. Use encryption type 7 or "secret" command.',
-          ruleId: 'NET-SEC-001',
-          nodeId: node.id,
-          level: 'error',
-          loc: node.loc,
-        };
-      }
 
-      // If second param is a number, it's the encryption type
-      if (
-        typeOrValue === '7' ||
-        typeOrValue === '5' ||
-        typeOrValue === '8' ||
-        typeOrValue === '9'
-      ) {
+      // Encrypted types: 5 (MD5), 7 (Vigenere), 8 (PBKDF2-SHA256), 9 (scrypt)
+      if (typeOrValue && ['5', '7', '8', '9'].includes(typeOrValue)) {
         return {
           passed: true,
-          message: 'Password is encrypted.',
+          message: `Password is encrypted (type ${typeOrValue}).`,
           ruleId: 'NET-SEC-001',
           nodeId: node.id,
           level: 'info',
@@ -1238,7 +1248,7 @@ export const CiscoNoPlaintextPasswords: IRule = {
       if (typeOrValue === '0') {
         return {
           passed: false,
-          message: 'Plaintext password detected (type 0).',
+          message: 'Plaintext password detected (type 0). Use "secret" or encrypt with type 7.',
           ruleId: 'NET-SEC-001',
           nodeId: node.id,
           level: 'error',
@@ -1246,12 +1256,11 @@ export const CiscoNoPlaintextPasswords: IRule = {
         };
       }
 
-      // If no type specified, it's likely plaintext
-      if (!/^\d+$/.test(typeOrValue)) {
+      // Non-numeric first parameter means plaintext password value
+      if (typeOrValue && !/^\d+$/.test(typeOrValue)) {
         return {
           passed: false,
-          message:
-            'Possible plaintext password detected. Use encryption type 7 or "secret" command.',
+          message: 'Plaintext password detected. Use "secret" or encrypt with type 7.',
           ruleId: 'NET-SEC-001',
           nodeId: node.id,
           level: 'error',
