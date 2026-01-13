@@ -183,6 +183,62 @@ export function isExtendedGRX2(data: Buffer): boolean {
 // =============================================================================
 
 /**
+ * Map tier ID byte to tier name
+ */
+const TIER_ID_MAP: Record<number, string> = {
+  1: 'basic',
+  2: 'professional',
+  3: 'enterprise',
+};
+
+/**
+ * Read tier ID from GRX2 pack header
+ *
+ * This allows us to determine which TMK to use before attempting decryption.
+ *
+ * @param data - Pack data buffer (at least GRX2_HEADER_SIZE bytes)
+ * @returns Tier ID string (basic, professional, enterprise) or null if invalid
+ */
+export function getPackTierId(data: Buffer): string | null {
+  if (data.length < GRX2_HEADER_SIZE) {
+    return null;
+  }
+
+  // Check GRX2 magic
+  const magic = data.subarray(0, 4);
+  if (!magic.equals(GRX2_MAGIC)) {
+    return null;
+  }
+
+  // Tier ID is at bytes 8-9 (UInt16BE)
+  const tierId = data.readUInt16BE(8);
+  return TIER_ID_MAP[tierId] ?? null;
+}
+
+/**
+ * Read key type from GRX2 pack header
+ *
+ * Key type indicates whether the pack is encrypted with a tier TMK or customer TMK.
+ *
+ * @param data - Pack data buffer
+ * @returns 1 for tier-master-key, 2 for customer-tmk, or null if invalid
+ */
+export function getPackKeyType(data: Buffer): 1 | 2 | null {
+  if (data.length < GRX2_HEADER_SIZE) {
+    return null;
+  }
+
+  const magic = data.subarray(0, 4);
+  if (!magic.equals(GRX2_MAGIC)) {
+    return null;
+  }
+
+  // Key type is at byte 7
+  const keyType = data.readUInt8(7);
+  return keyType === 1 || keyType === 2 ? keyType : null;
+}
+
+/**
  * Parse standard GRX2 header
  *
  * Standard packs don't have the wrapped TMK block.
@@ -192,6 +248,8 @@ function parseStandardHeader(data: Buffer): {
   authTag: Buffer;
   payloadLength: number;
   packHashBytes: Buffer;
+  tierId: string | null;
+  keyType: 1 | 2 | null;
 } {
   if (data.length < GRX2_HEADER_SIZE) {
     throw new EncryptedPackError('Pack too small for GRX2 format', 'PACK_CORRUPTED');
@@ -221,6 +279,8 @@ function parseStandardHeader(data: Buffer): {
     authTag: Buffer.from(data.subarray(26, 42)),
     payloadLength: data.readUInt32BE(74),
     packHashBytes: Buffer.from(data.subarray(78, 94)),
+    tierId: getPackTierId(data),
+    keyType: getPackKeyType(data),
   };
 }
 

@@ -28,6 +28,7 @@ import type {
   CloudActivationResponse,
   StoredCloudLicense,
   CloudWrappedTMK,
+  TierId,
 } from './types';
 import { EncryptedPackError } from './types';
 
@@ -185,7 +186,7 @@ function decodeJWT(jwt: string): LicensePayload {
     }
 
     // Validate tier is one of the allowed values
-    const validTiers = ['community', 'professional', 'enterprise'];
+    const validTiers = ['basic', 'professional', 'enterprise'];
     if (typeof p.tier !== 'string' || !validTiers.includes(p.tier)) {
       throw new Error(`Invalid "tier" claim: must be one of ${validTiers.join(', ')}`);
     }
@@ -331,8 +332,16 @@ export class LicenseManager {
    * @returns true if a license key exists
    */
   async hasLicenseKey(): Promise<boolean> {
+    // Check legacy secret key first
     const jwt = await this.secrets.get(LICENSE_SECRET_KEY);
-    return !!jwt;
+    if (jwt) {
+      return true;
+    }
+
+    // Fall back to cloud license (stored in globalState)
+    // This handles the case where secrets storage fails but globalState works
+    const cloudLicense = this.globalState.get<{ jwt?: string }>(CLOUD_LICENSE_KEY);
+    return !!cloudLicense?.jwt;
   }
 
   /**
@@ -405,7 +414,16 @@ export class LicenseManager {
       return this.cachedLicense;
     }
 
-    const jwt = await this.getLicenseKey();
+    // Try to get JWT from legacy secret key first
+    let jwt = await this.getLicenseKey();
+
+    // If not found, try to get from cloud license (stored in globalState)
+    // This handles the case where secrets storage fails but globalState works
+    const cloudLicense = await this.getStoredCloudLicense();
+    if (!jwt && cloudLicense?.jwt) {
+      jwt = cloudLicense.jwt;
+    }
+
     if (!jwt) {
       return null;
     }
@@ -415,7 +433,6 @@ export class LicenseManager {
 
       // For cloud licenses, use the stored license expiry instead of JWT expiry
       // JWT expiry is short (up to 30 days) but license can be much longer
-      const cloudLicense = await this.getStoredCloudLicense();
       let effectiveExpiry = payload.exp;
 
       if (cloudLicense?.licenseExpiresAt) {
@@ -474,7 +491,7 @@ export class LicenseManager {
    *
    * @returns Tier or null
    */
-  async getTier(): Promise<'community' | 'professional' | 'enterprise' | null> {
+  async getTier(): Promise<'basic' | 'professional' | 'enterprise' | null> {
     const info = await this.getLicenseInfo();
     return info?.payload.tier ?? null;
   }
@@ -1201,12 +1218,41 @@ export class LicenseManager {
         throw new EncryptedPackError('License activation rejected', 'LICENSE_INVALID');
       }
 
+      // CRITICAL: Validate required fields are present in response
+      // TypeScript's type cast doesn't do runtime validation, so we must check manually
+      if (!data.jwt || typeof data.jwt !== 'string') {
+        throw new EncryptedPackError(
+          'Invalid activation response: missing JWT token',
+          'ACTIVATION_FAILED'
+        );
+      }
+
+      if (!data.wrappedTMK || typeof data.wrappedTMK !== 'object') {
+        throw new EncryptedPackError(
+          'Invalid activation response: missing wrapped TMK',
+          'ACTIVATION_FAILED'
+        );
+      }
+
+      // Validate wrappedTMK structure (AES-256-GCM encrypted key)
+      if (
+        !data.wrappedTMK.encryptedKey ||
+        !data.wrappedTMK.iv ||
+        !data.wrappedTMK.authTag
+      ) {
+        throw new EncryptedPackError(
+          'Invalid activation response: malformed wrapped TMK',
+          'ACTIVATION_FAILED'
+        );
+      }
+
       // Store cloud license info
       // Explicitly set status to 'active' to ensure any previous revoked/expired status is cleared
       const storedLicense: StoredCloudLicense = {
         licenseKey: licenseKey.toUpperCase(),
         jwt: data.jwt,
         wrappedTMK: data.wrappedTMK,
+        wrappedTierTMKs: data.wrappedTierTMKs,
         wrappedCustomerTMK: data.wrappedCustomerTMK,
         activationId: data.activationId,
         activatedAt: new Date().toISOString(),
@@ -1310,14 +1356,19 @@ export class LicenseManager {
    */
   async storeCloudLicense(license: StoredCloudLicense): Promise<void> {
     // Don't store sensitive TMK data in globalState
-    const { wrappedTMK, wrappedCustomerTMK, ...licenseWithoutTMK } = license;
+    const { wrappedTMK, wrappedTierTMKs, wrappedCustomerTMK, ...licenseWithoutTMK } = license;
 
     await this.globalState.update(CLOUD_LICENSE_KEY, licenseWithoutTMK);
 
     // Store wrapped TMKs separately in secrets for security
+    // wrappedTierTMKs is a map of tier -> TMK for multi-tier licenses
     await this.secrets.store(
       CLOUD_WRAPPED_TMK_KEY,
-      JSON.stringify({ tier: wrappedTMK, customer: wrappedCustomerTMK })
+      JSON.stringify({
+        tier: wrappedTMK,
+        tierMap: wrappedTierTMKs,
+        customer: wrappedCustomerTMK,
+      })
     );
   }
 
@@ -1327,7 +1378,7 @@ export class LicenseManager {
    * @returns Stored cloud license or null
    */
   async getStoredCloudLicense(): Promise<StoredCloudLicense | null> {
-    const licenseBase = this.globalState.get<Omit<StoredCloudLicense, 'wrappedTMK' | 'wrappedCustomerTMK'>>(CLOUD_LICENSE_KEY);
+    const licenseBase = this.globalState.get<Omit<StoredCloudLicense, 'wrappedTMK' | 'wrappedTierTMKs' | 'wrappedCustomerTMK'>>(CLOUD_LICENSE_KEY);
 
     if (!licenseBase) {
       return null;
@@ -1339,6 +1390,7 @@ export class LicenseManager {
     const license: StoredCloudLicense = {
       ...licenseBase,
       wrappedTMK: tmks?.tier ?? null,
+      wrappedTierTMKs: tmks?.tierMap,
       wrappedCustomerTMK: tmks?.customer,
     };
 
@@ -1348,9 +1400,13 @@ export class LicenseManager {
   /**
    * Get wrapped TMKs from secure storage
    *
-   * @returns Both tier and customer TMKs or null
+   * @returns Primary tier TMK, tier map, and customer TMK (if any)
    */
-  private async getWrappedTMKs(): Promise<{ tier: CloudWrappedTMK; customer?: CloudWrappedTMK | null } | null> {
+  private async getWrappedTMKs(): Promise<{
+    tier: CloudWrappedTMK;
+    tierMap?: Record<TierId, CloudWrappedTMK>;
+    customer?: CloudWrappedTMK | null;
+  } | null> {
     const wrappedTMKJson = await this.secrets.get(CLOUD_WRAPPED_TMK_KEY);
 
     if (!wrappedTMKJson) {
@@ -1358,7 +1414,11 @@ export class LicenseManager {
     }
 
     try {
-      return JSON.parse(wrappedTMKJson) as { tier: CloudWrappedTMK; customer?: CloudWrappedTMK | null };
+      return JSON.parse(wrappedTMKJson) as {
+        tier: CloudWrappedTMK;
+        tierMap?: Record<TierId, CloudWrappedTMK>;
+        customer?: CloudWrappedTMK | null;
+      };
     } catch {
       return null;
     }
@@ -1372,6 +1432,39 @@ export class LicenseManager {
   async getWrappedTMK(): Promise<CloudWrappedTMK | null> {
     const tmks = await this.getWrappedTMKs();
     return tmks?.tier ?? null;
+  }
+
+  /**
+   * Get wrapped TMK for a specific tier
+   *
+   * Used when decrypting packs that belong to a specific tier.
+   * Falls back to primary TMK for backward compatibility.
+   *
+   * @param tierId - Tier ID (basic, professional, enterprise)
+   * @returns Wrapped TMK for the tier or null if not available
+   */
+  async getWrappedTMKForTier(tierId: TierId): Promise<CloudWrappedTMK | null> {
+    const tmks = await this.getWrappedTMKs();
+    if (!tmks) return null;
+
+    // Try tier map first (new format with per-tier TMKs)
+    if (tmks.tierMap && tmks.tierMap[tierId]) {
+      return tmks.tierMap[tierId]!;
+    }
+
+    // Fall back to primary TMK for backward compatibility
+    // (old activations only had a single TMK)
+    return tmks.tier ?? null;
+  }
+
+  /**
+   * Get all wrapped tier TMKs
+   *
+   * @returns Map of tier ID to wrapped TMK, or null if not available
+   */
+  async getWrappedTierTMKs(): Promise<Record<TierId, CloudWrappedTMK> | null> {
+    const tmks = await this.getWrappedTMKs();
+    return tmks?.tierMap ?? null;
   }
 
   /**

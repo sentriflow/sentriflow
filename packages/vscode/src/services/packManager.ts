@@ -304,6 +304,13 @@ export async function loadPacks(): Promise<void> {
   const cloudLicenseInfo = await state.licenseManager.getLicenseInfo();
   const offlineLicenseInfo = await state.licenseManager.getOfflineLicenseInfo();
 
+  // Debug: trace what getLicenseInfo returned
+  const hasLicenseKey = await state.licenseManager.hasLicenseKey();
+  log(`[Packs] License check: hasKey=${hasLicenseKey}, cloudInfo=${!!cloudLicenseInfo}, offlineInfo=${!!offlineLicenseInfo}`);
+  if (cloudLicenseInfo) {
+    log(`[Packs] Cloud license info: expired=${cloudLicenseInfo.isExpired}, tier=${cloudLicenseInfo.payload.tier}`);
+  }
+
   // Get offline license key separately (for extended GRX2/GRPX packs)
   const offlineLicenseKey = await state.licenseManager.getOfflineLicenseKey();
   const offlineLicenseKeys = offlineLicenseKey ? [offlineLicenseKey] : [];
@@ -317,6 +324,8 @@ export async function loadPacks(): Promise<void> {
     cloudLicenseInfo && !cloudLicenseInfo.isExpired && !isCloudLicenseInvalidated;
   const hasValidOfflineLicense =
     offlineLicenseInfo && !offlineLicenseInfo.isExpired;
+
+  log(`[Packs] Validity: cloudValid=${hasValidCloudLicense}, offlineValid=${hasValidOfflineLicense}, cloudInvalidated=${isCloudLicenseInvalidated}`);
 
   if (!hasValidCloudLicense && !hasValidOfflineLicense) {
     if (isCloudLicenseInvalidated) {
@@ -382,6 +391,10 @@ export async function loadPacks(): Promise<void> {
   // Build cloud pack context for standard GRX2 packs
   let cloudContext: CloudPackContext | undefined;
   const storedCloudLicense = await state.licenseManager.getStoredCloudLicense();
+
+  // Debug: Log what we got from stored license
+  log(`[Packs] Stored license check: hasLicense=${!!storedCloudLicense}, hasKey=${!!storedCloudLicense?.licenseKey}, hasTMK=${!!storedCloudLicense?.wrappedTMK}, status=${storedCloudLicense?.status ?? 'none'}`);
+
   if (
     storedCloudLicense?.licenseKey &&
     storedCloudLicense?.wrappedTMK &&
@@ -391,9 +404,13 @@ export async function loadPacks(): Promise<void> {
     cloudContext = {
       licenseKey: storedCloudLicense.licenseKey,
       wrappedTMK: storedCloudLicense.wrappedTMK,
+      wrappedTierTMKs: storedCloudLicense.wrappedTierTMKs,
       wrappedCustomerTMK: storedCloudLicense.wrappedCustomerTMK,
     };
-    log(`[Packs] Cloud context available - can load standard GRX2 packs`);
+    const tierCount = storedCloudLicense.wrappedTierTMKs
+      ? Object.keys(storedCloudLicense.wrappedTierTMKs).length
+      : 0;
+    log(`[Packs] Cloud context available - ${tierCount} tier TMK(s), can load standard GRX2 packs`);
   } else {
     log(`[Packs] No cloud context - only extended GRX2/GRPX packs will load`);
   }

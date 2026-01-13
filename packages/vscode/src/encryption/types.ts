@@ -93,7 +93,7 @@ export interface EntitlementsResponse {
   customerId: string;
 
   /** Customer tier */
-  tier: 'community' | 'professional' | 'enterprise';
+  tier: 'basic' | 'professional' | 'enterprise';
 
   /** Entitled feeds */
   feeds: FeedInfo[];
@@ -282,6 +282,11 @@ export interface CloudWrappedTMK {
 }
 
 /**
+ * Tier ID type for TMK mapping
+ */
+export type TierId = 'basic' | 'professional' | 'enterprise';
+
+/**
  * Cloud activation response
  */
 export interface CloudActivationResponse {
@@ -291,14 +296,21 @@ export interface CloudActivationResponse {
   /** JWT for API authentication */
   jwt: string;
 
-  /** Wrapped TMK for pack decryption */
+  /** Wrapped TMK for pack decryption (primary tier - backward compat) */
   wrappedTMK: CloudWrappedTMK;
+
+  /**
+   * Wrapped TMKs for all accessible tiers (tier hierarchy)
+   * Professional license includes: { basic: TMK, professional: TMK }
+   * Enterprise license includes: { basic: TMK, professional: TMK, enterprise: TMK }
+   */
+  wrappedTierTMKs?: Record<TierId, CloudWrappedTMK>;
 
   /** Wrapped customer TMK (if customer has custom feeds) */
   wrappedCustomerTMK?: CloudWrappedTMK | null;
 
   /** Customer tier */
-  tier: 'community' | 'professional' | 'enterprise';
+  tier: TierId;
 
   /** License expiry */
   expiresAt: string;
@@ -339,8 +351,15 @@ export interface StoredCloudLicense {
   /** JWT from activation */
   jwt: string;
 
-  /** Wrapped TMK from activation */
+  /** Wrapped TMK from activation (primary tier - backward compat) */
   wrappedTMK: CloudWrappedTMK | null;
+
+  /**
+   * Wrapped TMKs for all accessible tiers (tier hierarchy)
+   * Professional license includes: { basic: TMK, professional: TMK }
+   * Enterprise license includes: { basic: TMK, professional: TMK, enterprise: TMK }
+   */
+  wrappedTierTMKs?: Record<TierId, CloudWrappedTMK>;
 
   /** Wrapped customer TMK (if applicable) */
   wrappedCustomerTMK?: CloudWrappedTMK | null;
@@ -361,7 +380,7 @@ export interface StoredCloudLicense {
   licenseExpiresAt?: string;
 
   /** Customer tier */
-  tier?: 'community' | 'professional' | 'enterprise';
+  tier?: TierId;
 
   /** License status - set when server returns LICENSE_REVOKED or LICENSE_EXPIRED */
   status?: LicenseStatus;

@@ -24,8 +24,8 @@ import {
   loadEncryptedPack as loadGrpxPack,
 } from '@sentriflow/core';
 import { loadExtendedPack as loadGrx2Pack, isExtendedGRX2 } from './GRX2ExtendedLoader';
-import { loadCloudPack, isStandardGRX2 } from './CloudPackLoader';
-import type { EncryptedPackInfo, GRX2PackLoadResult, CloudWrappedTMK } from './types';
+import { loadCloudPack, isStandardGRX2, getPackTierId, getPackKeyType } from './CloudPackLoader';
+import type { EncryptedPackInfo, GRX2PackLoadResult, CloudWrappedTMK, TierId } from './types';
 
 /**
  * Pack info with format detection
@@ -161,8 +161,14 @@ export async function scanForPackFiles(
 export interface CloudPackContext {
   /** Cloud license key (XXXX-XXXX-XXXX-XXXX format) */
   licenseKey: string;
-  /** Wrapped tier TMK from cloud activation */
+  /** Wrapped tier TMK from cloud activation (primary, for backward compat) */
   wrappedTMK: CloudWrappedTMK;
+  /**
+   * Wrapped TMKs for all accessible tiers (tier hierarchy)
+   * Maps tier ID to wrapped TMK for that tier.
+   * Used to select correct TMK based on pack's tier header.
+   */
+  wrappedTierTMKs?: Record<TierId, CloudWrappedTMK>;
   /** Wrapped customer TMK (for custom feeds) */
   wrappedCustomerTMK?: CloudWrappedTMK | null;
 }
@@ -223,11 +229,33 @@ export async function loadPackFile(
           };
         }
 
+        // Read pack tier and key type from header to select correct TMK
+        const packTierId = getPackTierId(packData) as TierId | null;
+        const packKeyType = getPackKeyType(packData);
+        debug?.(`[UnifiedLoader] Pack ${feedId}: tier=${packTierId}, keyType=${packKeyType}`);
+
+        // Select TMK based on key type and tier
+        let selectedTMK: CloudWrappedTMK | undefined;
+
+        if (packKeyType === 2 && cloudContext.wrappedCustomerTMK) {
+          // Key type 2 = customer TMK
+          selectedTMK = cloudContext.wrappedCustomerTMK;
+          debug?.(`[UnifiedLoader] Using customer TMK for ${feedId}`);
+        } else if (packTierId && cloudContext.wrappedTierTMKs?.[packTierId]) {
+          // Use tier-specific TMK from the map
+          selectedTMK = cloudContext.wrappedTierTMKs[packTierId];
+          debug?.(`[UnifiedLoader] Using ${packTierId} tier TMK for ${feedId}`);
+        } else {
+          // Fallback to primary TMK (backward compatibility)
+          selectedTMK = cloudContext.wrappedTMK;
+          debug?.(`[UnifiedLoader] Using primary TMK for ${feedId} (fallback)`);
+        }
+
         debug?.(`[UnifiedLoader] Loading standard GRX2 (cloud pack): ${feedId}`);
         try {
           const pack = await loadCloudPack(
             filePath,
-            cloudContext.wrappedTMK,
+            selectedTMK,
             cloudContext.licenseKey,
             machineId,
             debug
@@ -241,9 +269,9 @@ export async function loadPackFile(
           const errorMsg = error instanceof Error ? error.message : String(error);
           debug?.(`[UnifiedLoader] Cloud pack load failed: ${errorMsg}`);
 
-          // If tier TMK failed and we have customer TMK, try that
-          if (cloudContext.wrappedCustomerTMK) {
-            debug?.(`[UnifiedLoader] Trying customer TMK for ${feedId}`);
+          // If tier TMK failed and we have customer TMK as fallback, try that
+          if (packKeyType !== 2 && cloudContext.wrappedCustomerTMK) {
+            debug?.(`[UnifiedLoader] Trying customer TMK as fallback for ${feedId}`);
             try {
               const pack = await loadCloudPack(
                 filePath,
