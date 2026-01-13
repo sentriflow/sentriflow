@@ -154,9 +154,9 @@ export class LicenseTreeProvider implements vscode.TreeDataProvider<LicenseTreeI
    */
   private formatTier(tier: string): string {
     const tierMap: Record<string, string> = {
-      enterprise: 'Enterprise',
+      basic: 'Basic',
       professional: 'Pro',
-      community: 'Community',
+      enterprise: 'Enterprise',
     };
     return tierMap[tier] || tier;
   }

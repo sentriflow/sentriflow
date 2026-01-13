@@ -25,7 +25,7 @@ export interface LicensePayload {
   sub: string;
 
   /** Customer tier */
-  tier: 'community' | 'professional' | 'enterprise';
+  tier: 'basic' | 'professional' | 'enterprise';
 
   /** Entitled feed IDs */
   feeds: string[];

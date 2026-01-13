@@ -62,6 +62,8 @@ export async function cmdEnterLicenseKey(): Promise<void> {
   if (success) {
     // Initialize cloud client for update checks (requires cloud license JWT)
     const cloudLicense = await state.licenseManager.getStoredCloudLicense();
+    log(`[License] After activation: hasLicense=${!!cloudLicense}, hasJwt=${!!cloudLicense?.jwt}, hasTMK=${!!cloudLicense?.wrappedTMK}, status=${cloudLicense?.status ?? 'none'}`);
+
     if (cloudLicense?.jwt) {
       const apiUrl = cloudLicense.apiUrl ?? DEFAULT_CLOUD_API_URL;
       log('[License] Cloud license activated');

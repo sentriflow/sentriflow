@@ -39,7 +39,7 @@ export interface PackProviderLicenseStatus {
   isValid: boolean;
 
   /** License tier */
-  tier: 'community' | 'professional' | 'enterprise' | string;
+  tier: 'basic' | 'professional' | 'enterprise' | string;
 
   /** List of entitled feed/pack IDs */
   entitledFeeds: string[];

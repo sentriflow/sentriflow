@@ -397,7 +397,7 @@ export class CloudClient {
       // but they're not needed for update checking (already available from JWT/activation)
       return {
         customerId: '', // Not needed for update check
-        tier: 'community', // Safe default - actual tier is in JWT, not used here
+        tier: 'basic', // Safe default - actual tier is in JWT, not used here
         expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // Far future
         feeds: data.feeds.map((feed) => ({
           id: feed.feedId,
