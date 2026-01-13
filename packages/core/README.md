@@ -1,10 +1,12 @@
 # @sentriflow/core
 
-Core engine for SentriFlow - a network configuration compliance validator.
+Core engine for SentriFlow - a network configuration validator.
 
 ## Overview
 
-`@sentriflow/core` provides the fundamental building blocks for parsing and analyzing network device configurations across multiple vendors, checking them against compliance rules—whether industry best practices or your organization's specific requirements.
+`@sentriflow/core` provides the fundamental building blocks for parsing and analyzing network device configurations across multiple vendors, validating them against policy rules—whether industry best practices or your organization's specific requirements.
+
+SentriFlow is a validation tool that assesses configuration alignment with policies and standards.
 
 ## Installation
 
@@ -18,7 +20,7 @@ bun add @sentriflow/core
 
 - **Multi-vendor support**: Cisco IOS/NX-OS, Juniper JunOS, Arista EOS, Fortinet FortiGate, Palo Alto PAN-OS, and more
 - **AST-based parsing**: Converts configurations into a vendor-agnostic Abstract Syntax Tree
-- **Extensible rule engine**: Define compliance rules for best practices or organization-specific policies
+- **Extensible rule engine**: Define validation rules for best practices or organization-specific policies
 - **IP/Subnet Extraction**: Extract and deduplicate IP addresses and CIDR subnets from configurations
 - **GRX2 Loader**: Load and decrypt extended encrypted rule packs for offline usage
 - **TypeScript native**: Full type safety with comprehensive type definitions
@@ -173,8 +175,12 @@ try {
 ## Related Packages
 
 - [`@sentriflow/cli`](https://github.com/sentriflow/sentriflow/tree/main/packages/cli) - Command-line interface
-- [`@sentriflow/rules-default`](https://github.com/sentriflow/sentriflow/tree/main/packages/rules-default) - Default compliance rules
+- [`@sentriflow/rules-default`](https://github.com/sentriflow/sentriflow/tree/main/packages/rules-default) - Default validation rules
 - [`@sentriflow/rule-helpers`](https://github.com/sentriflow/sentriflow/tree/main/packages/rule-helpers) - Helper functions for rule development
+
+## Disclaimer
+
+SentriFlow provides automated configuration validation. Validation results do not constitute compliance certification.
 
 ## License
 

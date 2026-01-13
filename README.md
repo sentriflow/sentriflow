@@ -1,12 +1,14 @@
 # SentriFlow
 
-Network configuration compliance validation for Cisco, Juniper, Arista, and more.
+Network configuration validation for Cisco, Juniper, Arista, and more.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Overview
 
-SentriFlow is an open-source compliance validator for network device configurations. It checks configurations against security best practices and policy rules - either industry standards or your company-specific requirements. It supports multiple network vendors and can be used via CLI or VS Code extension.
+SentriFlow is an open-source validation tool for network device configurations. It checks configurations against security best practices and policy rules - either industry standards or your company-specific requirements. It supports multiple network vendors and can be used via CLI or VS Code extension.
+
+> **Note**: SentriFlow is a configuration validation tool that assesses alignment with security standards and policies. It provides technical control assessments but does not certify compliance with regulatory frameworks. Final compliance certification is the responsibility of qualified auditors.
 
 ## Packages
 
@@ -262,6 +264,10 @@ code --install-extension packages/vscode/sentriflow-vscode-*.vsix
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## Disclaimer
+
+SentriFlow provides automated configuration validation and technical control assessments. While validation results assist in demonstrating alignment with security standards (NIST, PCI-DSS, CIS), SentriFlow is a validation tool, not a certifying body. Passing these checks indicates technical alignment but does not constitute an official compliance certification.
 
 ## License
 

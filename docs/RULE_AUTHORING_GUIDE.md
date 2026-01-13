@@ -19,7 +19,7 @@ This guide walks you through creating custom validation rules for SentriFlow, fr
 
 ### What are SentriFlow Rules?
 
-SentriFlow rules are validation checks that run against parsed network device configurations. Each rule inspects specific configuration elements and reports whether they comply with your security policies and best practices.
+SentriFlow rules are validation checks that run against parsed network device configurations. Each rule inspects specific configuration elements and reports whether they align with your security policies and best practices.
 
 ### JSON vs TypeScript: When to Use Each
 

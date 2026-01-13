@@ -1,6 +1,6 @@
 # @sentriflow/cli
 
-Command-line interface for SentriFlow - check network configurations for compliance against best practices or organization-specific policies.
+Command-line interface for SentriFlow - validate network configurations against best practices or organization-specific policies.
 
 ## Installation
 
@@ -53,7 +53,7 @@ cat router.conf | sentriflow -
 ```
 Usage: sentriflow [options] [file]
 
-SentriFlow Network Configuration Compliance Checker
+SentriFlow Network Configuration Validator
 
 Arguments:
   file                          Path to the configuration file (use - for stdin)
@@ -321,7 +321,11 @@ SentriFlow automatically looks for `.sentriflowrc` or `.sentriflowrc.json` in th
 ## Related Packages
 
 - [`@sentriflow/core`](https://github.com/sentriflow/sentriflow/tree/main/packages/core) - Core parsing and compliance engine
-- [`@sentriflow/rules-default`](https://github.com/sentriflow/sentriflow/tree/main/packages/rules-default) - Default compliance rules
+- [`@sentriflow/rules-default`](https://github.com/sentriflow/sentriflow/tree/main/packages/rules-default) - Default validation rules
+
+## Disclaimer
+
+SentriFlow provides automated configuration validation. Validation results indicate technical alignment with security standards but do not constitute compliance certification. Consult qualified auditors for official compliance assessments.
 
 ## License
 

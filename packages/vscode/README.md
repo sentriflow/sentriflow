@@ -1,14 +1,14 @@
 # SentriFlow for VS Code
 
-Validate network device configurations against security best practices and compliance rules in Visual Studio Code.
+Validate network device configurations against security best practices and policy rules in Visual Studio Code.
 
 ## What It Does
 
-SentriFlow checks your network configurations (Cisco, Juniper, Arista, etc.) against defined compliance rules - either industry best practices or your company-specific policies. It's not a syntax checker; it validates that configurations meet security and operational standards.
+SentriFlow checks your network configurations (Cisco, Juniper, Arista, etc.) against defined validation rules - either industry best practices or your company-specific policies. It's not a syntax checker; it validates that configurations meet security and operational standards.
 
 ## Features
 
-- **Real-time compliance checks**: See policy violations as you type
+- **Real-time validation**: See policy violations as you type
 - **Multi-vendor support**: Cisco, Juniper, Arista, Fortinet, Palo Alto, and more
 - **Auto-detection**: Automatically detects vendor from configuration content
 - **Customizable rules**: Use default best-practice rules or define company-specific policies
@@ -241,7 +241,7 @@ Hover over any diagnostic (squiggly underline) to see detailed information:
 
 - **Rule ID and Category**: Quick identification and grouping
 - **Tags**: All typed tags with their type (`security`, `operational`, `compliance`, `general`) and optional scores
-- **Description**: Full explanation of the compliance issue
+- **Description**: Full explanation of the policy violation
 - **Remediation**: Specific guidance on how to fix the issue
 - **Owner Info**: OBU and owner details for internal rules
 
@@ -425,6 +425,10 @@ Commercial features are disabled by default. To ensure no data collection:
 
 1. Don't enter a license key
 2. Or set `sentriflow.encryptedPacks.enabled` to `false`
+
+## Disclaimer
+
+SentriFlow provides automated configuration validation. Results indicate technical alignment with security standards but do not constitute official compliance certification. Consult qualified auditors for regulatory assessments.
 
 ## License
 

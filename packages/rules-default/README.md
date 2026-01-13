@@ -4,7 +4,7 @@ Default validation rules for SentriFlow network configuration linter.
 
 ## Overview
 
-This package provides a **starter set of validation rules** demonstrating how to write rules for SentriFlow. These rules cover common security, compliance, and network configuration patterns but are **not intended to be a comprehensive ruleset**.
+This package provides a **starter set of validation rules** demonstrating how to write rules for SentriFlow. These rules cover common security, policy, and network configuration patterns but are **not intended to be a comprehensive ruleset**.
 
 Use these rules as:
 - A starting point for your own validation rules
