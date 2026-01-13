@@ -183,9 +183,19 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
     return Array.from(vendors).sort();
   }
 
+  /**
+   * Get the appropriate configuration target based on workspace availability.
+   * Falls back to Global when no workspace is open.
+   */
+  private _getConfigTarget(): vscode.ConfigurationTarget {
+    return vscode.workspace.workspaceFolders?.length
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+  }
+
   private async _updateSetting(key: string, value: unknown): Promise<void> {
     const config = vscode.workspace.getConfiguration('sentriflow');
-    await config.update(key, value, vscode.ConfigurationTarget.Workspace);
+    await config.update(key, value, this._getConfigTarget());
     await this._sendSettings();
   }
 
@@ -198,11 +208,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
       ? disabledRules.filter((id) => id !== ruleId)
       : [...disabledRules, ruleId];
 
-    await config.update(
-      'disabledRules',
-      newDisabledRules,
-      vscode.ConfigurationTarget.Workspace
-    );
+    await config.update('disabledRules', newDisabledRules, this._getConfigTarget());
     await this._sendSettings();
   }
 
@@ -211,11 +217,7 @@ export class SettingsWebviewProvider implements vscode.WebviewViewProvider {
     const disabledRules = config.get<string[]>('disabledRules', []);
     const newDisabledRules = disabledRules.filter((id) => id !== ruleId);
 
-    await config.update(
-      'disabledRules',
-      newDisabledRules,
-      vscode.ConfigurationTarget.Workspace
-    );
+    await config.update('disabledRules', newDisabledRules, this._getConfigTarget());
     await this._sendSettings();
   }
 
