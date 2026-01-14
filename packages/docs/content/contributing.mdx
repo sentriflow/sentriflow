@@ -1,0 +1,108 @@
+---
+title: Contributing to SentriFlow
+description: How to contribute to SentriFlow - guidelines, CLA, and development setup
+---
+
+import { Callout, Steps } from 'nextra/components'
+
+# Contributing to SentriFlow
+
+Thank you for your interest in contributing to SentriFlow! We welcome contributions from the community.
+
+<Callout type="info">
+  For the complete and authoritative contribution guidelines, including the full Contributor License Agreement, see [CONTRIBUTING.md](https://github.com/sentriflow/sentriflow/blob/main/CONTRIBUTING.md) on GitHub.
+</Callout>
+
+## Quick Start for Contributors
+
+<Steps>
+
+### Fork and Clone
+
+```bash
+git clone https://github.com/YOUR_USERNAME/sentriflow.git
+cd sentriflow
+```
+
+### Install Dependencies
+
+```bash
+bun install
+```
+
+### Create a Feature Branch
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+### Make Your Changes
+
+Follow the existing code patterns and TypeScript strict mode requirements.
+
+### Run Tests
+
+```bash
+bun test
+bun run type-check
+```
+
+### Submit a Pull Request
+
+Push your changes and open a PR against `main`.
+
+</Steps>
+
+## Contributor License Agreement (CLA)
+
+Before your contribution can be accepted, you must agree to our CLA. By submitting a pull request, you agree to the terms outlined in the [CONTRIBUTING.md](https://github.com/sentriflow/sentriflow/blob/main/CONTRIBUTING.md#contributor-license-agreement-cla).
+
+Include the following in your PR description:
+
+```
+I have read and agree to the SentriFlow Contributor License Agreement.
+```
+
+### Why a CLA?
+
+SentriFlow uses an **Open Core** business model:
+
+- **Your code stays open source** - All code in the repository remains Apache-2.0 licensed
+- **Contributions fund development** - Revenue from commercial licenses funds continued open-source development
+- **Transparent intent** - We're upfront about this model
+
+## Ways to Contribute
+
+### Reporting Issues
+
+- Search existing issues before creating a new one
+- Use a clear, descriptive title
+- Include steps to reproduce the issue
+- Specify the vendor/platform if relevant
+
+### Adding New Rules
+
+1. Place rules in the appropriate vendor file under `packages/rules-default/src/`
+2. Follow the rule ID format: `[A-Z][A-Z0-9_-]{2,49}` (e.g., `SEC-001`, `NET-TRUNK-001`)
+3. Include metadata: `severity`, `remediation`
+4. Add test fixtures in `packages/rules-default/test/fixtures/`
+
+See [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md) for detailed instructions.
+
+### Adding Vendor Support
+
+1. Create vendor schema in `packages/core/src/parser/`
+2. Add helper functions in `packages/core/src/helpers/<vendor>/`
+3. Add vendor identifier to the supported vendors list
+4. Include test configurations
+
+## Code Style
+
+- TypeScript strict mode is enabled
+- Use descriptive variable and function names
+- Follow existing patterns in the codebase
+- Run `bun run type-check` before submitting
+
+## Questions?
+
+Open an issue with the `question` label on [GitHub](https://github.com/sentriflow/sentriflow/issues) if you need clarification.

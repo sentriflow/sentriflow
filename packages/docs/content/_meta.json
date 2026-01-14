@@ -63,5 +63,9 @@
       "rule-engine": "Rule Engine API",
       "config-node": "ConfigNode API"
     }
+  },
+  "contributing": {
+    "title": "Contributing",
+    "type": "page"
   }
 }
