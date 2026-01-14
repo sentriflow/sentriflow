@@ -142,7 +142,7 @@ export function RuleCatalog({ rules }: RuleCatalogProps) {
             type="text"
             placeholder="Search rules by ID, description, or remediation..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch((e.target as HTMLInputElement).value)}
             className="w-full px-5 py-4 pl-12 rounded-xl bg-zinc-800/80 border-2 border-zinc-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-white text-base placeholder-zinc-400 shadow-lg"
           />
           <svg
@@ -167,7 +167,7 @@ export function RuleCatalog({ rules }: RuleCatalogProps) {
           {/* Vendor Filter */}
           <select
             value={vendor}
-            onChange={(e) => setVendor(e.target.value)}
+            onChange={(e) => setVendor((e.target as HTMLSelectElement).value)}
             className="px-4 py-2.5 rounded-lg bg-zinc-800 border-2 border-zinc-700 hover:border-zinc-600 focus:border-cyan-500 focus:outline-none text-zinc-200 text-sm font-medium cursor-pointer"
             style={selectStyle}
           >
@@ -182,7 +182,7 @@ export function RuleCatalog({ rules }: RuleCatalogProps) {
           {/* Severity Filter */}
           <select
             value={severity}
-            onChange={(e) => setSeverity(e.target.value as SeverityFilter)}
+            onChange={(e) => setSeverity((e.target as HTMLSelectElement).value as SeverityFilter)}
             className="px-4 py-2.5 rounded-lg bg-zinc-800 border-2 border-zinc-700 hover:border-zinc-600 focus:border-cyan-500 focus:outline-none text-zinc-200 text-sm font-medium cursor-pointer"
             style={selectStyle}
           >
@@ -195,7 +195,7 @@ export function RuleCatalog({ rules }: RuleCatalogProps) {
           {/* Category Filter */}
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => setCategory((e.target as HTMLSelectElement).value)}
             className="px-4 py-2.5 rounded-lg bg-zinc-800 border-2 border-zinc-700 hover:border-zinc-600 focus:border-cyan-500 focus:outline-none text-zinc-200 text-sm font-medium cursor-pointer"
             style={selectStyle}
           >
@@ -210,7 +210,7 @@ export function RuleCatalog({ rules }: RuleCatalogProps) {
           {/* Sort By */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            onChange={(e) => setSortBy((e.target as HTMLSelectElement).value as SortBy)}
             className="px-4 py-2.5 rounded-lg bg-zinc-800 border-2 border-zinc-700 hover:border-zinc-600 focus:border-cyan-500 focus:outline-none text-zinc-200 text-sm font-medium cursor-pointer"
             style={selectStyle}
           >

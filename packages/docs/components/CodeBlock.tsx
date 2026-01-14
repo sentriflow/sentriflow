@@ -22,7 +22,7 @@ export function CodeBlock({
 
   const handleCopy = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(children)
+      await (navigator as Navigator).clipboard.writeText(children)
       setCopied(true)
       setTimeout(() => {
         setCopied(false)

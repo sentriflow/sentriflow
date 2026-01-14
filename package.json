@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "build:cli": "cd packages/cli && bun run build && cd ../.. && bun build packages/cli/dist/index.js --compile --env=disable --outfile sentriflow.exe",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit && tsc --noEmit -p packages/docs",
     "test": "bun test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
