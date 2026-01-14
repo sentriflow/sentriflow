@@ -1,0 +1,82 @@
+---
+title: Rule Catalog
+description: Browse and filter SentriFlow's 59 built-in security validation rules
+---
+
+import { Callout } from 'nextra/components';
+import { RuleCatalog } from '../../components/RuleCatalog';
+import rulesData from '../../data/rules.json';
+
+# Rule Catalog
+
+SentriFlow includes a comprehensive library of security validation rules covering authentication, encryption, access control, logging, and network hardening across all supported vendors.
+
+<Callout type='info'>
+  Rules are organized by vendor and category. Use the filters below to find
+  rules relevant to your network equipment.
+</Callout>
+
+## Statistics
+
+<div className='grid grid-cols-2 md:grid-cols-4 gap-4 my-8'>
+  <div className='p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-center'>
+    <div className='text-3xl font-bold text-cyan-400'>
+      {rulesData.totalRules}
+    </div>
+    <div className='text-sm text-zinc-500'>Total Rules</div>
+  </div>
+  <div className='p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-center'>
+    <div className='text-3xl font-bold text-red-400'>
+      {rulesData.summary.bySeverity.error}
+    </div>
+    <div className='text-sm text-zinc-500'>High Severity</div>
+  </div>
+  <div className='p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-center'>
+    <div className='text-3xl font-bold text-yellow-400'>
+      {rulesData.summary.bySeverity.warning}
+    </div>
+    <div className='text-sm text-zinc-500'>Medium Severity</div>
+  </div>
+  <div className='p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-center'>
+    <div className='text-3xl font-bold text-green-400'>
+      {rulesData.summary.bySeverity.info}
+    </div>
+    <div className='text-sm text-zinc-500'>Low Severity</div>
+  </div>
+</div>
+
+## Browse Rules
+
+<RuleCatalog rules={rulesData.rules} />
+
+## Rule Severity Levels
+
+| Level       | Badge  | Description                                               |
+| ----------- | ------ | --------------------------------------------------------- |
+| **Error**   | High   | Critical security issues that should be fixed immediately |
+| **Warning** | Medium | Important best practices that should be addressed         |
+| **Info**    | Low    | Recommendations for improved security posture             |
+
+## Rule Categories
+
+Rules are organized into functional categories:
+
+- **Network-Segmentation** - VLAN, trunk, and access port configuration
+- **Authentication** - SSH, TACACS+, RADIUS, and local authentication
+- **Encryption** - SSL/TLS, IPsec, and encryption settings
+- **Access-Control** - ACLs, firewall rules, and zone policies
+- **Logging** - Syslog, SNMP traps, and audit logging
+- **Hardening** - Service disabling, banner configuration, and timeouts
+
+## Compliance Framework Mappings
+
+Many rules include mappings to common compliance frameworks:
+
+- **NIST 800-53** - Federal information security controls
+- **CIS Benchmarks** - Center for Internet Security hardening guides
+- **PCI DSS** - Payment Card Industry Data Security Standard
+- **HIPAA** - Healthcare information privacy requirements
+
+## Creating Custom Rules
+
+Need rules specific to your organization? See the [Rule Authoring Guide](/authoring/json-rules) to create custom validation rules in JSON or TypeScript.

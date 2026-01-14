@@ -1,0 +1,417 @@
+---
+title: ConfigNode API Reference
+description: API reference for working with SentriFlow's ConfigNode AST
+---
+
+import { Callout } from 'nextra/components'
+
+# ConfigNode API
+
+The `ConfigNode` interface represents a parsed configuration element in SentriFlow's AST. This page covers how to navigate and query configuration nodes.
+
+## ConfigNode Interface
+
+```typescript
+interface ConfigNode {
+  /** Node identifier (command prefix) */
+  id: string;
+
+  /** Node type */
+  type: 'command' | 'section' | 'comment' | 'virtual_root';
+
+  /** Command parameters (split by whitespace) */
+  params: string[];
+
+  /** Child nodes (for sections) */
+  children: ConfigNode[];
+
+  /** Parent node reference */
+  parent?: ConfigNode;
+
+  /** Source location */
+  loc: {
+    startLine: number;
+    endLine: number;
+  };
+
+  /** Raw text of the command */
+  raw: string;
+}
+```
+
+## Properties
+
+### id
+
+The node identifier, which is the command prefix used for selector matching.
+
+```typescript
+// For "interface GigabitEthernet0/0"
+node.id === 'interface GigabitEthernet0/0'
+
+// For "ip address 192.168.1.1 255.255.255.0"
+node.id === 'ip address 192.168.1.1 255.255.255.0'
+```
+
+<Callout type="info">
+  The `id` is the full command including all parameters, not just the keyword.
+</Callout>
+
+### type
+
+The node type:
+
+| Type | Description |
+|------|-------------|
+| `command` | A single configuration command |
+| `section` | A configuration block with children |
+| `comment` | A comment line |
+| `virtual_root` | Synthetic root node (internal use) |
+
+### params
+
+Command split by whitespace:
+
+```typescript
+// For "ip address 192.168.1.1 255.255.255.0"
+node.params === ['ip', 'address', '192.168.1.1', '255.255.255.0']
+
+// For "interface GigabitEthernet0/0"
+node.params === ['interface', 'GigabitEthernet0/0']
+```
+
+### children
+
+Child nodes for section-type nodes:
+
+```typescript
+const interfaceNode = ast.find(n => n.id.startsWith('interface'));
+for (const child of interfaceNode.children) {
+  console.log(child.id); // "ip address ...", "no shutdown", etc.
+}
+```
+
+### parent
+
+Reference to parent node (undefined for root nodes):
+
+```typescript
+const ipAddressNode = findNode(ast, 'ip address');
+console.log(ipAddressNode.parent?.id); // "interface GigabitEthernet0/0"
+```
+
+### loc
+
+Source location in the original configuration:
+
+```typescript
+const node = ast[0];
+console.log(`Lines ${node.loc.startLine}-${node.loc.endLine}`);
+```
+
+### raw
+
+Original text of the configuration line:
+
+```typescript
+// For indented command
+node.raw === ' ip address 192.168.1.1 255.255.255.0'
+```
+
+## Traversal Functions
+
+### findNode()
+
+Find the first node matching a predicate:
+
+```typescript
+import { findNode } from '@sentriflow/core';
+
+const interfaceNode = findNode(ast, node =>
+  node.type === 'section' && node.id.startsWith('interface')
+);
+```
+
+### findAllNodes()
+
+Find all nodes matching a predicate:
+
+```typescript
+import { findAllNodes } from '@sentriflow/core';
+
+const allInterfaces = findAllNodes(ast, node =>
+  node.type === 'section' && node.id.startsWith('interface')
+);
+```
+
+### walkTree()
+
+Walk the AST tree depth-first:
+
+```typescript
+import { walkTree } from '@sentriflow/core';
+
+walkTree(ast, (node, depth) => {
+  console.log('  '.repeat(depth) + node.id);
+});
+```
+
+### filterBySelector()
+
+Get nodes matching a selector:
+
+```typescript
+import { filterBySelector } from '@sentriflow/core';
+
+// Get all interface nodes
+const interfaces = filterBySelector(ast, 'interface');
+
+// Get all BGP neighbors
+const neighbors = filterBySelector(ast, 'router bgp', 'neighbor');
+```
+
+## Query Helpers
+
+### hasChild()
+
+Check if a node has a child matching a prefix:
+
+```typescript
+import { hasChild } from '@sentriflow/core';
+
+const hasDescription = hasChild(interfaceNode, 'description');
+const isShutdown = hasChild(interfaceNode, 'shutdown');
+```
+
+### getChild()
+
+Get a child node by prefix:
+
+```typescript
+import { getChild } from '@sentriflow/core';
+
+const descNode = getChild(interfaceNode, 'description');
+if (descNode) {
+  const description = descNode.params.slice(1).join(' ');
+}
+```
+
+### getChildren()
+
+Get all children matching a prefix:
+
+```typescript
+import { getChildren } from '@sentriflow/core';
+
+const aclEntries = getChildren(aclNode, 'permit');
+const denyEntries = getChildren(aclNode, 'deny');
+```
+
+### getValue()
+
+Get a parameter value by index:
+
+```typescript
+import { getValue } from '@sentriflow/core';
+
+// For "ip address 192.168.1.1 255.255.255.0"
+const ip = getValue(node, 2);      // "192.168.1.1"
+const mask = getValue(node, 3);    // "255.255.255.0"
+```
+
+### getValueAfter()
+
+Get value after a specific keyword:
+
+```typescript
+import { getValueAfter } from '@sentriflow/core';
+
+// For "switchport trunk native vlan 999"
+const vlanId = getValueAfter(node, 'vlan');  // "999"
+
+// For "logging host 10.1.1.100 transport udp port 514"
+const port = getValueAfter(node, 'port');    // "514"
+```
+
+## Path-Based Queries
+
+### getPath()
+
+Get the path from root to a node:
+
+```typescript
+import { getPath } from '@sentriflow/core';
+
+const path = getPath(deepNode);
+// ['interface GigabitEthernet0/0', 'ip address 192.168.1.1 255.255.255.0']
+```
+
+### findByPath()
+
+Find a node by path:
+
+```typescript
+import { findByPath } from '@sentriflow/core';
+
+const node = findByPath(ast, [
+  'interface GigabitEthernet0/0',
+  'ip address'
+]);
+```
+
+## Selector Matching
+
+### matchesSelector()
+
+Check if a node matches a selector:
+
+```typescript
+import { matchesSelector } from '@sentriflow/core';
+
+// Exact prefix match
+matchesSelector(node, 'interface')  // true for "interface ..."
+
+// Multi-part selector
+matchesSelector(node, 'router bgp')  // true for "router bgp 65000"
+```
+
+### Selector Syntax
+
+Selectors use case-insensitive prefix matching:
+
+```typescript
+// Simple selectors
+'interface'           // Matches: "interface ...", "Interface ...", "INTERFACE ..."
+'hostname'            // Matches: "hostname ...", "Hostname ..."
+
+// Multi-word selectors
+'router bgp'          // Matches: "router bgp 65000"
+'ip access-list'      // Matches: "ip access-list extended ..."
+
+// Wildcards (future)
+'interface Gi*'       // Matches: "interface GigabitEthernet..."
+```
+
+## Modification Helpers
+
+### cloneNode()
+
+Create a deep copy of a node:
+
+```typescript
+import { cloneNode } from '@sentriflow/core';
+
+const copy = cloneNode(interfaceNode);
+// Modify copy without affecting original
+```
+
+### createNode()
+
+Create a new ConfigNode:
+
+```typescript
+import { createNode } from '@sentriflow/core';
+
+const newNode = createNode({
+  id: 'description Uplink to Core',
+  type: 'command',
+  params: ['description', 'Uplink', 'to', 'Core'],
+  raw: ' description Uplink to Core',
+  loc: { startLine: 0, endLine: 0 },
+});
+```
+
+## Serialization
+
+### toConfig()
+
+Convert AST back to configuration text:
+
+```typescript
+import { toConfig } from '@sentriflow/core';
+
+const config = toConfig(ast, 'cisco-ios');
+```
+
+### toJSON()
+
+Serialize to JSON (excluding circular refs):
+
+```typescript
+import { toJSON } from '@sentriflow/core';
+
+const json = toJSON(ast);
+```
+
+## Example: Finding Security Issues
+
+```typescript
+import { parse, findAllNodes, hasChild, getChild } from '@sentriflow/core';
+
+const config = `
+interface GigabitEthernet0/0
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/1
+ description Uplink
+ ip address 10.0.0.1 255.255.255.0
+ no shutdown
+`;
+
+const ast = parse(config, 'cisco-ios');
+
+// Find interfaces without descriptions
+const interfaces = findAllNodes(ast, n =>
+  n.type === 'section' && n.id.startsWith('interface')
+);
+
+const missingDescription = interfaces.filter(iface =>
+  !hasChild(iface, 'description')
+);
+
+for (const iface of missingDescription) {
+  console.log(`Missing description: ${iface.id} (line ${iface.loc.startLine})`);
+}
+```
+
+## Example: Cross-Reference Check
+
+```typescript
+import { parse, findAllNodes, getValueAfter } from '@sentriflow/core';
+
+// Check if referenced IPs exist on interfaces
+function checkIpReferences(ast: ConfigNode[]): string[] {
+  const issues: string[] = [];
+
+  // Get all interface IPs
+  const interfaceIps = new Set<string>();
+  const interfaces = findAllNodes(ast, n => n.id.startsWith('interface'));
+
+  for (const iface of interfaces) {
+    const ipNode = iface.children.find(c => c.id.startsWith('ip address'));
+    if (ipNode) {
+      const ip = ipNode.params[2];
+      if (ip) interfaceIps.add(ip);
+    }
+  }
+
+  // Check route next-hops
+  const routes = findAllNodes(ast, n => n.id.startsWith('ip route'));
+  for (const route of routes) {
+    const nextHop = route.params[4]; // ip route <dest> <mask> <next-hop>
+    if (nextHop && !interfaceIps.has(nextHop)) {
+      // Next-hop not on local interface (might be external - just log)
+      console.log(`Route next-hop ${nextHop} not on local interface`);
+    }
+  }
+
+  return issues;
+}
+```
+
+## Next Steps
+
+- [Parser API](/api/parser) - Parsing configurations
+- [Rule Engine API](/api/rule-engine) - Running validation
+- [Helper Functions](/authoring/helpers) - Vendor-specific utilities

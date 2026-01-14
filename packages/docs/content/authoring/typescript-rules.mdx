@@ -1,0 +1,455 @@
+---
+title: TypeScript Rule Authoring
+description: Create advanced validation rules with TypeScript for full AST access and type safety
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# TypeScript Rules
+
+TypeScript rules provide full access to the configuration AST and SentriFlow's type system. Use them for complex validation logic, cross-reference checks, and integration with external systems.
+
+<Callout type="info">
+  For comprehensive rule authoring documentation including advanced patterns, all vendor-specific helpers, and complete API reference, see the [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md) on GitHub.
+</Callout>
+
+## Basic Structure
+
+```typescript filename="rules/custom-rule.ts"
+import type { IRule, ConfigNode, RuleResult, Context } from '@sentriflow/core';
+
+export const MyCustomRule: IRule = {
+  id: 'ORG-CUSTOM-001',
+  selector: 'interface',
+  vendor: 'cisco-ios',
+  category: 'Organization-Security',
+
+  metadata: {
+    level: 'warning',
+    obu: 'Network Engineering',
+    owner: 'neteng@example.com',
+    description: 'Custom validation rule',
+    remediation: 'Follow organization security policy',
+  },
+
+  check(node: ConfigNode, context: Context): RuleResult {
+    // Validation logic here
+
+    if (/* violation detected */) {
+      return {
+        passed: false,
+        message: 'Violation message',
+        ruleId: this.id,
+        nodeId: node.id,
+        level: this.metadata.level,
+        loc: node.loc,
+      };
+    }
+
+    return {
+      passed: true,
+      message: 'Check passed',
+      ruleId: this.id,
+      nodeId: node.id,
+      level: 'info',
+      loc: node.loc,
+    };
+  },
+};
+```
+
+## IRule Interface
+
+```typescript
+interface IRule {
+  /** Unique rule identifier */
+  id: string;
+
+  /** Command selector for optimization */
+  selector?: string;
+
+  /** Target vendor(s) or 'common' for all */
+  vendor?: RuleVendor | RuleVendor[];
+
+  /** Compliance category or framework */
+  category?: string | string[];
+
+  /** Rule metadata */
+  metadata: RuleMetadata;
+
+  /** Validation function */
+  check: (node: ConfigNode, context: Context) => RuleResult;
+}
+```
+
+## ConfigNode Structure
+
+The `ConfigNode` represents a parsed configuration element:
+
+```typescript
+interface ConfigNode {
+  /** Node identifier (command prefix) */
+  id: string;
+
+  /** Node type */
+  type: 'command' | 'section' | 'comment' | 'virtual_root';
+
+  /** Command parameters (split by whitespace) */
+  params: string[];
+
+  /** Child nodes (for sections) */
+  children: ConfigNode[];
+
+  /** Parent node reference */
+  parent?: ConfigNode;
+
+  /** Source location */
+  loc: {
+    startLine: number;
+    endLine: number;
+  };
+
+  /** Raw text of the command */
+  raw: string;
+}
+```
+
+## Using Context
+
+The `Context` object provides access to the full AST for cross-reference validation:
+
+```typescript
+check(node: ConfigNode, context: Context): RuleResult {
+  // Get full AST for cross-reference checks
+  const ast = context.getAst?.();
+
+  if (ast) {
+    // Find all interfaces
+    const interfaces = ast.filter(n => n.type === 'section' && n.id.startsWith('interface'));
+
+    // Check if referenced IP exists
+    const referencedIp = node.params[2];
+    const ipExists = interfaces.some(iface =>
+      iface.children.some(c => c.raw.includes(referencedIp))
+    );
+
+    if (!ipExists) {
+      return {
+        passed: false,
+        message: `Referenced IP ${referencedIp} not found on any interface`,
+        // ...
+      };
+    }
+  }
+
+  return { passed: true, /* ... */ };
+}
+```
+
+<Callout type="warning">
+  Only use `context.getAst()` when necessary. It loads the full AST into memory and can impact performance on large configurations.
+</Callout>
+
+## Using Helper Functions
+
+SentriFlow provides vendor-specific helper functions for common checks:
+
+```typescript
+import {
+  hasChildCommand,
+  getChildCommand,
+  isShutdown,
+  isPhysicalPort,
+  isTrunkPort,
+  isAccessPort,
+} from '@sentriflow/core/helpers/cisco';
+
+export const TrunkSecurityRule: IRule = {
+  id: 'ORG-TRUNK-001',
+  selector: 'interface',
+  vendor: 'cisco-ios',
+
+  check(node: ConfigNode): RuleResult {
+    // Skip non-physical or shutdown interfaces
+    if (!isPhysicalPort(node.id) || isShutdown(node)) {
+      return { passed: true, message: 'Not applicable', /* ... */ };
+    }
+
+    // Only check trunk ports
+    if (!isTrunkPort(node)) {
+      return { passed: true, message: 'Not a trunk port', /* ... */ };
+    }
+
+    // Check for required configuration
+    if (!hasChildCommand(node, 'switchport nonegotiate')) {
+      return {
+        passed: false,
+        message: 'Trunk port missing "switchport nonegotiate"',
+        // ...
+      };
+    }
+
+    return { passed: true, /* ... */ };
+  },
+};
+```
+
+## Complete Example
+
+```typescript filename="rules/enterprise-security.ts"
+import type { IRule, ConfigNode, RuleResult, Context } from '@sentriflow/core';
+import {
+  hasChildCommand,
+  getChildCommand,
+  isShutdown,
+  isPhysicalPort,
+} from '@sentriflow/core/helpers/cisco';
+
+/**
+ * ORG-AUTH-001: All VTY lines must use SSH with version 2
+ */
+export const VTYSSHRequired: IRule = {
+  id: 'ORG-AUTH-001',
+  selector: 'line vty',
+  vendor: 'cisco-ios',
+  category: ['Authentication', 'NIST-AC'],
+
+  metadata: {
+    level: 'error',
+    obu: 'Security Operations',
+    owner: 'secops@example.com',
+    description: 'VTY lines must use SSH v2 transport only',
+    remediation: 'Configure "transport input ssh" on all VTY lines',
+    security: {
+      cwe: ['CWE-319'],
+      cvssScore: 7.5,
+      cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
+    },
+  },
+
+  check(node: ConfigNode, context: Context): RuleResult {
+    // Check transport input
+    const transportCmd = getChildCommand(node, 'transport input');
+
+    if (!transportCmd) {
+      return {
+        passed: false,
+        message: 'VTY line missing transport input configuration',
+        ruleId: this.id,
+        nodeId: node.id,
+        level: 'error',
+        loc: node.loc,
+      };
+    }
+
+    // Verify SSH only (not telnet)
+    const transportValue = transportCmd.params.slice(2).join(' ');
+    if (transportValue !== 'ssh') {
+      return {
+        passed: false,
+        message: `VTY transport should be "ssh" only, found "${transportValue}"`,
+        ruleId: this.id,
+        nodeId: node.id,
+        level: 'error',
+        loc: transportCmd.loc,
+      };
+    }
+
+    // Check SSH version 2 is enabled globally
+    const ast = context.getAst?.();
+    if (ast) {
+      const sshVersion = ast.find(n => n.id === 'ip ssh version');
+      if (!sshVersion || !sshVersion.params.includes('2')) {
+        return {
+          passed: false,
+          message: 'SSH version 2 must be enabled (ip ssh version 2)',
+          ruleId: this.id,
+          nodeId: node.id,
+          level: 'error',
+          loc: node.loc,
+        };
+      }
+    }
+
+    return {
+      passed: true,
+      message: 'VTY line correctly configured for SSH v2',
+      ruleId: this.id,
+      nodeId: node.id,
+      level: 'info',
+      loc: node.loc,
+    };
+  },
+};
+
+/**
+ * ORG-LOG-001: Logging must be configured with specific syslog server
+ */
+export const SyslogServerRequired: IRule = {
+  id: 'ORG-LOG-001',
+  selector: 'logging host',
+  vendor: ['cisco-ios', 'cisco-nxos'],
+  category: 'Logging',
+
+  metadata: {
+    level: 'warning',
+    obu: 'Network Operations',
+    owner: 'netops@example.com',
+    description: 'Logging must point to corporate syslog servers',
+    remediation: 'Configure logging to siem.example.com (10.1.1.100)',
+  },
+
+  check(node: ConfigNode): RuleResult {
+    const APPROVED_SERVERS = ['10.1.1.100', '10.1.1.101', 'siem.example.com'];
+
+    const server = node.params[2];
+    if (!server || !APPROVED_SERVERS.includes(server)) {
+      return {
+        passed: false,
+        message: `Unapproved syslog server "${server}". Use: ${APPROVED_SERVERS.join(', ')}`,
+        ruleId: this.id,
+        nodeId: node.id,
+        level: 'warning',
+        loc: node.loc,
+      };
+    }
+
+    return {
+      passed: true,
+      message: `Logging correctly configured to ${server}`,
+      ruleId: this.id,
+      nodeId: node.id,
+      level: 'info',
+      loc: node.loc,
+    };
+  },
+};
+
+// Export all rules
+export const allEnterpriseRules: IRule[] = [
+  VTYSSHRequired,
+  SyslogServerRequired,
+];
+```
+
+## Building a Rule Pack
+
+<Steps>
+
+### Create Package Structure
+
+```bash
+mkdir -p my-rules/src
+cd my-rules
+npm init -y
+npm install @sentriflow/core
+npm install -D typescript
+```
+
+### Configure TypeScript
+
+```json filename="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "declaration": true,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"]
+}
+```
+
+### Create Entry Point
+
+```typescript filename="src/index.ts"
+import { allEnterpriseRules } from './enterprise-security';
+
+export const allRules = [
+  ...allEnterpriseRules,
+];
+
+export * from './enterprise-security';
+```
+
+### Build and Use
+
+```bash
+# Build rules
+npx tsc
+
+# Use with CLI
+sentriflow --json-rules ./dist/index.js configs/
+```
+
+</Steps>
+
+## Testing Rules
+
+Create unit tests for your rules:
+
+```typescript filename="tests/enterprise-security.test.ts"
+import { describe, it, expect } from 'vitest';
+import { VTYSSHRequired } from '../src/enterprise-security';
+import { parse } from '@sentriflow/core';
+
+describe('VTYSSHRequired', () => {
+  it('passes when SSH transport is configured', () => {
+    const config = `
+line vty 0 4
+ transport input ssh
+ login local
+`;
+    const ast = parse(config, 'cisco-ios');
+    const vtyNode = ast.find(n => n.id.startsWith('line vty'));
+
+    const result = VTYSSHRequired.check(vtyNode!, { getAst: () => ast });
+
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when telnet is allowed', () => {
+    const config = `
+line vty 0 4
+ transport input telnet ssh
+`;
+    const ast = parse(config, 'cisco-ios');
+    const vtyNode = ast.find(n => n.id.startsWith('line vty'));
+
+    const result = VTYSSHRequired.check(vtyNode!, { getAst: () => ast });
+
+    expect(result.passed).toBe(false);
+    expect(result.message).toContain('telnet');
+  });
+});
+```
+
+## Performance Tips
+
+1. **Use specific selectors** - Narrow selectors reduce rule evaluations
+2. **Avoid getAst() when possible** - It loads the full configuration into memory
+3. **Cache expensive computations** - Use closures for values needed across checks
+4. **Return early** - Check applicability conditions first
+
+```typescript
+// Good: Returns early for non-applicable nodes
+check(node: ConfigNode): RuleResult {
+  if (!isPhysicalPort(node.id)) {
+    return { passed: true, message: 'Not applicable', /* ... */ };
+  }
+
+  if (isShutdown(node)) {
+    return { passed: true, message: 'Interface shutdown', /* ... */ };
+  }
+
+  // Actual validation logic...
+}
+```
+
+## Next Steps
+
+- [Helper Functions](/authoring/helpers) - Vendor-specific utilities
+- [JSON Rules](/authoring/json-rules) - Simpler declarative rules
+- [Rule Catalog](/rules) - Built-in rule examples

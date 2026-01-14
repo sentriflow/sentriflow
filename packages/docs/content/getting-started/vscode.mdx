@@ -1,0 +1,229 @@
+---
+title: VS Code Setup
+description: Set up SentriFlow VS Code extension for real-time configuration validation
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# VS Code Setup
+
+Get real-time network configuration validation directly in your editor. The SentriFlow VS Code extension highlights compliance issues as you type, with detailed tooltips and one-click rule management.
+
+<Callout type="info">
+  **Prerequisites**: Visual Studio Code 1.80 or later.
+</Callout>
+
+<Steps>
+### Install the Extension
+
+1. Open VS Code
+2. Press `Ctrl+Shift+X` (Windows/Linux) or `Cmd+Shift+X` (macOS) to open Extensions
+3. Search for **"SentriFlow"**
+4. Click **Install**
+
+Alternatively, install via command line:
+
+```bash
+code --install-extension sentriflow.sentriflow-vscode
+```
+
+Or install directly from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=sentriflow.sentriflow-vscode).
+
+### Open a Configuration File
+
+Open any network device configuration file. SentriFlow automatically activates for these file types:
+
+| Extension | Description |
+|-----------|-------------|
+| `.conf`, `.cfg` | Generic configuration files |
+| `.ios` | Cisco IOS configurations |
+| `.junos` | Juniper JunOS configurations |
+| `startup-config`, `running-config` | Cisco config filenames |
+
+<Callout type="tip">
+  For other file types, use the Command Palette (`Ctrl+Shift+P`) and run **"SentriFlow: Set as Network Config"** to enable validation.
+</Callout>
+
+SentriFlow automatically detects the vendor (Cisco, Juniper, Arista, etc.) from the configuration content. You can override this by clicking the vendor name in the status bar.
+
+### View Diagnostics
+
+After opening a configuration file, SentriFlow scans it automatically. Issues appear in two places:
+
+**1. Editor Squiggles**
+
+Validation issues are underlined directly in the editor:
+- Red underline = Error (high severity)
+- Yellow underline = Warning (medium severity)
+- Blue underline = Information (low severity)
+
+**2. Problems Panel**
+
+Press `Ctrl+Shift+M` (or `Cmd+Shift+M` on macOS) to open the Problems panel. Each diagnostic shows:
+
+```text
+[NET-AUTH-001] (authentication) SSH timeout not configured
+  router.conf [45, 1]
+```
+
+- **Rule ID**: `NET-AUTH-001` - unique identifier for the rule
+- **Category**: `authentication` - compliance category
+- **Message**: Description of the issue
+- **Location**: File name, line number, and column
+
+### Understand Hover Tooltips
+
+Hover over any underlined issue to see detailed information:
+
+- **Severity icon**: Visual indicator (red/yellow/blue)
+- **Rule ID and category**: Quick identification
+- **Tags**: Security, operational, or compliance tags with optional scores
+- **Description**: Full explanation of the violation
+- **Remediation**: Specific guidance on how to fix the issue
+
+### Apply Quick Fixes (Coming Soon)
+
+<Callout type="warning">
+  Automatic quick fixes are planned for a future release. Currently, use the remediation guidance in hover tooltips to manually fix issues.
+</Callout>
+
+For now, the recommended workflow is:
+
+1. Hover over the diagnostic to see remediation guidance
+2. Follow the suggested fix in the tooltip
+3. Save the file to re-scan and verify the fix
+
+### Configure Basic Settings
+
+Open VS Code Settings (`Ctrl+,` or `Cmd+,`) and search for "sentriflow" to customize:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `sentriflow.defaultVendor` | Vendor for parsing (`auto` or specific vendor) | `auto` |
+| `sentriflow.showVendorInStatusBar` | Show detected vendor in status bar | `true` |
+| `sentriflow.enableDefaultRules` | Enable built-in best-practice rules | `true` |
+
+</Steps>
+
+## Sidebar Features
+
+Click the SentriFlow icon in the Activity Bar (left sidebar) to access three panels:
+
+### Rules Panel
+
+Browse all validation rules organized hierarchically:
+
+```text
+SENTRIFLOW RULES
+├── sf-default (261 rules)
+│   ├── cisco-ios (45 rules)
+│   │   ├── NET-TRUNK-001 [warning]
+│   │   └── NET-ACCESS-001 [error]
+│   └── juniper-junos (38 rules)
+└── By Tag
+    ├── vlan-hopping (2 rules) [security]
+    └── access-control (3 rules) [security]
+```
+
+**Key actions:**
+- **Toggle rules**: Click the toggle icon to enable/disable any rule, vendor, or pack
+- **View details**: Right-click and select "View Details" for full rule information
+- **Copy Rule ID**: Right-click to copy the rule ID for documentation or settings
+
+### IP Addresses Panel
+
+Automatically extracts all IP addresses and subnets from the current file:
+
+```text
+IP ADDRESSES
+├── IPv4 Addresses (5)
+│   ├── 10.0.0.1
+│   └── 192.168.1.1
+├── IPv4 Subnets (3)
+│   └── 10.0.0.0/24
+└── IPv6 Addresses (2)
+    └── 2001:db8::1
+```
+
+Click any address to copy it to your clipboard. Use the toolbar buttons to copy all addresses or filter by category.
+
+### Settings Panel
+
+Visual interface for all configuration options without editing JSON files.
+
+## Status Bar
+
+The status bar shows three items (left side):
+
+| Item | Description | Click Action |
+|------|-------------|--------------|
+| **SENTRIFLOW** | Scan status with error/warning counts | Trigger manual scan |
+| **Vendor** | Detected or configured vendor (e.g., "cisco-ios") | Change vendor |
+| **Rules** | Active rule count | Open Rules panel |
+
+Hover over any status bar item for detailed information and quick action links.
+
+## Common Commands
+
+Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and type "SentriFlow" to see all commands:
+
+| Command | Description |
+|---------|-------------|
+| **Scan Configuration** | Manually trigger a validation scan |
+| **Scan Selected Text** | Validate only selected text |
+| **Select Vendor** | Override automatic vendor detection |
+| **Disable Rule...** | Fuzzy search to disable any rule |
+| **Enable Disabled Rule...** | Re-enable a previously disabled rule |
+| **Show All Disabled Items** | View summary of disabled rules |
+| **Toggle Debug Logging** | Enable verbose output for troubleshooting |
+
+## Disabling Rules
+
+When a rule does not apply to your environment, disable it using one of these methods:
+
+<Tabs items={['GUI (Recommended)', 'Command Palette', 'settings.json']}>
+  <Tabs.Tab>
+    1. Click the SentriFlow icon in the Activity Bar
+    2. Find the rule in the Rules panel
+    3. Click the toggle icon or right-click and select "Disable"
+  </Tabs.Tab>
+  <Tabs.Tab>
+    1. Press `Ctrl+Shift+P` to open Command Palette
+    2. Type "SentriFlow: Disable Rule"
+    3. Search for and select the rule to disable
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Add rule IDs to your settings:
+    ```json filename="settings.json"
+    {
+      "sentriflow.disabledRules": ["NET-DOC-001", "NET-DOC-002"]
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Troubleshooting
+
+### Extension Not Activating
+
+1. Verify the file has a supported extension (`.conf`, `.cfg`, `.ios`, `.junos`)
+2. Use **"SentriFlow: Set as Network Config"** command for other file types
+3. Check the Output panel (`View > Output`) and select "SentriFlow Linter"
+
+### Wrong Vendor Detected
+
+1. Click the vendor name in the status bar
+2. Select the correct vendor from the list
+3. Or set `sentriflow.defaultVendor` in settings to override globally
+
+### No Diagnostics Appearing
+
+1. Run **"SentriFlow: Scan Configuration"** to trigger a manual scan
+2. Enable **"SentriFlow: Toggle Debug Logging"** and check the Output panel
+3. Verify `sentriflow.enableDefaultRules` is `true` in settings
+
+## Next Steps
+
+- [Complete Settings Reference](/vscode/settings) - All configuration options explained
+- [Custom Rules Guide](/authoring/json-rules) - Create organization-specific rules
+- [CLI Reference](/cli/commands) - Use SentriFlow in CI/CD pipelines

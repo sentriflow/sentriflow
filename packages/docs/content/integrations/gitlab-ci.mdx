@@ -1,0 +1,361 @@
+---
+title: GitLab CI Integration
+description: Automated network configuration validation in GitLab CI/CD pipelines with SAST integration
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# GitLab CI
+
+Integrate SentriFlow into your GitLab CI/CD pipeline to validate network configurations automatically. Results appear in the GitLab Security Dashboard and Merge Request widgets.
+
+<Callout type="info">
+  SAST integration requires GitLab Ultimate for the Security Dashboard, but basic validation works on all tiers.
+</Callout>
+
+## Basic Pipeline
+
+Create `.gitlab-ci.yml` in your repository root:
+
+```yaml filename=".gitlab-ci.yml"
+stages:
+  - validate
+
+sentriflow:
+  stage: validate
+  image: node:20-alpine
+  before_script:
+    - npm install -g @sentriflow/cli
+  script:
+    - sentriflow -f json configs/ > gl-sast-report.json
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+    paths:
+      - gl-sast-report.json
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+```
+
+## Pipeline Configuration Options
+
+### Path-Based Triggering
+
+Only run validation when configuration files change:
+
+```yaml filename="Path triggers"
+sentriflow:
+  stage: validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - configs/**/*.conf
+        - configs/**/*.cfg
+        - .sentriflow.yml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+```
+
+### Multi-Vendor Parallel Jobs
+
+Validate different vendors concurrently:
+
+```yaml filename="Parallel vendor validation"
+stages:
+  - validate
+
+.sentriflow-base:
+  stage: validate
+  image: node:20-alpine
+  before_script:
+    - npm install -g @sentriflow/cli
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+    when: always
+
+validate:cisco:
+  extends: .sentriflow-base
+  script:
+    - sentriflow -v cisco -f json configs/cisco/ > gl-sast-report.json
+  rules:
+    - changes:
+        - configs/cisco/**/*
+
+validate:juniper:
+  extends: .sentriflow-base
+  script:
+    - sentriflow -v juniper -f json configs/juniper/ > gl-sast-report.json
+  rules:
+    - changes:
+        - configs/juniper/**/*
+
+validate:paloalto:
+  extends: .sentriflow-base
+  script:
+    - sentriflow -v paloalto -f json configs/paloalto/ > gl-sast-report.json
+  rules:
+    - changes:
+        - configs/paloalto/**/*
+```
+
+### Custom Rules
+
+Include organization-specific rules:
+
+```yaml filename="Custom rules"
+sentriflow:
+  stage: validate
+  script:
+    - sentriflow --json-rules rules/ -f json configs/ > gl-sast-report.json
+```
+
+## Complete Production Pipeline
+
+A comprehensive pipeline with caching, parallel validation, and compliance reporting:
+
+```yaml filename=".gitlab-ci.yml"
+stages:
+  - prepare
+  - validate
+  - report
+
+variables:
+  SENTRIFLOW_VERSION: "latest"
+  NODE_IMAGE: node:20-alpine
+
+# Cache npm packages across jobs
+.npm-cache:
+  cache:
+    key: sentriflow-npm-$CI_COMMIT_REF_SLUG
+    paths:
+      - .npm/
+    policy: pull-push
+
+# Base template for all validation jobs
+.sentriflow-validate:
+  stage: validate
+  image: $NODE_IMAGE
+  extends: .npm-cache
+  before_script:
+    - npm config set cache .npm --global
+    - npm install -g @sentriflow/cli@$SENTRIFLOW_VERSION
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+    paths:
+      - "*.sarif"
+      - "*.json"
+    expire_in: 1 week
+    when: always
+
+# Prepare stage - detect which configs changed
+detect-changes:
+  stage: prepare
+  image: alpine:latest
+  script:
+    - |
+      if git diff --name-only $CI_MERGE_REQUEST_DIFF_BASE_SHA..$CI_COMMIT_SHA | grep -q "configs/cisco"; then
+        echo "CISCO_CHANGED=true" >> build.env
+      fi
+      if git diff --name-only $CI_MERGE_REQUEST_DIFF_BASE_SHA..$CI_COMMIT_SHA | grep -q "configs/juniper"; then
+        echo "JUNIPER_CHANGED=true" >> build.env
+      fi
+      if git diff --name-only $CI_MERGE_REQUEST_DIFF_BASE_SHA..$CI_COMMIT_SHA | grep -q "configs/paloalto"; then
+        echo "PALOALTO_CHANGED=true" >> build.env
+      fi
+  artifacts:
+    reports:
+      dotenv: build.env
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Validation jobs
+validate:cisco:
+  extends: .sentriflow-validate
+  script:
+    - sentriflow -v cisco -f json configs/cisco/ > gl-sast-report.json
+    - sentriflow -v cisco -f sarif configs/cisco/ > cisco.sarif
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - configs/cisco/**/*
+  needs:
+    - job: detect-changes
+      optional: true
+
+validate:juniper:
+  extends: .sentriflow-validate
+  script:
+    - sentriflow -v juniper -f json configs/juniper/ > gl-sast-report.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - configs/juniper/**/*
+
+validate:paloalto:
+  extends: .sentriflow-validate
+  script:
+    - sentriflow -v paloalto -f json configs/paloalto/ > gl-sast-report.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - configs/paloalto/**/*
+
+# Full validation on main branch
+validate:all:
+  extends: .sentriflow-validate
+  script:
+    - sentriflow -f json configs/ > gl-sast-report.json
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+# Generate compliance report
+compliance-report:
+  stage: report
+  image: $NODE_IMAGE
+  extends: .npm-cache
+  before_script:
+    - npm config set cache .npm --global
+    - npm install -g @sentriflow/cli@$SENTRIFLOW_VERSION
+  script:
+    - sentriflow -f json configs/ > compliance-report.json
+    - |
+      echo "## Compliance Summary" > compliance-summary.md
+      echo "" >> compliance-summary.md
+      echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> compliance-summary.md
+  artifacts:
+    paths:
+      - compliance-report.json
+      - compliance-summary.md
+    expire_in: 90 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+```
+
+## Security Dashboard Integration
+
+### GitLab SAST Report Format
+
+SentriFlow generates reports compatible with GitLab's SAST schema:
+
+```json filename="gl-sast-report.json structure"
+{
+  "version": "15.0.0",
+  "vulnerabilities": [
+    {
+      "id": "unique-finding-id",
+      "category": "sast",
+      "name": "SSH timeout not configured",
+      "message": "SSH session timeout should be configured",
+      "severity": "High",
+      "confidence": "High",
+      "scanner": {
+        "id": "sentriflow",
+        "name": "SentriFlow"
+      },
+      "location": {
+        "file": "configs/router.conf",
+        "start_line": 45
+      },
+      "identifiers": [
+        {
+          "type": "sentriflow_rule",
+          "name": "NET-AUTH-001",
+          "value": "NET-AUTH-001"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Viewing Results
+
+**Merge Request Widget:**
+1. Open the merge request
+2. Look for the "Security scanning" section
+3. Expand to see SentriFlow findings
+
+**Security Dashboard:**
+1. Navigate to **Security & Compliance > Vulnerability Report**
+2. Filter by Scanner: "SentriFlow"
+3. View trends over time
+
+## Scheduled Scanning
+
+Run full validation on a schedule for compliance monitoring:
+
+```yaml filename="Scheduled pipeline"
+# In .gitlab-ci.yml
+validate:scheduled:
+  stage: validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - sentriflow -f json configs/ > gl-sast-report.json
+```
+
+Create a schedule in GitLab:
+1. Navigate to **CI/CD > Schedules**
+2. Click **New schedule**
+3. Set cron expression: `0 0 * * *` (daily at midnight)
+4. Set target branch: `main`
+
+## Troubleshooting
+
+### Report Not Appearing in MR
+
+<Callout type="warning">
+  Ensure the artifact path matches exactly: `gl-sast-report.json`
+</Callout>
+
+```yaml
+artifacts:
+  reports:
+    sast: gl-sast-report.json  # Must match output filename
+```
+
+### Job Failing But No Findings
+
+Check exit codes:
+- `0` - No issues found
+- `1` - Issues found (may not fail job depending on `allow_failure`)
+- `2` - Configuration error
+
+```yaml
+# Report issues but don't fail the job
+sentriflow:
+  script:
+    - sentriflow -f json configs/ > gl-sast-report.json || true
+```
+
+### Cache Issues
+
+Clear the cache if validation seems stale:
+
+```yaml
+variables:
+  CLEAR_CACHE: "true"  # Set in CI/CD variables to clear
+
+.npm-cache:
+  cache:
+    key: sentriflow-npm-$CLEAR_CACHE-$CI_COMMIT_REF_SLUG
+```
+
+## Next Steps
+
+- [Azure DevOps Integration](/integrations/azure-devops) - Azure Pipelines configuration
+- [Jenkins Integration](/integrations/jenkins) - Jenkins Pipeline setup
+- [SARIF Format](/cli/sarif) - Understand report formats

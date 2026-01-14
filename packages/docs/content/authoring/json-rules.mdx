@@ -1,0 +1,338 @@
+---
+title: JSON Rule Authoring
+description: Create custom validation rules using the JSON rule format
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# JSON Rules
+
+JSON rules provide a declarative way to create custom validation rules without writing TypeScript code. They're ideal for simple pattern-based checks and organization-specific standards.
+
+<Callout type="info">
+  For comprehensive rule authoring documentation including advanced patterns, all vendor-specific helpers, and complete API reference, see the [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md) on GitHub.
+</Callout>
+
+## JSON Rule Schema
+
+```json filename="Example JSON Rule"
+{
+  "id": "ORG-SEC-001",
+  "selector": "interface",
+  "vendor": "cisco-ios",
+  "category": "Organization-Security",
+  "metadata": {
+    "level": "warning",
+    "obu": "Network Security",
+    "owner": "security-team@example.com",
+    "description": "All interfaces must have a description",
+    "remediation": "Add 'description <text>' to the interface configuration"
+  },
+  "check": {
+    "type": "hasChild",
+    "command": "description",
+    "negate": false
+  }
+}
+```
+
+## Schema Reference
+
+### Root Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | string | Yes | Unique rule identifier (e.g., `ORG-SEC-001`) |
+| `selector` | string | Yes | Command prefix to match (e.g., `interface`, `router bgp`) |
+| `vendor` | string \| string[] | No | Target vendor(s). Omit for vendor-agnostic rules |
+| `category` | string \| string[] | No | Compliance framework or category |
+| `metadata` | object | Yes | Rule metadata and descriptions |
+| `check` | object | Yes | The validation logic |
+
+### Metadata Object
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `level` | `"error"` \| `"warning"` \| `"info"` | Yes | Severity level |
+| `obu` | string | Yes | Organizational Business Unit |
+| `owner` | string | Yes | Rule owner contact |
+| `description` | string | No | Human-readable description |
+| `remediation` | string | No | How to fix violations |
+| `security` | object | No | CWE/CVSS metadata |
+
+### Check Object
+
+The `check` object defines the validation logic. SentriFlow supports several check types:
+
+#### hasChild
+
+Checks if a node has a specific child command.
+
+```json
+{
+  "type": "hasChild",
+  "command": "description",
+  "negate": false
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `command` | string | Command prefix to look for |
+| `negate` | boolean | If true, fails when command IS present |
+
+#### hasParam
+
+Checks if a command parameter matches a pattern.
+
+```json
+{
+  "type": "hasParam",
+  "index": 1,
+  "pattern": "^(?!1$).*$",
+  "message": "Native VLAN should not be 1"
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `index` | number | Parameter index (0-based) |
+| `pattern` | string | Regex pattern to match |
+| `message` | string | Error message when pattern doesn't match |
+
+#### matchesPattern
+
+Checks if the full command line matches a regex pattern.
+
+```json
+{
+  "type": "matchesPattern",
+  "pattern": "no ip source-route",
+  "message": "IP source routing should be disabled"
+}
+```
+
+#### custom
+
+For complex logic, use the custom type with a JavaScript expression.
+
+```json
+{
+  "type": "custom",
+  "expression": "node.children.some(c => c.id.startsWith('switchport mode'))"
+}
+```
+
+<Callout type="warning">
+  Custom expressions run in a sandboxed environment with limited access. Only `node` (current ConfigNode) is available.
+</Callout>
+
+## Complete Example
+
+Here's a comprehensive example rule file:
+
+```json filename="org-rules.json"
+{
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "ORG-IF-001",
+      "selector": "interface",
+      "vendor": ["cisco-ios", "cisco-nxos"],
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Operations",
+        "owner": "netops@example.com",
+        "description": "All physical interfaces must have a description",
+        "remediation": "Add 'description <purpose>' to the interface"
+      },
+      "check": {
+        "type": "hasChild",
+        "command": "description",
+        "negate": false
+      }
+    },
+    {
+      "id": "ORG-IF-002",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "category": "Security",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "security@example.com",
+        "description": "Unused interfaces must be shutdown",
+        "remediation": "Add 'shutdown' to unused interfaces",
+        "security": {
+          "cwe": ["CWE-1188"],
+          "cvssScore": 5.3
+        }
+      },
+      "check": {
+        "type": "custom",
+        "expression": "node.children.some(c => c.id === 'shutdown') || node.children.some(c => c.id.startsWith('ip address'))"
+      }
+    },
+    {
+      "id": "ORG-TRUNK-001",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "error",
+        "obu": "Network Engineering",
+        "owner": "neteng@example.com",
+        "description": "Trunk ports must have explicit allowed VLANs",
+        "remediation": "Add 'switchport trunk allowed vlan <list>'"
+      },
+      "check": {
+        "type": "custom",
+        "expression": "!node.children.some(c => c.id.includes('switchport mode trunk')) || node.children.some(c => c.id.includes('switchport trunk allowed vlan'))"
+      }
+    }
+  ]
+}
+```
+
+## Using JSON Rules
+
+### CLI
+
+```bash
+# Validate with custom JSON rules
+sentriflow --json-rules ./org-rules.json configs/
+
+# Multiple rule files
+sentriflow --json-rules ./security-rules.json --json-rules ./compliance-rules.json configs/
+```
+
+### Configuration File
+
+Add to `.sentriflow.yml`:
+
+```yaml filename=".sentriflow.yml"
+rules:
+  - ./rules/org-security.json
+  - ./rules/pci-compliance.json
+
+# Optionally disable default rules
+disableDefaultRules:
+  rules:
+    - NET-DOC-001  # We have our own documentation rule
+```
+
+### VS Code Extension
+
+Configure in VS Code settings:
+
+```json filename="settings.json"
+{
+  "sentriflow.customRules": [
+    "${workspaceFolder}/rules/org-rules.json"
+  ]
+}
+```
+
+## Rule Development Workflow
+
+<Steps>
+
+### Create Rule File
+
+Create a new JSON file with your rules:
+
+```bash
+mkdir -p rules
+touch rules/org-security.json
+```
+
+### Define Rules
+
+Add rules following the schema above.
+
+### Test Rules
+
+Run validation against test configurations:
+
+```bash
+sentriflow --json-rules ./rules/org-security.json test-configs/
+```
+
+### Iterate
+
+Refine selectors and checks based on test results.
+
+### Deploy
+
+Add rules to your repository and CI/CD pipeline.
+
+</Steps>
+
+## Best Practices
+
+### Rule ID Naming
+
+Use a consistent prefix for organization rules:
+
+- `ORG-` - General organization rules
+- `SEC-` - Security-specific rules
+- `CMP-` - Compliance rules
+- `OPS-` - Operational rules
+
+### Selector Optimization
+
+Use specific selectors to avoid checking irrelevant nodes:
+
+```json
+// Good - specific selector
+"selector": "interface GigabitEthernet"
+
+// Acceptable - matches all interfaces
+"selector": "interface"
+
+// Bad - too broad, runs on every node
+"selector": ""
+```
+
+### Error Messages
+
+Write clear, actionable remediation text:
+
+```json
+// Good
+"remediation": "Add 'switchport trunk allowed vlan 100,200,300' to restrict trunk VLANs"
+
+// Bad
+"remediation": "Fix the VLAN configuration"
+```
+
+## Troubleshooting
+
+### Rule Not Matching
+
+1. Verify the selector matches your config using AST output:
+   ```bash
+   sentriflow --ast configs/router.conf | grep -A5 "interface"
+   ```
+
+2. Check vendor matches your config file vendor
+
+3. List loaded rules to verify your rule is included:
+   ```bash
+   sentriflow --json-rules ./rules.json --list-rules
+   ```
+
+### Custom Expression Errors
+
+Common issues with custom expressions:
+
+- Expression timeout (>100ms) - simplify logic
+- Undefined variable - only `node` is available
+- Syntax error - validate JSON and JavaScript syntax
+
+## Next Steps
+
+- [TypeScript Rules](/authoring/typescript-rules) - Advanced rules with full AST access
+- [Helper Functions](/authoring/helpers) - Vendor-specific helper functions
+- [Rule Catalog](/rules) - Browse built-in rules for examples

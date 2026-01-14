@@ -1,0 +1,514 @@
+---
+title: VS Code Settings Reference
+description: Complete reference for all SentriFlow VS Code extension settings
+---
+
+import { Callout } from 'nextra/components'
+
+# Settings Reference
+
+Complete reference for all SentriFlow VS Code extension configuration options. Settings can be configured at User, Workspace, or Folder level.
+
+## Validation Settings
+
+### sentriflow.enabled
+
+Enable or disable the SentriFlow extension.
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `true` |
+| Scope | Window |
+
+```json
+{
+  "sentriflow.enabled": true
+}
+```
+
+### sentriflow.defaultVendor
+
+Default vendor for configuration validation when not auto-detected.
+
+| Property | Value |
+|----------|-------|
+| Type | `string` |
+| Default | `"cisco-ios"` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.defaultVendor": "cisco-ios"
+}
+```
+
+**Valid values:**
+- `cisco-ios`, `cisco-nxos`
+- `juniper-junos`
+- `aruba-aoscx`, `aruba-aosswitch`, `aruba-wlc`
+- `paloalto-panos`
+- `arista-eos`
+- `vyos`
+- `fortinet-fortigate`
+- `extreme-exos`, `extreme-voss`
+- `huawei-vrp`
+- `mikrotik-routeros`
+- `nokia-sros`
+- `cumulus-linux`
+
+### sentriflow.minimumSeverity
+
+Minimum severity level for issues to appear in the Problems panel.
+
+| Property | Value |
+|----------|-------|
+| Type | `string` |
+| Default | `"info"` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.minimumSeverity": "warning"
+}
+```
+
+**Valid values:**
+- `"error"` - Show only high severity issues
+- `"warning"` - Show warnings and errors
+- `"info"` - Show all issues
+
+### sentriflow.validateOnSave
+
+Run validation when a file is saved.
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `true` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.validateOnSave": true
+}
+```
+
+### sentriflow.validateOnType
+
+Run validation as you type (with debouncing).
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `true` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.validateOnType": true
+}
+```
+
+### sentriflow.validationDelay
+
+Delay in milliseconds before validation runs after typing stops.
+
+| Property | Value |
+|----------|-------|
+| Type | `number` |
+| Default | `500` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.validationDelay": 500
+}
+```
+
+## Rule Configuration
+
+### sentriflow.customRules
+
+Paths to custom rule files or directories.
+
+| Property | Value |
+|----------|-------|
+| Type | `array` |
+| Default | `[]` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.customRules": [
+    "${workspaceFolder}/rules/org-security.json",
+    "${workspaceFolder}/rules/compliance/"
+  ]
+}
+```
+
+<Callout type="info">
+  Supports `${workspaceFolder}` variable for relative paths.
+</Callout>
+
+### sentriflow.disabledRules
+
+Rule IDs to disable from validation.
+
+| Property | Value |
+|----------|-------|
+| Type | `array` |
+| Default | `[]` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.disabledRules": [
+    "NET-DOC-001",
+    "NET-LOG-003"
+  ]
+}
+```
+
+### sentriflow.disabledCategories
+
+Rule categories to disable.
+
+| Property | Value |
+|----------|-------|
+| Type | `array` |
+| Default | `[]` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.disabledCategories": [
+    "Documentation",
+    "Logging"
+  ]
+}
+```
+
+### sentriflow.disableDefaultRules
+
+Disable all default rules (only use custom rules).
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `false` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.disableDefaultRules": false
+}
+```
+
+## File Handling
+
+### sentriflow.fileAssociations
+
+Additional file extensions to validate.
+
+| Property | Value |
+|----------|-------|
+| Type | `object` |
+| Default | `{}` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.fileAssociations": {
+    "*.network": "cisco-ios",
+    "*.fw": "paloalto-panos",
+    "router-*": "juniper-junos"
+  }
+}
+```
+
+### sentriflow.excludePatterns
+
+Glob patterns to exclude from validation.
+
+| Property | Value |
+|----------|-------|
+| Type | `array` |
+| Default | `[]` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.excludePatterns": [
+    "**/test-configs/**",
+    "**/examples/**",
+    "**/backup/**"
+  ]
+}
+```
+
+### sentriflow.maxFileSize
+
+Maximum file size in bytes to validate (0 = unlimited).
+
+| Property | Value |
+|----------|-------|
+| Type | `number` |
+| Default | `5000000` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.maxFileSize": 10000000
+}
+```
+
+## Performance Settings
+
+### sentriflow.incrementalValidation
+
+Enable incremental validation for better performance on large files.
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `false` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.incrementalValidation": true
+}
+```
+
+### sentriflow.maxProblems
+
+Maximum number of problems to report per file.
+
+| Property | Value |
+|----------|-------|
+| Type | `number` |
+| Default | `1000` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.maxProblems": 500
+}
+```
+
+### sentriflow.parallelValidation
+
+Enable parallel validation for multi-file workspaces.
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `true` |
+| Scope | Window |
+
+```json
+{
+  "sentriflow.parallelValidation": true
+}
+```
+
+## UI Settings
+
+### sentriflow.showStatusBarItem
+
+Show SentriFlow status in the status bar.
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `true` |
+| Scope | Window |
+
+```json
+{
+  "sentriflow.showStatusBarItem": true
+}
+```
+
+### sentriflow.showInlineDecorations
+
+Show inline decorations for issues in the editor.
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `true` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.showInlineDecorations": true
+}
+```
+
+### sentriflow.decorationStyle
+
+Style for inline issue decorations.
+
+| Property | Value |
+|----------|-------|
+| Type | `string` |
+| Default | `"underline"` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.decorationStyle": "underline"
+}
+```
+
+**Valid values:**
+- `"underline"` - Wavy underline
+- `"background"` - Background highlight
+- `"gutter"` - Gutter icons only
+
+### sentriflow.showQuickFixes
+
+Enable quick fix suggestions for issues.
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `true` |
+| Scope | Resource |
+
+```json
+{
+  "sentriflow.showQuickFixes": true
+}
+```
+
+## Sidebar Settings
+
+### sentriflow.showSidebarPanel
+
+Show the SentriFlow sidebar panel.
+
+| Property | Value |
+|----------|-------|
+| Type | `boolean` |
+| Default | `true` |
+| Scope | Window |
+
+```json
+{
+  "sentriflow.showSidebarPanel": true
+}
+```
+
+### sentriflow.groupIssuesBy
+
+How to group issues in the sidebar.
+
+| Property | Value |
+|----------|-------|
+| Type | `string` |
+| Default | `"severity"` |
+| Scope | Window |
+
+```json
+{
+  "sentriflow.groupIssuesBy": "severity"
+}
+```
+
+**Valid values:**
+- `"severity"` - Group by error/warning/info
+- `"category"` - Group by rule category
+- `"file"` - Group by file
+- `"rule"` - Group by rule ID
+
+## Logging Settings
+
+### sentriflow.trace.server
+
+Trace communication with the language server.
+
+| Property | Value |
+|----------|-------|
+| Type | `string` |
+| Default | `"off"` |
+| Scope | Window |
+
+```json
+{
+  "sentriflow.trace.server": "messages"
+}
+```
+
+**Valid values:**
+- `"off"` - No tracing
+- `"messages"` - Trace messages
+- `"verbose"` - Verbose tracing (for debugging)
+
+### sentriflow.logLevel
+
+Extension log level.
+
+| Property | Value |
+|----------|-------|
+| Type | `string` |
+| Default | `"info"` |
+| Scope | Window |
+
+```json
+{
+  "sentriflow.logLevel": "debug"
+}
+```
+
+## Example Configurations
+
+### Security-Focused Team
+
+```json filename=".vscode/settings.json"
+{
+  "sentriflow.minimumSeverity": "warning",
+  "sentriflow.customRules": [
+    "${workspaceFolder}/rules/security-policies.json"
+  ],
+  "sentriflow.disabledCategories": ["Documentation"],
+  "sentriflow.showQuickFixes": true
+}
+```
+
+### Large Configuration Repository
+
+```json filename=".vscode/settings.json"
+{
+  "sentriflow.incrementalValidation": true,
+  "sentriflow.maxFileSize": 10000000,
+  "sentriflow.validationDelay": 1000,
+  "sentriflow.maxProblems": 200,
+  "sentriflow.excludePatterns": [
+    "**/archive/**",
+    "**/backup/**"
+  ]
+}
+```
+
+### Compliance Team
+
+```json filename=".vscode/settings.json"
+{
+  "sentriflow.minimumSeverity": "info",
+  "sentriflow.customRules": [
+    "${workspaceFolder}/rules/pci-dss.json",
+    "${workspaceFolder}/rules/hipaa.json"
+  ],
+  "sentriflow.groupIssuesBy": "category",
+  "sentriflow.showSidebarPanel": true
+}
+```
+
+## Next Steps
+
+- [Features Guide](/vscode/features) - UI features walkthrough
+- [Installation](/vscode/installation) - Setup instructions
+- [JSON Rules](/authoring/json-rules) - Create custom rules

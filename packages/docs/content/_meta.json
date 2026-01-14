@@ -1,0 +1,67 @@
+{
+  "index": {
+    "title": "Home",
+    "type": "page"
+  },
+  "getting-started": {
+    "title": "Getting Started",
+    "type": "menu",
+    "items": {
+      "installation": "Installation",
+      "quick-start": "Quick Start",
+      "vscode": "VS Code Setup",
+      "troubleshooting": "Troubleshooting"
+    }
+  },
+  "cli": {
+    "title": "CLI Reference",
+    "type": "menu",
+    "items": {
+      "commands": "Commands",
+      "configuration": "Configuration",
+      "sarif": "SARIF Output"
+    }
+  },
+  "integrations": {
+    "title": "Integrations",
+    "type": "menu",
+    "items": {
+      "index": "Overview",
+      "github-actions": "GitHub Actions",
+      "gitlab-ci": "GitLab CI",
+      "azure-devops": "Azure DevOps",
+      "jenkins": "Jenkins"
+    }
+  },
+  "rules": {
+    "title": "Rule Catalog",
+    "type": "page"
+  },
+  "authoring": {
+    "title": "Rule Authoring",
+    "type": "menu",
+    "items": {
+      "json-rules": "JSON Rules",
+      "typescript-rules": "TypeScript Rules",
+      "helpers": "Helper Functions"
+    }
+  },
+  "vscode": {
+    "title": "VS Code Extension",
+    "type": "menu",
+    "items": {
+      "installation": "Installation",
+      "settings": "Settings Reference",
+      "features": "Features Guide"
+    }
+  },
+  "api": {
+    "title": "API Reference",
+    "type": "menu",
+    "items": {
+      "parser": "Parser API",
+      "rule-engine": "Rule Engine API",
+      "config-node": "ConfigNode API"
+    }
+  }
+}

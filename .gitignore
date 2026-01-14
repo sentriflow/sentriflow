@@ -38,3 +38,8 @@ temp/
 CLAUDE.md
 .specify
 specs/
+
+**/.next/**
+**/out/**
+**/cache/webpack*
+**/static/chunks/**

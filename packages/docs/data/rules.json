@@ -1,0 +1,820 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-01-14T07:03:00.105Z",
+  "totalRules": 59,
+  "rules": [
+    {
+      "id": "NET-IP-001",
+      "selector": "ip address",
+      "vendor": "common",
+      "category": "IP-Addressing",
+      "metadata": {
+        "level": "error",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "Ensure IP addresses are not Multicast, Broadcast, or Network ID addresses.",
+        "remediation": "Configure a valid unicast IP address. Do not use Multicast, Broadcast, or Network ID addresses."
+      }
+    },
+    {
+      "id": "NET-DOC-001",
+      "selector": "interface",
+      "vendor": "common",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "Ensure interfaces have descriptive labels for operational clarity.",
+        "remediation": "Add a description to the interface using the \"description\" command."
+      }
+    },
+    {
+      "id": "NET-TRUNK-001",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add \"switchport nonegotiate\" to disable DTP on trunk ports connected to non-Cisco devices."
+      }
+    },
+    {
+      "id": "NET-ACCESS-001",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add \"switchport mode access\" to explicitly configure access mode."
+      }
+    },
+    {
+      "id": "NET-SEC-001",
+      "selector": "password",
+      "vendor": ["cisco-ios", "cisco-nxos"],
+      "category": "Authentication",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Use \"secret\" instead of \"password\", or encrypt with type 7/8/9."
+      }
+    },
+    {
+      "id": "NET-AAA-003",
+      "selector": "enable",
+      "vendor": "cisco-ios",
+      "category": "Authentication",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Use \"enable algorithm-type scrypt secret <password>\" for strong encryption."
+      }
+    },
+    {
+      "id": "JUN-SYS-001",
+      "selector": "system",
+      "vendor": "juniper-junos",
+      "category": "Authentication",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Configure \"root-authentication\" under system stanza with encrypted-password or ssh-rsa."
+      }
+    },
+    {
+      "id": "JUN-BGP-001",
+      "selector": "routing-options",
+      "vendor": "juniper-junos",
+      "category": "Routing",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure \"router-id\" under routing-options stanza."
+      }
+    },
+    {
+      "id": "JUN-FW-001",
+      "selector": "firewall",
+      "vendor": "juniper-junos",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Add a final term with \"then discard\" or \"then reject\" to explicitly deny unmatched traffic."
+      }
+    },
+    {
+      "id": "ARU-SEC-001",
+      "selector": "ssh",
+      "vendor": ["aruba-aoscx", "aruba-aosswitch", "aruba-wlc"],
+      "category": "Session-Management",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Enable SSH server for secure remote management. Disable telnet if enabled."
+      }
+    },
+    {
+      "id": "ARU-NTP-001",
+      "selector": "ntp",
+      "vendor": ["aruba-aoscx", "aruba-aosswitch", "aruba-wlc"],
+      "category": "Time-Synchronization",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure NTP server for accurate time synchronization."
+      }
+    },
+    {
+      "id": "AOSCX-IF-001",
+      "selector": "interface",
+      "vendor": "aruba-aoscx",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add a description to physical interfaces for documentation."
+      }
+    },
+    {
+      "id": "AOSCX-L2-001",
+      "selector": "interface",
+      "vendor": "aruba-aoscx",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure \"vlan trunk allowed <vlans>\" on trunk interfaces."
+      }
+    },
+    {
+      "id": "AOSSW-L2-001",
+      "selector": "vlan",
+      "vendor": "aruba-aosswitch",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add a name to VLANs for documentation using \"name <vlan-name>\"."
+      }
+    },
+    {
+      "id": "AOSSW-SEC-001",
+      "selector": "password",
+      "vendor": "aruba-aosswitch",
+      "category": "Authentication",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Configure a manager password for administrative access."
+      }
+    },
+    {
+      "id": "ARUWLC-WLAN-001",
+      "selector": "wlan ssid-profile",
+      "vendor": "aruba-wlc",
+      "category": "Wireless",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Configure \"opmode wpa2-aes\" or \"opmode wpa3-sae-aes\" for secure encryption."
+      }
+    },
+    {
+      "id": "ARUWLC-AAA-001",
+      "selector": "aaa authentication-server radius",
+      "vendor": "aruba-wlc",
+      "category": "Authentication",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Configure \"host <ip-address>\" for the RADIUS server."
+      }
+    },
+    {
+      "id": "PAN-SYS-001",
+      "selector": "deviceconfig",
+      "vendor": "paloalto-panos",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure hostname under deviceconfig > system."
+      }
+    },
+    {
+      "id": "PAN-SEC-001",
+      "selector": "rulebase",
+      "vendor": "paloalto-panos",
+      "category": "Logging",
+      "metadata": {
+        "level": "warning",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Enable log-end (and optionally log-start) on all security rules."
+      }
+    },
+    {
+      "id": "PAN-ZONE-001",
+      "selector": "zone",
+      "vendor": "paloalto-panos",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Apply a Zone Protection Profile to each zone to protect against flood attacks and reconnaissance."
+      }
+    },
+    {
+      "id": "ARI-SYS-001",
+      "selector": "hostname",
+      "vendor": "arista-eos",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure hostname using: hostname <device-name>"
+      }
+    },
+    {
+      "id": "ARI-INT-001",
+      "selector": "interface Ethernet",
+      "vendor": "arista-eos",
+      "category": "Documentation",
+      "metadata": {
+        "level": "info",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add description to interface: description <text>"
+      }
+    },
+    {
+      "id": "ARI-MLAG-001",
+      "selector": "mlag configuration",
+      "vendor": "arista-eos",
+      "category": "High-Availability",
+      "metadata": {
+        "level": "error",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "MLAG configuration requires: domain-id, peer-link, peer-address, and local-interface."
+      }
+    },
+    {
+      "id": "VYOS-SYS-001",
+      "selector": "system",
+      "vendor": "vyos",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure \"host-name\" under system stanza."
+      }
+    },
+    {
+      "id": "VYOS-SEC-001",
+      "selector": "authentication",
+      "vendor": "vyos",
+      "category": "Authentication",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Use \"encrypted-password\" with a pre-hashed password, or let VyOS hash it during configuration."
+      }
+    },
+    {
+      "id": "VYOS-FW-001",
+      "selector": "firewall",
+      "vendor": "vyos",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Set \"default-action drop\" or \"default-action reject\" for each firewall ruleset."
+      }
+    },
+    {
+      "id": "VYOS-IF-001",
+      "selector": "interfaces",
+      "vendor": "vyos",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add \"description\" to each physical interface."
+      }
+    },
+    {
+      "id": "FGT-SYS-001",
+      "selector": "config system global",
+      "vendor": "fortinet-fortigate",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure hostname under \"config system global\" using \"set hostname <name>\"."
+      }
+    },
+    {
+      "id": "FGT-POL-001",
+      "selector": "config firewall policy",
+      "vendor": "fortinet-fortigate",
+      "category": "Logging",
+      "metadata": {
+        "level": "warning",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Enable logging on all firewall policies using \"set logtraffic all\" or \"set logtraffic utm\"."
+      }
+    },
+    {
+      "id": "FGT-ADMIN-001",
+      "selector": "config system admin",
+      "vendor": "fortinet-fortigate",
+      "category": "Authentication",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Configure trusted hosts for each admin user using \"set trusthost1\", \"set trusthost2\", etc."
+      }
+    },
+    {
+      "id": "EXOS-SYS-001",
+      "selector": "configure snmp sysname",
+      "vendor": "extreme-exos",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure sysname using: configure snmp sysname \"<name>\""
+      }
+    },
+    {
+      "id": "EXOS-SEC-001",
+      "selector": "enable ssh2",
+      "vendor": "extreme-exos",
+      "category": "Session-Management",
+      "metadata": {
+        "level": "warning",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Enable SSH2: enable ssh2"
+      }
+    },
+    {
+      "id": "EXOS-VLAN-001",
+      "selector": "create vlan",
+      "vendor": "extreme-exos",
+      "category": "Documentation",
+      "metadata": {
+        "level": "info",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Use descriptive VLAN names: create vlan \"<meaningful-name>\" tag <id>"
+      }
+    },
+    {
+      "id": "VOSS-SYS-001",
+      "selector": "snmp-server name",
+      "vendor": "extreme-voss",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure system name: snmp-server name \"<name>\""
+      }
+    },
+    {
+      "id": "VOSS-INT-001",
+      "selector": "interface GigabitEthernet",
+      "vendor": "extreme-voss",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "info",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure default VLAN: default-vlan-id <vlan-id>"
+      }
+    },
+    {
+      "id": "VOSS-VLAN-001",
+      "selector": "vlan create",
+      "vendor": "extreme-voss",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "info",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure I-SID for VLAN: vlan i-sid <vlan-id> <isid>"
+      }
+    },
+    {
+      "id": "HUAWEI-SYS-001",
+      "selector": "sysname",
+      "vendor": "huawei-vrp",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure system name using \"sysname <hostname>\" command."
+      }
+    },
+    {
+      "id": "HUAWEI-IF-001",
+      "selector": "interface",
+      "vendor": "huawei-vrp",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add a description to the interface using \"description <text>\" command."
+      }
+    },
+    {
+      "id": "HUAWEI-VTY-002",
+      "selector": "user-interface vty",
+      "vendor": "huawei-vrp",
+      "category": "Session-Management",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Configure SSH-only access on VTY lines using \"protocol inbound ssh\"."
+      }
+    },
+    {
+      "id": "MIK-SYS-001",
+      "selector": "/system identity",
+      "vendor": "mikrotik-routeros",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure system identity: /system identity set name=MyRouter"
+      }
+    },
+    {
+      "id": "MIK-SEC-001",
+      "selector": "/ip service",
+      "vendor": "mikrotik-routeros",
+      "category": "Service-Hardening",
+      "metadata": {
+        "level": "warning",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Disable unused services: /ip service disable telnet,ftp,www,api,api-ssl"
+      }
+    },
+    {
+      "id": "MIK-FW-001",
+      "selector": "/ip firewall filter",
+      "vendor": "mikrotik-routeros",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "remediation": "Add drop rule for input chain: add chain=input action=drop"
+      }
+    },
+    {
+      "id": "NOKIA-SYS-001",
+      "selector": "system",
+      "vendor": "nokia-sros",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure system name using: system > name \"<hostname>\""
+      }
+    },
+    {
+      "id": "NOKIA-PORT-001",
+      "selector": "port",
+      "vendor": "nokia-sros",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add description to port: port X/Y/Z > description \"<description>\""
+      }
+    },
+    {
+      "id": "NOKIA-BGP-001",
+      "selector": "bgp",
+      "vendor": "nokia-sros",
+      "category": "Routing",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Configure BGP router-id: bgp > router-id <ip-address>"
+      }
+    },
+    {
+      "id": "CUM-IF-001",
+      "selector": "iface",
+      "vendor": "cumulus-linux",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add \"alias <description>\" under the interface stanza."
+      }
+    },
+    {
+      "id": "CUM-BR-001",
+      "selector": "iface",
+      "vendor": "cumulus-linux",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add \"bridge-vids <vlan-ids>\" to define allowed VLANs on the bridge."
+      }
+    },
+    {
+      "id": "CUM-BGP-001",
+      "selector": "router bgp",
+      "vendor": "cumulus-linux",
+      "category": "Routing",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "remediation": "Add \"bgp router-id <ip>\" to explicitly set router ID."
+      }
+    },
+    {
+      "id": "JSON-CISCO-001",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "Trunk ports should have explicit allowed VLAN list",
+        "remediation": "Add 'switchport trunk allowed vlan <list>' to restrict VLANs on trunk ports"
+      }
+    },
+    {
+      "id": "JSON-CISCO-002",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "category": "Network-Segmentation",
+      "metadata": {
+        "level": "info",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "Access ports should have spanning-tree portfast enabled",
+        "remediation": "Add 'spanning-tree portfast' to access ports connected to end devices"
+      }
+    },
+    {
+      "id": "JSON-CISCO-003",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "category": "Documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "All interfaces should have a description",
+        "remediation": "Add 'description <text>' to document interface purpose"
+      }
+    },
+    {
+      "id": "JSON-CISCO-004",
+      "selector": "interface",
+      "vendor": "cisco-ios",
+      "category": "Protocol-Security",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "Trunk ports should disable DTP (Dynamic Trunking Protocol)",
+        "remediation": "Add 'switchport nonegotiate' to disable DTP on trunk ports",
+        "security": {
+          "cwe": ["CWE-319"]
+        },
+        "tags": [
+          {
+            "type": "security",
+            "label": "vlan-hopping"
+          },
+          {
+            "type": "security",
+            "label": "network-security"
+          }
+        ]
+      }
+    },
+    {
+      "id": "JSON-CISCO-005",
+      "selector": "line vty",
+      "vendor": "cisco-ios",
+      "category": "Session-Management",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "VTY lines should have access-class configured for SSH access control",
+        "remediation": "Add 'access-class <acl> in' to restrict VTY access",
+        "security": {
+          "cwe": ["CWE-284"]
+        },
+        "tags": [
+          {
+            "type": "security",
+            "label": "access-control"
+          },
+          {
+            "type": "security",
+            "label": "remote-access"
+          }
+        ]
+      }
+    },
+    {
+      "id": "JSON-COMMON-001",
+      "selector": "interface",
+      "vendor": "common",
+      "category": "Documentation",
+      "metadata": {
+        "level": "info",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "Interfaces should have a description for documentation",
+        "remediation": "Add a description to document the interface purpose and connection"
+      }
+    },
+    {
+      "id": "JSON-JUNOS-001",
+      "selector": "system services",
+      "vendor": "juniper-junos",
+      "category": "Session-Management",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "SSH should be configured for version 2 only",
+        "remediation": "Configure 'set system services ssh protocol-version v2'",
+        "security": {
+          "cwe": ["CWE-327"]
+        },
+        "tags": [
+          {
+            "type": "security",
+            "label": "ssh"
+          },
+          {
+            "type": "security",
+            "label": "encryption"
+          }
+        ]
+      }
+    },
+    {
+      "id": "JSON-JUNOS-002",
+      "selector": "system services",
+      "vendor": "juniper-junos",
+      "category": "Service-Hardening",
+      "metadata": {
+        "level": "error",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "Telnet service should be disabled",
+        "remediation": "Remove 'set system services telnet' or add 'delete system services telnet'",
+        "security": {
+          "cwe": ["CWE-319"]
+        },
+        "tags": [
+          {
+            "type": "security",
+            "label": "telnet"
+          },
+          {
+            "type": "security",
+            "label": "cleartext"
+          }
+        ]
+      }
+    },
+    {
+      "id": "JSON-JUNOS-003",
+      "selector": "system",
+      "vendor": "juniper-junos",
+      "category": "Session-Management",
+      "metadata": {
+        "level": "warning",
+        "obu": "Security",
+        "owner": "SecOps",
+        "description": "Login banner should be configured",
+        "remediation": "Configure 'set system login message' or 'set system login announcement'"
+      }
+    },
+    {
+      "id": "JSON-JUNOS-004",
+      "selector": "protocols ospf area",
+      "vendor": "juniper-junos",
+      "category": "Routing",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Engineering",
+        "owner": "NetOps",
+        "description": "OSPF areas should have authentication configured",
+        "remediation": "Configure OSPF area authentication using MD5 or SHA"
+      }
+    },
+    {
+      "id": "JSON-JUNOS-005",
+      "selector": "system syslog",
+      "vendor": "juniper-junos",
+      "category": "Logging",
+      "metadata": {
+        "level": "warning",
+        "obu": "Operations",
+        "owner": "SysOps",
+        "description": "Remote syslog server should be configured",
+        "remediation": "Configure 'set system syslog host <server>' for centralized logging"
+      }
+    }
+  ],
+  "summary": {
+    "byVendor": {
+      "common": 3,
+      "cisco-ios": 9,
+      "cisco-nxos": 1,
+      "juniper-junos": 8,
+      "aruba-aoscx": 4,
+      "aruba-aosswitch": 4,
+      "aruba-wlc": 4,
+      "paloalto-panos": 3,
+      "arista-eos": 3,
+      "vyos": 4,
+      "fortinet-fortigate": 3,
+      "extreme-exos": 3,
+      "extreme-voss": 3,
+      "huawei-vrp": 3,
+      "mikrotik-routeros": 3,
+      "nokia-sros": 3,
+      "cumulus-linux": 3
+    },
+    "bySeverity": {
+      "error": 18,
+      "warning": 35,
+      "info": 6
+    },
+    "byCategory": {
+      "IP-Addressing": 1,
+      "Documentation": 20,
+      "Network-Segmentation": 12,
+      "Authentication": 7,
+      "Routing": 4,
+      "Session-Management": 6,
+      "Time-Synchronization": 1,
+      "Wireless": 1,
+      "Logging": 3,
+      "High-Availability": 1,
+      "Service-Hardening": 2,
+      "Protocol-Security": 1
+    }
+  }
+}

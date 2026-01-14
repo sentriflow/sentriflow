@@ -1,0 +1,290 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when using SentriFlow
+---
+
+import { Callout, Tabs } from 'nextra/components'
+
+# Troubleshooting
+
+This page covers common issues you might encounter when using SentriFlow and how to resolve them.
+
+## Installation Issues
+
+### Command Not Found
+
+If you see `sentriflow: command not found` after installation:
+
+**For npm global install:**
+```bash
+# Check if npm global bin is in PATH
+npm config get prefix
+# Add to PATH (add to ~/.bashrc or ~/.zshrc)
+export PATH="$PATH:$(npm config get prefix)/bin"
+```
+
+**For local install:**
+```bash
+# Use npx to run
+npx sentriflow router.conf
+
+# Or use node_modules directly
+./node_modules/.bin/sentriflow router.conf
+```
+
+### Permission Errors
+
+```bash
+# macOS/Linux: Fix npm permissions
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+export PATH=~/.npm-global/bin:$PATH
+
+# Or use a Node version manager like nvm
+```
+
+## Validation Issues
+
+### "No Rules Matched"
+
+If SentriFlow reports no issues but you expected some:
+
+```bash
+# List active rules to see what's loaded
+sentriflow --list-rules
+
+# Verify vendor detection with AST output
+sentriflow --ast router.conf
+```
+
+**Common causes:**
+- Wrong vendor specified (Juniper config with Cisco vendor)
+- Config file encoding issues (try UTF-8)
+- Rules disabled in configuration
+
+### "Unknown Vendor"
+
+```bash
+# Explicitly specify the vendor
+sentriflow -v cisco router.conf
+
+# Check supported vendors
+sentriflow --list-vendors
+```
+
+Supported vendors: `cisco`, `cisco-nxos`, `juniper`, `paloalto`, `arista`, `fortinet`, `vyos`, `mikrotik`, `nokia-sros`, `huawei`, `extreme-exos`, `extreme-voss`
+
+### Understanding Rule Selectors
+
+Rules use **selectors** to match configuration sections. If a rule isn't matching expected lines:
+
+<Callout type="info">
+Selectors use **case-insensitive prefix matching**. The selector `interface` matches `interface GigabitEthernet0/0`, `Interface Vlan100`, etc.
+</Callout>
+
+**Debug with AST output:**
+```bash
+# View the parsed AST structure
+sentriflow --ast router.conf
+
+# Example output shows how config is parsed
+# {
+#   "vendor": { "id": "cisco", "name": "Cisco IOS" },
+#   "ast": [
+#     {
+#       "type": "section",
+#       "raw": "interface GigabitEthernet0/0",
+#       "keyword": "interface",
+#       "params": ["GigabitEthernet0/0"],
+#       "children": [...]
+#     }
+#   ]
+# }
+```
+
+**Selector examples:**
+```
+interface          → Matches all interfaces
+interface Gi       → Matches GigabitEthernet interfaces
+router bgp         → Matches BGP configuration
+ip access-list     → Matches IP ACLs
+```
+
+## Output Format Issues
+
+### SARIF Not Recognized
+
+If your CI tool doesn't recognize SARIF output:
+
+```bash
+# Verify SARIF structure (output to file via redirection)
+sentriflow -f sarif router.conf > results.sarif
+cat results.sarif | jq '.runs[0].results | length'
+```
+
+<Callout type="warning">
+SARIF 2.1.0 is required by most tools. SentriFlow outputs compliant SARIF by default.
+</Callout>
+
+### JSON Parsing Errors
+
+JSON is the default output format:
+
+```bash
+# Default: structured JSON
+sentriflow router.conf | jq '.results'
+
+# Explicitly request JSON
+sentriflow -f json router.conf | jq '.results'
+```
+
+## Performance Issues
+
+### Slow on Large Configs
+
+For configuration files over 10MB:
+
+```bash
+# Process multiple files
+sentriflow file1.conf file2.conf file3.conf
+
+# Use directory scanning for many files
+sentriflow -D ./configs/ -R --progress
+```
+
+### Processing Many Files
+
+```bash
+# Scan directory with progress indicator
+sentriflow -D ./configs/ -R --progress
+
+# Scan with custom extensions
+sentriflow -D ./configs/ -R --extensions cfg,conf,txt
+```
+
+## VS Code Extension Issues
+
+### Extension Not Loading
+
+1. Check the extension is installed:
+   - Open Extensions panel (Ctrl+Shift+X)
+   - Search for "SentriFlow"
+   - Verify it shows as installed and enabled
+
+2. Check the output panel:
+   - View → Output
+   - Select "SentriFlow" from dropdown
+   - Look for error messages
+
+3. Reload VS Code:
+   - Ctrl+Shift+P → "Developer: Reload Window"
+
+### No Diagnostics Appearing
+
+**Check file association:**
+```json
+// settings.json
+{
+  "files.associations": {
+    "*.conf": "sentriflow-config",
+    "*.cfg": "sentriflow-config"
+  }
+}
+```
+
+**Check enabled vendors:**
+```json
+{
+  "sentriflow.enabledVendors": [
+    "cisco",
+    "cisco-nxos",
+    "juniper"
+  ]
+}
+```
+
+### Quick Fixes Not Available
+
+Quick fixes are only available for rules that provide remediation:
+
+- Not all rules have automated fixes
+- Some fixes require manual review
+- Check if the rule's `remediation` field is populated
+
+## Custom Rules Issues
+
+### Rule Not Evaluating
+
+Verify your custom rule file:
+
+```bash
+# List rules to check if custom rule is loaded
+sentriflow --json-rules ./my-rule.json --list-rules
+
+# Run with custom rules
+sentriflow --json-rules ./my-rule.json router.conf
+```
+
+**Common JSON rule errors:**
+```json
+{
+  "id": "MY-RULE-001",        // Must be unique
+  "selector": "interface",     // Must match config sections
+  "vendor": "cisco",           // Must be valid vendor
+  // ...
+}
+```
+
+### TypeScript Rule Errors
+
+For TypeScript rules that fail to load:
+
+```bash
+# Check TypeScript compilation
+npx tsc --noEmit ./my-rule.ts
+
+# Ensure correct exports
+# Rule file must export default: export default myRule
+```
+
+### Disabling Specific Rules
+
+To skip rules that are causing issues:
+
+```bash
+# Disable specific rules by ID
+sentriflow -d NET-AUTH-001,NET-IP-002 router.conf
+
+# Or use comma-separated list
+sentriflow --disable NET-LOG-001 router.conf
+```
+
+## Getting More Help
+
+### Debug with AST
+
+```bash
+# View how your config is parsed
+sentriflow --ast router.conf | jq '.ast'
+
+# Check vendor detection
+sentriflow --ast router.conf | jq '.vendor'
+```
+
+### Reporting Issues
+
+When reporting issues, include:
+
+1. SentriFlow version: `sentriflow --version`
+2. Node.js version: `node --version`
+3. Operating system
+4. Minimal config file that reproduces the issue
+5. Full command you ran
+
+Report issues at: [github.com/sentriflow/sentriflow/issues](https://github.com/sentriflow/sentriflow/issues)
+
+## Next Steps
+
+- [CLI Commands](/cli/commands) - Full command reference
+- [Configuration](/cli/configuration) - Config file options
+- [Rule Authoring](/authoring/json-rules) - Create custom rules

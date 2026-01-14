@@ -1,0 +1,345 @@
+---
+title: GitHub Actions Integration
+description: Automated network configuration validation in GitHub pull requests with SARIF output
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# GitHub Actions
+
+Integrate SentriFlow into your GitHub Actions workflow to automatically validate network configurations on every pull request. Results appear directly in the Security tab and as PR annotations.
+
+<Callout type="info">
+  GitHub Actions with SARIF integration requires GitHub Advanced Security for private repositories, but works with all public repositories.
+</Callout>
+
+## Basic Workflow
+
+Create `.github/workflows/sentriflow.yml` in your repository:
+
+```yaml filename=".github/workflows/sentriflow.yml"
+name: SentriFlow Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.conf'
+      - '**/*.cfg'
+
+jobs:
+  validate:
+    name: Validate Network Configs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install SentriFlow
+        run: npm install -g @sentriflow/cli
+
+      - name: Validate configurations
+        run: sentriflow -f sarif configs/ > results.sarif
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: sentriflow
+```
+
+## Workflow Configuration Options
+
+### Path Filtering
+
+Only run validation when network configuration files change:
+
+```yaml filename="Path triggers"
+on:
+  pull_request:
+    paths:
+      - 'network/**/*.conf'
+      - 'network/**/*.cfg'
+      - 'firewalls/**/*.txt'
+      - '.sentriflow.yml'  # Re-validate on config changes
+```
+
+### Multi-Vendor Validation
+
+Validate configurations from different vendors separately:
+
+```yaml filename="Multi-vendor job matrix"
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        vendor: [cisco, juniper, paloalto]
+        include:
+          - vendor: cisco
+            path: configs/routers/
+          - vendor: juniper
+            path: configs/switches/
+          - vendor: paloalto
+            path: configs/firewalls/
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g @sentriflow/cli
+
+      - name: Validate ${{ matrix.vendor }} configs
+        run: sentriflow -v ${{ matrix.vendor }} -f sarif ${{ matrix.path }} > ${{ matrix.vendor }}.sarif
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ matrix.vendor }}.sarif
+          category: sentriflow-${{ matrix.vendor }}
+```
+
+### Custom Rules
+
+Include organization-specific rules:
+
+```yaml filename="Custom rules"
+- name: Validate with custom rules
+  run: sentriflow --json-rules rules/ -f sarif configs/ > results.sarif
+```
+
+## Complete Production Workflow
+
+A comprehensive workflow with caching, parallel validation, and failure notifications:
+
+```yaml filename=".github/workflows/sentriflow-production.yml"
+name: Network Configuration Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at midnight UTC
+    - cron: '0 0 * * *'
+
+env:
+  NODE_VERSION: '20'
+  SENTRIFLOW_VERSION: 'latest'
+
+jobs:
+  detect-changes:
+    name: Detect Config Changes
+    runs-on: ubuntu-latest
+    outputs:
+      cisco: ${{ steps.filter.outputs.cisco }}
+      juniper: ${{ steps.filter.outputs.juniper }}
+      paloalto: ${{ steps.filter.outputs.paloalto }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            cisco:
+              - 'configs/cisco/**'
+            juniper:
+              - 'configs/juniper/**'
+            paloalto:
+              - 'configs/paloalto/**'
+
+  validate-cisco:
+    name: Cisco IOS Validation
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cisco == 'true' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install SentriFlow
+        run: npm install -g @sentriflow/cli@${{ env.SENTRIFLOW_VERSION }}
+
+      - name: Validate Cisco configurations
+        run: sentriflow -v cisco -f sarif configs/cisco/ > cisco-results.sarif
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: cisco-results.sarif
+          category: sentriflow-cisco
+
+  validate-juniper:
+    name: Juniper Junos Validation
+    needs: detect-changes
+    if: needs.detect-changes.outputs.juniper == 'true' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: npm install -g @sentriflow/cli@${{ env.SENTRIFLOW_VERSION }}
+
+      - name: Validate Juniper configurations
+        run: sentriflow -v juniper -f sarif configs/juniper/ > juniper-results.sarif
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: juniper-results.sarif
+          category: sentriflow-juniper
+
+  validate-paloalto:
+    name: Palo Alto Validation
+    needs: detect-changes
+    if: needs.detect-changes.outputs.paloalto == 'true' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: npm install -g @sentriflow/cli@${{ env.SENTRIFLOW_VERSION }}
+
+      - name: Validate Palo Alto configurations
+        run: sentriflow -v paloalto -f sarif configs/paloalto/ > paloalto-results.sarif
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: paloalto-results.sarif
+          category: sentriflow-paloalto
+
+  summary:
+    name: Validation Summary
+    needs: [validate-cisco, validate-juniper, validate-paloalto]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.validate-cisco.result }}" == "failure" ] || \
+             [ "${{ needs.validate-juniper.result }}" == "failure" ] || \
+             [ "${{ needs.validate-paloalto.result }}" == "failure" ]; then
+            echo "::error::One or more validation jobs failed"
+            exit 1
+          fi
+          echo "All validations passed!"
+```
+
+## Viewing Results
+
+### Security Tab
+
+SARIF results appear in the repository's Security tab under "Code scanning alerts":
+
+1. Navigate to your repository on GitHub
+2. Click **Security** tab
+3. Click **Code scanning alerts** in the sidebar
+4. Filter by tool: "SentriFlow"
+
+### Pull Request Annotations
+
+Issues are annotated directly on the affected lines in pull request diffs:
+
+- **Error annotations** - High and critical severity issues
+- **Warning annotations** - Medium severity issues
+- **Note annotations** - Low and informational issues
+
+### Check Run Details
+
+The Actions workflow run page shows:
+- Summary of issues found by severity
+- Link to full SARIF results
+- Expandable details for each validation step
+
+## Controlling Exit Codes
+
+SentriFlow exits with code 0 when no issues are found, and non-zero when issues are found. To fail the workflow only when validation finds issues:
+
+```yaml filename="Fail on issues"
+- name: Validate (fail if issues found)
+  run: |
+    sentriflow -f sarif configs/ > results.sarif
+    # The exit code reflects whether issues were found
+```
+
+To always succeed (for reporting purposes), capture the output but don't fail:
+
+```yaml filename="Always succeed"
+- name: Validate (report only)
+  run: sentriflow -f sarif configs/ > results.sarif || true
+```
+
+## Troubleshooting
+
+### SARIF Upload Fails
+
+<Callout type="warning">
+  Ensure you have `security-events: write` permission on the job.
+</Callout>
+
+```yaml
+permissions:
+  contents: read
+  security-events: write  # Required for SARIF upload
+```
+
+### No Annotations Appearing
+
+1. Verify the SARIF file contains results:
+   ```bash
+   cat results.sarif | jq '.runs[0].results | length'
+   ```
+
+2. Check file paths in SARIF match repository paths (relative to repo root)
+
+3. Ensure GitHub Advanced Security is enabled (private repos only)
+
+### Rate Limiting
+
+For large repositories with many configuration files, split validation by directory:
+
+```yaml
+strategy:
+  matrix:
+    config_dir: [routers, switches, firewalls, access-points]
+  max-parallel: 2
+
+steps:
+  - name: Validate ${{ matrix.config_dir }}
+    run: sentriflow -f sarif configs/${{ matrix.config_dir }}/ > ${{ matrix.config_dir }}.sarif
+```
+
+## Next Steps
+
+- [GitLab CI Integration](/integrations/gitlab-ci) - Similar setup for GitLab
+- [Azure DevOps](/integrations/azure-devops) - Azure Pipelines configuration
+- [SARIF Format](/cli/sarif) - Understand SARIF output structure

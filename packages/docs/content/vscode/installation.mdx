@@ -1,0 +1,249 @@
+---
+title: VS Code Extension Installation
+description: Install and configure the SentriFlow VS Code extension for real-time configuration validation
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# VS Code Extension Installation
+
+The SentriFlow VS Code extension provides real-time validation of network configuration files directly in your editor. Get instant feedback on security issues, misconfigurations, and compliance violations as you work.
+
+## Prerequisites
+
+- VS Code version 1.85.0 or later
+- Node.js 18+ (for the SentriFlow language server)
+
+## Installation Methods
+
+<Tabs items={['VS Code Marketplace', 'VSIX File', 'Command Line']}>
+
+<Tabs.Tab>
+
+### VS Code Marketplace
+
+The easiest way to install the extension:
+
+<Steps>
+
+### Open Extensions View
+
+Press `Ctrl+Shift+X` (Windows/Linux) or `Cmd+Shift+X` (macOS) to open the Extensions view.
+
+### Search for SentriFlow
+
+Type "SentriFlow" in the search box.
+
+### Install
+
+Click the **Install** button on the SentriFlow extension.
+
+### Reload
+
+Click **Reload** when prompted to activate the extension.
+
+</Steps>
+
+</Tabs.Tab>
+
+<Tabs.Tab>
+
+### VSIX File Installation
+
+For offline or restricted environments:
+
+<Steps>
+
+### Download VSIX
+
+Download the latest `.vsix` file from the [GitHub Releases](https://github.com/sentriflow/sentriflow-vscode/releases) page.
+
+### Install via Command Palette
+
+1. Open VS Code
+2. Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)
+3. Type "Extensions: Install from VSIX..."
+4. Select the downloaded `.vsix` file
+
+### Reload
+
+Click **Reload** when prompted.
+
+</Steps>
+
+</Tabs.Tab>
+
+<Tabs.Tab>
+
+### Command Line Installation
+
+```bash
+# Install from marketplace
+code --install-extension sentriflow.sentriflow-vscode
+
+# Install from VSIX file
+code --install-extension sentriflow-vscode-1.0.0.vsix
+```
+
+</Tabs.Tab>
+
+</Tabs>
+
+## Initial Configuration
+
+After installation, configure the extension for your environment:
+
+### 1. File Associations
+
+The extension automatically validates files with these extensions:
+- `.conf` - Configuration files
+- `.cfg` - Configuration files
+- `.txt` - Text files (when in a config directory)
+
+To add custom file associations, update your VS Code settings:
+
+```json filename="settings.json"
+{
+  "files.associations": {
+    "*.config": "sentriflow",
+    "*.network": "sentriflow"
+  }
+}
+```
+
+### 2. Vendor Selection
+
+Set the default vendor for automatic detection:
+
+```json filename="settings.json"
+{
+  "sentriflow.defaultVendor": "cisco-ios"
+}
+```
+
+Or use file-based detection with header comments:
+
+```text filename="router.conf"
+! sentriflow: vendor=cisco-ios
+hostname Router1
+...
+```
+
+### 3. Severity Threshold
+
+Control which issues appear in the Problems panel:
+
+```json filename="settings.json"
+{
+  "sentriflow.minimumSeverity": "warning"
+}
+```
+
+Options: `"error"`, `"warning"`, `"info"`
+
+## Workspace Configuration
+
+For team consistency, add settings to your workspace:
+
+```json filename=".vscode/settings.json"
+{
+  "sentriflow.defaultVendor": "cisco-ios",
+  "sentriflow.minimumSeverity": "warning",
+  "sentriflow.customRules": [
+    "${workspaceFolder}/rules/org-security.json"
+  ],
+  "sentriflow.excludePatterns": [
+    "**/test-configs/**",
+    "**/examples/**"
+  ]
+}
+```
+
+## Verify Installation
+
+<Steps>
+
+### Create Test File
+
+Create a file named `test.conf` with this content:
+
+```text filename="test.conf"
+hostname TestRouter
+!
+interface GigabitEthernet0/0
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+!
+line vty 0 4
+ transport input telnet
+```
+
+### Check Problems Panel
+
+Open the Problems panel (`Ctrl+Shift+M` / `Cmd+Shift+M`). You should see issues flagged:
+
+- Warning: Telnet enabled on VTY lines
+- Warning: Interface missing description
+
+### View Diagnostics
+
+Hover over underlined configuration lines to see issue details and remediation suggestions.
+
+</Steps>
+
+## Troubleshooting
+
+### Extension Not Loading
+
+1. Check VS Code version: `Help > About`
+2. Verify extension is enabled: `Extensions > SentriFlow > Enable`
+3. Check Output panel: `View > Output` then select "SentriFlow"
+
+### No Diagnostics Appearing
+
+1. Verify file association: Status bar should show "SentriFlow"
+2. Check minimum severity setting
+3. Try setting vendor explicitly in file header
+
+### Language Server Errors
+
+<Callout type="warning">
+  If you see "Language server failed to start", check that Node.js 18+ is installed and in your PATH.
+</Callout>
+
+```bash
+# Check Node.js version
+node --version  # Should be 18.0.0 or higher
+```
+
+### High Memory Usage
+
+For large configuration files, enable incremental validation:
+
+```json filename="settings.json"
+{
+  "sentriflow.incrementalValidation": true,
+  "sentriflow.maxFileSize": 1000000
+}
+```
+
+## Updating the Extension
+
+The extension auto-updates by default. To update manually:
+
+1. Open Extensions view (`Ctrl+Shift+X`)
+2. Click the gear icon on SentriFlow
+3. Select "Check for Extension Updates"
+
+## Uninstalling
+
+1. Open Extensions view
+2. Find SentriFlow
+3. Click **Uninstall**
+4. Reload VS Code
+
+## Next Steps
+
+- [Settings Reference](/vscode/settings) - All configuration options
+- [Features Guide](/vscode/features) - UI features walkthrough
+- [Quick Start](/getting-started/quick-start) - First validation tutorial

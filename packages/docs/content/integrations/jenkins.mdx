@@ -1,0 +1,449 @@
+---
+title: Jenkins Integration
+description: Automated network configuration validation in Jenkins pipelines with Warnings NG plugin
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# Jenkins
+
+Integrate SentriFlow into Jenkins pipelines to validate network configurations automatically. Results can be visualized using the Warnings Next Generation (NG) plugin.
+
+<Callout type="info">
+  For best results, install the [Warnings NG Plugin](https://plugins.jenkins.io/warnings-ng/) to visualize SARIF results in Jenkins.
+</Callout>
+
+## Prerequisites
+
+Required Jenkins plugins:
+- **NodeJS Plugin** - For Node.js installation
+- **Pipeline** - For declarative pipelines
+- **Warnings Next Generation** (optional) - For SARIF visualization
+
+Configure Node.js in Jenkins:
+1. Navigate to **Manage Jenkins > Global Tool Configuration**
+2. Under **NodeJS installations**, click **Add NodeJS**
+3. Name: `NodeJS-20`, Version: `20.x`
+
+## Basic Pipeline
+
+Create a `Jenkinsfile` in your repository root:
+
+```groovy filename="Jenkinsfile"
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS-20'
+    }
+
+    stages {
+        stage('Install SentriFlow') {
+            steps {
+                sh 'npm install -g @sentriflow/cli'
+            }
+        }
+
+        stage('Validate Configurations') {
+            steps {
+                sh 'sentriflow -f sarif configs/ > results.sarif'
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'results.sarif', fingerprint: true
+
+            recordIssues(
+                enabledForFailure: true,
+                tools: [sarif(pattern: 'results.sarif')]
+            )
+        }
+    }
+}
+```
+
+## Pipeline Configuration Options
+
+### Path-Based Triggering
+
+Only run validation when configuration files change:
+
+```groovy filename="Path triggers"
+pipeline {
+    agent any
+
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
+    stages {
+        stage('Check Changes') {
+            steps {
+                script {
+                    def changes = currentBuild.changeSets.collectMany { it.items.collectMany { it.affectedPaths } }
+                    env.CONFIG_CHANGED = changes.any { it.startsWith('configs/') } ? 'true' : 'false'
+                }
+            }
+        }
+
+        stage('Validate') {
+            when {
+                expression { env.CONFIG_CHANGED == 'true' }
+            }
+            steps {
+                sh 'sentriflow -f sarif configs/ > results.sarif'
+            }
+        }
+    }
+}
+```
+
+### Multi-Vendor Parallel Validation
+
+Validate different vendors concurrently:
+
+```groovy filename="Parallel validation"
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS-20'
+    }
+
+    stages {
+        stage('Install') {
+            steps {
+                sh 'npm install -g @sentriflow/cli'
+            }
+        }
+
+        stage('Validate') {
+            parallel {
+                stage('Cisco IOS') {
+                    steps {
+                        sh 'sentriflow -v cisco -f sarif configs/cisco/ > cisco-results.sarif'
+                    }
+                }
+
+                stage('Juniper Junos') {
+                    steps {
+                        sh 'sentriflow -v juniper -f sarif configs/juniper/ > juniper-results.sarif'
+                    }
+                }
+
+                stage('Palo Alto') {
+                    steps {
+                        sh 'sentriflow -v paloalto -f sarif configs/paloalto/ > paloalto-results.sarif'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: '*-results.sarif', fingerprint: true
+
+            recordIssues(
+                enabledForFailure: true,
+                aggregatingResults: true,
+                tools: [
+                    sarif(pattern: 'cisco-results.sarif', id: 'cisco', name: 'Cisco IOS'),
+                    sarif(pattern: 'juniper-results.sarif', id: 'juniper', name: 'Juniper Junos'),
+                    sarif(pattern: 'paloalto-results.sarif', id: 'paloalto', name: 'Palo Alto')
+                ]
+            )
+        }
+    }
+}
+```
+
+### Custom Rules
+
+Include organization-specific rules:
+
+```groovy filename="Custom rules"
+stage('Validate') {
+    steps {
+        sh 'sentriflow --json-rules rules/ -f sarif configs/ > results.sarif'
+    }
+}
+```
+
+## Complete Production Pipeline
+
+A comprehensive pipeline with caching, parallel validation, and quality gates:
+
+```groovy filename="Jenkinsfile"
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS-20'
+    }
+
+    environment {
+        SENTRIFLOW_VERSION = 'latest'
+        NPM_CACHE = "${WORKSPACE}/.npm"
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    triggers {
+        // Run on push to main
+        pollSCM('H/5 * * * *')
+        // Daily compliance scan
+        cron('H 0 * * *')
+    }
+
+    stages {
+        stage('Setup') {
+            steps {
+                // Configure npm cache
+                sh "npm config set cache ${NPM_CACHE}"
+
+                // Install SentriFlow
+                sh "npm install -g @sentriflow/cli@${SENTRIFLOW_VERSION}"
+
+                // Create output directory
+                sh 'mkdir -p reports'
+            }
+        }
+
+        stage('Validate') {
+            parallel {
+                stage('Cisco Devices') {
+                    when {
+                        anyOf {
+                            changeset 'configs/cisco/**'
+                            triggeredBy 'TimerTrigger'
+                        }
+                    }
+                    steps {
+                        sh 'sentriflow -v cisco -f sarif configs/cisco/ > reports/cisco.sarif || true'
+                    }
+                }
+
+                stage('Juniper Devices') {
+                    when {
+                        anyOf {
+                            changeset 'configs/juniper/**'
+                            triggeredBy 'TimerTrigger'
+                        }
+                    }
+                    steps {
+                        sh 'sentriflow -v juniper -f sarif configs/juniper/ > reports/juniper.sarif || true'
+                    }
+                }
+
+                stage('Firewalls') {
+                    when {
+                        anyOf {
+                            changeset 'configs/firewalls/**'
+                            triggeredBy 'TimerTrigger'
+                        }
+                    }
+                    steps {
+                        sh 'sentriflow -v paloalto -f sarif configs/firewalls/ > reports/firewalls.sarif || true'
+                    }
+                }
+            }
+        }
+
+        stage('Generate Reports') {
+            steps {
+                // Generate combined JSON report
+                sh 'sentriflow -f json configs/ > reports/combined.json || true'
+
+                // Generate text summary
+                sh '''
+                    echo "# SentriFlow Compliance Report" > reports/summary.md
+                    echo "Build: ${BUILD_NUMBER}" >> reports/summary.md
+                    echo "Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reports/summary.md
+                    echo "" >> reports/summary.md
+                    sentriflow configs/ >> reports/summary.md || true
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            // Archive all reports
+            archiveArtifacts artifacts: 'reports/**', fingerprint: true
+
+            // Record issues from SARIF files
+            recordIssues(
+                enabledForFailure: true,
+                aggregatingResults: true,
+                qualityGates: [
+                    [threshold: 1, type: 'TOTAL_HIGH', unstable: true],
+                    [threshold: 1, type: 'TOTAL_ERROR', unstable: false]
+                ],
+                tools: [
+                    sarif(pattern: 'reports/*.sarif', name: 'SentriFlow')
+                ]
+            )
+        }
+
+        success {
+            echo 'Network configuration validation passed!'
+        }
+
+        unstable {
+            echo 'Network configuration validation found issues'
+            // Optional: Send notification
+            // emailext(...)
+        }
+
+        failure {
+            echo 'Network configuration validation failed'
+            // Optional: Send notification
+            // slackSend(...)
+        }
+
+        cleanup {
+            cleanWs()
+        }
+    }
+}
+```
+
+## Warnings NG Plugin Configuration
+
+### Quality Gates
+
+Configure quality gates to fail builds based on issue counts:
+
+```groovy filename="Quality gates"
+recordIssues(
+    tools: [sarif(pattern: 'results.sarif')],
+    qualityGates: [
+        [threshold: 1, type: 'TOTAL_ERROR', unstable: false],
+        [threshold: 5, type: 'TOTAL_HIGH', unstable: true],
+        [threshold: 20, type: 'TOTAL_NORMAL', unstable: true]
+    ]
+)
+```
+
+Quality gate types:
+- `TOTAL_ERROR` - Critical severity issues
+- `TOTAL_HIGH` - High severity issues
+- `TOTAL_NORMAL` - Medium severity issues
+- `TOTAL_LOW` - Low severity issues
+- `TOTAL` - All issues combined
+
+### Trend Charts
+
+The Warnings NG plugin automatically generates trend charts showing:
+- Issues over time
+- New vs fixed issues
+- Issues by severity
+
+View in **Build > SentriFlow** sidebar.
+
+### Filtering
+
+Filter issues in the UI:
+- By file path
+- By severity
+- By rule ID
+- By category
+
+## Shared Library
+
+Create a shared library for reuse across projects:
+
+```groovy filename="vars/sentriflowValidate.groovy"
+def call(Map config = [:]) {
+    def vendor = config.vendor ?: ''
+    def configPath = config.configPath ?: 'configs/'
+    def outputFile = config.outputFile ?: 'results.sarif'
+
+    def vendorArg = vendor ? "-v ${vendor}" : ''
+
+    sh """
+        sentriflow \
+            ${vendorArg} \
+            -f sarif \
+            ${configPath} > ${outputFile}
+    """
+}
+```
+
+Use in pipelines:
+
+```groovy filename="Jenkinsfile"
+@Library('my-shared-library') _
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Validate') {
+            steps {
+                sentriflowValidate(
+                    vendor: 'cisco',
+                    configPath: 'configs/cisco/'
+                )
+            }
+        }
+    }
+}
+```
+
+## Troubleshooting
+
+### Node.js Not Found
+
+Ensure NodeJS plugin is configured:
+
+```groovy
+tools {
+    nodejs 'NodeJS-20'  // Must match name in Global Tool Configuration
+}
+```
+
+### SARIF Not Rendering
+
+Install Warnings NG plugin and use correct syntax:
+
+```groovy
+recordIssues(
+    tools: [sarif(pattern: 'results.sarif')]  // Not 'SARIF'
+)
+```
+
+### Permission Denied
+
+Ensure workspace is writable:
+
+```groovy
+stage('Setup') {
+    steps {
+        sh 'chmod -R 755 .'
+    }
+}
+```
+
+### Build Hangs
+
+Add timeout:
+
+```groovy
+options {
+    timeout(time: 30, unit: 'MINUTES')
+}
+```
+
+## Next Steps
+
+- [GitHub Actions](/integrations/github-actions) - GitHub workflow setup
+- [GitLab CI](/integrations/gitlab-ci) - GitLab pipeline configuration
+- [SARIF Format](/cli/sarif) - Understand SARIF output structure

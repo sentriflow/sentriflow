@@ -1,0 +1,637 @@
+---
+title: CLI Commands
+description: Complete reference for SentriFlow CLI commands, options, and usage examples
+---
+
+import { Callout, Tabs, Steps } from 'nextra/components'
+
+# CLI Commands
+
+This page provides a complete reference for all SentriFlow CLI commands, options, and usage patterns.
+
+## Synopsis
+
+```bash
+sentriflow [options] <files...>
+sentriflow [options] -
+sentriflow --list-rules [--category <category>] [--list-format <format>]
+sentriflow --list-vendors
+sentriflow --list-categories
+sentriflow --show-machine-id
+sentriflow <command> [options]
+```
+
+## Global Options
+
+These options are available for all commands and modes.
+
+### Output Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-f, --format <format>` | Output format: `json` or `sarif` | `json` |
+| `-q, --quiet` | Only output failures (suppress passed results) | `false` |
+| `--ast` | Output the parsed AST instead of rule results | `false` |
+| `--relative-paths` | Use relative paths in SARIF output | `false` |
+| `--progress` | Show progress during directory scanning | `false` |
+
+### Version and Help
+
+| Option | Description |
+|--------|-------------|
+| `--version` | Display the CLI version number |
+| `--help`, `-h` | Display help information |
+
+## File Input
+
+SentriFlow accepts configuration files in multiple ways.
+
+### Single File
+
+```bash
+sentriflow router.conf
+```
+
+### Multiple Files
+
+```bash
+sentriflow router1.conf router2.conf switch.cfg
+```
+
+When processing multiple files, SentriFlow outputs aggregated results with a summary:
+
+```json
+{
+  "summary": {
+    "filesScanned": 3,
+    "totalResults": 15,
+    "failures": 2,
+    "passed": 13
+  },
+  "files": [...]
+}
+```
+
+### Stdin Input
+
+Use `-` to read configuration from stdin:
+
+```bash
+cat router.conf | sentriflow -
+```
+
+Or with process substitution:
+
+```bash
+sentriflow - < router.conf
+```
+
+<Callout type="warning">
+  Stdin input (`-`) cannot be combined with other file arguments or directory mode (`-D`).
+</Callout>
+
+### Directory Scanning
+
+Scan all configuration files in a directory:
+
+```bash
+sentriflow -D ./configs/
+```
+
+With recursive scanning:
+
+```bash
+sentriflow -D ./configs/ -R
+```
+
+## Vendor Options
+
+SentriFlow supports multiple network equipment vendors with vendor-specific parsing and rules.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-v, --vendor <vendor>` | Specify vendor type | `auto` |
+| `--list-vendors` | List all supported vendors and exit | - |
+
+### Supported Vendors
+
+```bash
+sentriflow --list-vendors
+```
+
+Output:
+
+```text
+Supported vendors:
+
+  cisco           - Cisco IOS (indentation-based)
+  cisco-nxos      - Cisco NX-OS (indentation-based)
+  juniper         - Juniper Junos (brace-based)
+  arista          - Arista EOS (indentation-based)
+  mikrotik        - MikroTik RouterOS (indentation-based)
+  vyos            - VyOS (indentation-based)
+  paloalto        - Palo Alto PAN-OS (brace-based)
+  nokia-sros      - Nokia SR OS (brace-based)
+  huawei          - Huawei VRP (indentation-based)
+  extreme-exos    - Extreme EXOS (indentation-based)
+  extreme-voss    - Extreme VOSS (indentation-based)
+
+  auto            - Auto-detect vendor from config content
+
+Use: sentriflow --vendor <vendor> <file>
+```
+
+### Auto-Detection
+
+By default, SentriFlow auto-detects the vendor from configuration content:
+
+```bash
+sentriflow router.conf
+# Output: Detected vendor: Cisco IOS (cisco)
+```
+
+### Explicit Vendor
+
+Force a specific vendor:
+
+```bash
+sentriflow --vendor juniper router.conf
+```
+
+## Rule Management Options
+
+### Listing Rules
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--list-rules` | List all active rules and exit | - |
+| `--list-categories` | List all rule categories with counts | - |
+| `--category <category>` | Filter rules by category (with `--list-rules`) | - |
+| `--list-format <format>` | Output format for `--list-rules`: `table`, `json`, `csv` | `table` |
+
+#### Table Format (Default)
+
+```bash
+sentriflow --list-rules
+```
+
+```text
+ID                CATEGORY              VENDOR          LEVEL    OBU
+---------------------
+NET-AUTH-001      authentication        cisco           error    SHOULD
+NET-AUTH-002      authentication        common          error    MUST
+NET-IP-001        routing               cisco           warning  MAY
+...
+---------------------
+Total: 45 rules
+```
+
+#### JSON Format
+
+```bash
+sentriflow --list-rules --list-format json
+```
+
+```json
+[
+  {
+    "id": "NET-AUTH-001",
+    "category": "authentication",
+    "vendor": "cisco",
+    "level": "error",
+    "obu": "SHOULD",
+    "description": "Enable authentication for routing protocols",
+    "tags": ["security", "authentication"]
+  }
+]
+```
+
+#### Filter by Category
+
+```bash
+sentriflow --list-rules --category authentication
+```
+
+### Loading Rules
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-r, --rules <path>` | Path to additional rules file (legacy) | - |
+| `--pack <path...>` | Path(s) to rule pack(s) (auto-detects format) | - |
+| `--json-rules <path...>` | Path(s) to JSON rules file(s) | - |
+| `-d, --disable <ids>` | Comma-separated rule IDs to disable | - |
+
+#### Rule Packs
+
+Load custom rule packs with automatic format detection:
+
+```bash
+# Unencrypted pack (.js/.ts)
+sentriflow --pack ./custom-rules.js router.conf
+
+# Encrypted pack (.grpx)
+sentriflow --pack ./enterprise.grpx --license-key $KEY router.conf
+
+# Extended pack (.grx2)
+sentriflow --pack ./premium.grx2 --license-key $KEY router.conf
+
+# Multiple packs
+sentriflow --pack pack1.js --pack pack2.grpx router.conf
+```
+
+#### JSON Rules
+
+Load rules defined in JSON format:
+
+```bash
+sentriflow --json-rules ./rules.json router.conf
+```
+
+#### Disable Specific Rules
+
+```bash
+sentriflow --disable NET-AUTH-001,NET-IP-002 router.conf
+```
+
+### Rule Priority
+
+Rules are loaded with the following priority (higher number wins):
+
+| Source | Priority |
+|--------|----------|
+| Default rules | 0 |
+| Config file legacy rules | 50 |
+| Config file rule packs | (their own priority) |
+| CLI `--rules` file | 50 |
+| Config file JSON rules | 75 |
+| CLI `--json-rules` | 100+ |
+| Unencrypted packs (CLI) | 100+ |
+| GRPX packs (CLI) | 200+ |
+| GRX2 packs (CLI) | 300+ |
+
+## Configuration File Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-c, --config <path>` | Path to config file | Auto-detect |
+| `--no-config` | Ignore config file | - |
+
+SentriFlow searches for configuration files in this order:
+
+1. `sentriflow.config.ts`
+2. `sentriflow.config.js`
+3. `.sentriflowrc.ts`
+4. `.sentriflowrc.js`
+
+The search starts from the directory containing the input file and walks up to the filesystem root.
+
+## Licensing Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--license-key <key>` | License key for encrypted rule packs | `SENTRIFLOW_LICENSE_KEY` env |
+| `--strict-packs` | Fail immediately if any pack cannot be loaded | `false` (warn and continue) |
+| `--show-machine-id` | Display the current machine ID for license binding | - |
+
+### Environment Variable
+
+Set the license key via environment variable:
+
+```bash
+export SENTRIFLOW_LICENSE_KEY=your-license-key
+sentriflow --pack enterprise.grpx router.conf
+```
+
+### Machine ID
+
+For machine-bound licenses, display your machine ID:
+
+```bash
+sentriflow --show-machine-id
+```
+
+```text
+Machine ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+Use this ID when requesting a machine-bound license.
+```
+
+## Directory Scanning Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-D, --directory <path>` | Scan all config files in a directory | - |
+| `-R, --recursive` | Scan directories recursively | `false` |
+| `--glob <pattern>` | Glob pattern for file matching | - |
+| `--extensions <exts>` | File extensions to include (comma-separated) | See below |
+| `--exclude <patterns>` | Exclude patterns (comma-separated glob patterns) | - |
+| `--exclude-pattern <pattern...>` | Regex pattern(s) to exclude files | - |
+| `--max-depth <number>` | Maximum recursion depth (use with `-R`) | `100` |
+
+### Default Extensions
+
+When no `--extensions` is specified, SentriFlow scans files with these extensions:
+
+```text
+txt, cfg, conf, config, ios, junos, eos, nxos,
+routeros, vyos, panos, sros, vrp, exos, voss
+```
+
+### Examples
+
+Scan with custom extensions:
+
+```bash
+sentriflow -D ./configs/ --extensions cfg,txt,conf
+```
+
+Scan with glob pattern:
+
+```bash
+sentriflow -D ./configs/ --glob "router-*.cfg"
+```
+
+Exclude patterns:
+
+```bash
+sentriflow -D ./configs/ -R --exclude "backup/*,*.bak"
+```
+
+Exclude with regex:
+
+```bash
+sentriflow -D ./configs/ -R --exclude-pattern "test_.*" --exclude-pattern ".*\.backup$"
+```
+
+Limited recursion depth:
+
+```bash
+sentriflow -D ./configs/ -R --max-depth 3
+```
+
+## Security Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--allow-external` | Allow reading files outside the current directory | `false` |
+
+<Callout type="warning">
+  By default, SentriFlow restricts file access to the current working directory and its subdirectories. This prevents path traversal attacks. Use `--allow-external` only when you need to access files outside your project.
+</Callout>
+
+### Path Security
+
+When `--allow-external` is not set:
+
+- Files must be within the current working directory
+- Symlinks are resolved and checked against boundaries
+- UNC (network) paths are blocked
+- Parent directory traversal (`../`) is blocked
+
+## IP Address Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--filter-special-ips` | Filter out special IP ranges from IP summary | `false` |
+
+When enabled, filters out:
+
+- Loopback addresses (127.x.x.x)
+- Multicast addresses (224.x.x.x - 239.x.x.x)
+- Reserved addresses
+- Broadcast addresses
+- Link-local addresses (169.254.x.x)
+- Documentation addresses (192.0.2.x, 198.51.100.x, 203.0.113.x)
+
+Keeps:
+
+- Public IP addresses
+- Private IP addresses (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+- CGNAT addresses (100.64.x.x - 100.127.x.x)
+
+## Commercial Commands
+
+These commands require the `@sentriflow/licensing` package (provided with commercial licenses).
+
+| Command | Description |
+|---------|-------------|
+| `activate` | Activate your SentriFlow license |
+| `update` | Check and download pack updates |
+| `offline` | Manage offline bundles |
+| `license` | Show license status |
+
+<Callout type="info">
+  If the `@sentriflow/licensing` package is not installed, these commands display information about obtaining a commercial license.
+</Callout>
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success - No violations found |
+| `1` | Violations found - At least one rule failed |
+| `2` | Error occurred - Invalid input, file not found, or configuration error |
+
+### Examples
+
+Use exit codes in scripts:
+
+```bash
+sentriflow router.conf
+if [ $? -eq 1 ]; then
+  echo "Compliance violations found!"
+  exit 1
+fi
+```
+
+Or with bash conditionals:
+
+```bash
+if ! sentriflow -q router.conf; then
+  echo "Validation failed"
+fi
+```
+
+## Output Formats
+
+### JSON Format (Default)
+
+```bash
+sentriflow router.conf
+```
+
+Single file output:
+
+```json
+{
+  "vendor": {
+    "id": "cisco",
+    "name": "Cisco IOS"
+  },
+  "results": [
+    {
+      "ruleId": "NET-AUTH-001",
+      "passed": false,
+      "message": "Missing enable secret configuration",
+      "line": 1,
+      "category": "authentication",
+      "tags": [
+        { "key": "severity", "value": "high" },
+        { "key": "cwe", "value": "CWE-287" }
+      ]
+    }
+  ],
+  "ipSummary": {
+    "ipv4": ["10.0.0.1", "192.168.1.1"],
+    "ipv6": ["2001:db8::1"],
+    "subnets": ["10.0.0.0/24"]
+  }
+}
+```
+
+Multi-file output:
+
+```json
+{
+  "summary": {
+    "filesScanned": 3,
+    "totalResults": 15,
+    "failures": 2,
+    "passed": 13
+  },
+  "files": [
+    {
+      "file": "/path/to/router1.conf",
+      "vendor": { "id": "cisco", "name": "Cisco IOS" },
+      "results": [...],
+      "ipSummary": {...}
+    }
+  ]
+}
+```
+
+### SARIF Format
+
+```bash
+sentriflow -f sarif router.conf
+```
+
+SARIF (Static Analysis Results Interchange Format) output is compatible with:
+
+- GitHub Code Scanning
+- Azure DevOps
+- Visual Studio
+- Other SARIF-compliant tools
+
+See [SARIF Output](/cli/sarif) for detailed documentation.
+
+### AST Output
+
+```bash
+sentriflow --ast router.conf
+```
+
+Outputs the parsed Abstract Syntax Tree:
+
+```json
+{
+  "vendor": {
+    "id": "cisco",
+    "name": "Cisco IOS"
+  },
+  "ast": [
+    {
+      "type": "command",
+      "raw": "hostname router1",
+      "keyword": "hostname",
+      "params": ["router1"],
+      "line": 1,
+      "children": []
+    }
+  ]
+}
+```
+
+## Usage Examples
+
+### Basic Validation
+
+Validate a single configuration file:
+
+```bash
+sentriflow router.conf
+```
+
+### CI/CD Pipeline
+
+Validate with SARIF output for GitHub Code Scanning:
+
+```bash
+sentriflow -f sarif -q configs/*.conf > results.sarif
+```
+
+### Pre-Commit Hook
+
+Quick validation with quiet mode:
+
+```bash
+#!/bin/bash
+if ! sentriflow -q "$@"; then
+  echo "SentriFlow validation failed. Please fix violations before committing."
+  exit 1
+fi
+```
+
+### Batch Processing
+
+Process all configurations in a directory:
+
+```bash
+sentriflow -D ./configs/ -R --progress
+```
+
+### Custom Rules
+
+Use custom rules alongside defaults:
+
+```bash
+sentriflow --pack ./company-rules.js router.conf
+```
+
+### Disable Noisy Rules
+
+Temporarily disable specific rules:
+
+```bash
+sentriflow --disable NET-LOG-001,NET-DNS-002 router.conf
+```
+
+### Export Rule List
+
+Export all rules to CSV for documentation:
+
+```bash
+sentriflow --list-rules --list-format csv > rules.csv
+```
+
+### Validate from Network Device
+
+Pipe directly from a device:
+
+```bash
+ssh admin@router "show running-config" | sentriflow --vendor cisco -
+```
+
+### Filter Results
+
+Show only failures with progress:
+
+```bash
+sentriflow -D ./configs/ -R -q --progress
+```
+
+## See Also
+
+- [Configuration](/cli/configuration) - Config file reference
+- [SARIF Output](/cli/sarif) - SARIF format details
+- [Quick Start](/getting-started/quick-start) - Getting started guide

@@ -1,0 +1,302 @@
+---
+title: Parser API Reference
+description: API reference for SentriFlow's network configuration parser
+---
+
+import { Callout, Tabs } from 'nextra/components'
+
+# Parser API
+
+The SentriFlow parser transforms network configuration text into a structured AST (Abstract Syntax Tree) that can be traversed and validated. This page covers the parser API for programmatic integration.
+
+## Installation
+
+```bash
+npm install @sentriflow/core
+```
+
+## Basic Usage
+
+```typescript
+import { parse } from '@sentriflow/core';
+
+const config = `
+hostname Router1
+!
+interface GigabitEthernet0/0
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+`;
+
+const ast = parse(config, 'cisco-ios');
+
+// ast is an array of ConfigNode objects
+console.log(ast.length); // 2 (hostname + interface)
+```
+
+## parse()
+
+Parse configuration text into an AST.
+
+### Signature
+
+```typescript
+function parse(
+  config: string,
+  vendor: RuleVendor,
+  options?: ParseOptions
+): ConfigNode[]
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `config` | `string` | Yes | Configuration text to parse |
+| `vendor` | `RuleVendor` | Yes | Vendor identifier for parser selection |
+| `options` | `ParseOptions` | No | Parser options |
+
+### ParseOptions
+
+```typescript
+interface ParseOptions {
+  /** Include comments in AST */
+  includeComments?: boolean;
+
+  /** Include empty lines as nodes */
+  includeEmpty?: boolean;
+
+  /** Starting line number (for partial parsing) */
+  startLine?: number;
+
+  /** Enable strict mode (fail on unknown commands) */
+  strict?: boolean;
+}
+```
+
+### Returns
+
+Returns an array of `ConfigNode` objects representing the parsed configuration.
+
+### Example
+
+```typescript
+import { parse } from '@sentriflow/core';
+
+const config = `
+! This is a comment
+hostname Router1
+!
+interface GigabitEthernet0/0
+ description Uplink to Core
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+`;
+
+// Parse with default options
+const ast = parse(config, 'cisco-ios');
+
+// Parse with comments included
+const astWithComments = parse(config, 'cisco-ios', {
+  includeComments: true,
+});
+
+// Parse in strict mode
+try {
+  const strictAst = parse(config, 'cisco-ios', { strict: true });
+} catch (error) {
+  console.error('Parse error:', error.message);
+}
+```
+
+## parseFile()
+
+Parse a configuration file from the filesystem.
+
+### Signature
+
+```typescript
+async function parseFile(
+  filePath: string,
+  vendor?: RuleVendor,
+  options?: ParseOptions
+): Promise<ConfigNode[]>
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `filePath` | `string` | Yes | Path to configuration file |
+| `vendor` | `RuleVendor` | No | Vendor (auto-detected if omitted) |
+| `options` | `ParseOptions` | No | Parser options |
+
+### Example
+
+```typescript
+import { parseFile } from '@sentriflow/core';
+
+// Auto-detect vendor
+const ast = await parseFile('./configs/router.conf');
+
+// Explicit vendor
+const ciscoAst = await parseFile('./configs/router.conf', 'cisco-ios');
+```
+
+## parseMultiple()
+
+Parse multiple configuration files in parallel.
+
+### Signature
+
+```typescript
+async function parseMultiple(
+  files: string[],
+  vendor?: RuleVendor,
+  options?: ParseOptions
+): Promise<Map<string, ConfigNode[]>>
+```
+
+### Example
+
+```typescript
+import { parseMultiple } from '@sentriflow/core';
+
+const files = [
+  './configs/router1.conf',
+  './configs/router2.conf',
+  './configs/switch1.conf',
+];
+
+const results = await parseMultiple(files, 'cisco-ios');
+
+for (const [file, ast] of results) {
+  console.log(`${file}: ${ast.length} nodes`);
+}
+```
+
+## detectVendor()
+
+Auto-detect vendor from configuration content.
+
+### Signature
+
+```typescript
+function detectVendor(config: string): RuleVendor | undefined
+```
+
+### Detection Heuristics
+
+The vendor is detected based on:
+- Header comments (e.g., `! sentriflow: vendor=cisco-ios`)
+- Command patterns (e.g., `set` commands indicate Juniper)
+- Section structure
+- Keyword frequency
+
+### Example
+
+```typescript
+import { detectVendor, parse } from '@sentriflow/core';
+
+const config = loadConfig('./unknown.conf');
+const vendor = detectVendor(config);
+
+if (vendor) {
+  const ast = parse(config, vendor);
+} else {
+  console.warn('Could not detect vendor');
+}
+```
+
+## Vendor-Specific Parsers
+
+Each vendor has a specialized parser that understands its configuration syntax:
+
+| Vendor | Parser | Notes |
+|--------|--------|-------|
+| `cisco-ios` | CiscoIOSParser | IOS, IOS-XE, IOS-XR |
+| `cisco-nxos` | CiscoNXOSParser | Nexus switches |
+| `juniper-junos` | JuniperParser | Set and hierarchical formats |
+| `paloalto-panos` | PaloAltoParser | Set command format |
+| `arista-eos` | AristaParser | EOS configuration |
+| `vyos` | VyOSParser | VyOS/EdgeOS |
+| `fortinet-fortigate` | FortiGateParser | FortiOS config |
+
+### Using a Specific Parser
+
+```typescript
+import { CiscoIOSParser } from '@sentriflow/core/parsers';
+
+const parser = new CiscoIOSParser();
+const ast = parser.parse(config);
+
+// Access parser-specific methods
+const interfaces = parser.getInterfaces(ast);
+const routingProtocols = parser.getRoutingProtocols(ast);
+```
+
+## Streaming Parser
+
+For large configurations, use the streaming parser:
+
+```typescript
+import { createParserStream } from '@sentriflow/core';
+import { createReadStream } from 'fs';
+
+const stream = createReadStream('./large-config.conf');
+const parser = createParserStream('cisco-ios');
+
+parser.on('node', (node: ConfigNode) => {
+  console.log(`Parsed: ${node.id}`);
+});
+
+parser.on('error', (error) => {
+  console.error('Parse error:', error);
+});
+
+parser.on('end', () => {
+  console.log('Parsing complete');
+});
+
+stream.pipe(parser);
+```
+
+## Error Handling
+
+The parser throws `ParseError` for invalid configurations:
+
+```typescript
+import { parse, ParseError } from '@sentriflow/core';
+
+try {
+  const ast = parse(config, 'cisco-ios', { strict: true });
+} catch (error) {
+  if (error instanceof ParseError) {
+    console.error(`Parse error at line ${error.line}: ${error.message}`);
+    console.error(`Context: ${error.context}`);
+  }
+}
+```
+
+### ParseError Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `message` | `string` | Error message |
+| `line` | `number` | Line number where error occurred |
+| `column` | `number` | Column number |
+| `context` | `string` | Surrounding configuration context |
+| `vendor` | `string` | Vendor being parsed |
+
+## Performance Considerations
+
+- Use `parseFile()` over `parse()` for large files (streams internally)
+- Use `parseMultiple()` for batch processing (parallel I/O)
+- Consider `includeComments: false` if comments aren't needed
+- Use streaming parser for files > 10MB
+
+## Next Steps
+
+- [ConfigNode API](/api/config-node) - Working with AST nodes
+- [Rule Engine API](/api/rule-engine) - Running validation rules
+- [TypeScript Rules](/authoring/typescript-rules) - Writing custom rules

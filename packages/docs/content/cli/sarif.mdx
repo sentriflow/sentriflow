@@ -1,0 +1,597 @@
+---
+title: SARIF Output
+description: Generate SARIF reports for security tooling integration
+---
+
+import { Callout, Tabs, Steps } from 'nextra/components'
+
+# SARIF Output
+
+SARIF (Static Analysis Results Interchange Format) is a standard JSON-based format for static analysis tool results. SentriFlow generates SARIF 2.1.0 compliant output that integrates with GitHub Advanced Security, GitLab SAST, Azure DevOps, and other security dashboards.
+
+<Callout type="info">
+SARIF output includes enhanced security metadata (CWE mappings, CVSS scores) when available in rule definitions, enabling prioritization of findings in security dashboards.
+</Callout>
+
+## Generating SARIF Output
+
+Use the `--format sarif` (or `-f sarif`) option to generate SARIF output:
+
+```bash
+# Single file
+sentriflow router.conf --format sarif > results.sarif
+
+# Multiple files
+sentriflow router1.conf router2.conf --format sarif > results.sarif
+
+# Directory scanning
+sentriflow --directory ./configs --format sarif > results.sarif
+
+# From stdin
+cat router.conf | sentriflow - --format sarif > results.sarif
+```
+
+### Output Options
+
+| Option | Description |
+|--------|-------------|
+| `-f sarif`, `--format sarif` | Generate SARIF 2.1.0 output |
+| `--relative-paths` | Use relative paths instead of absolute paths in artifact locations |
+| `-q`, `--quiet` | Only include failed results (suppress passed checks) |
+
+<Callout type="warning">
+By default, SARIF output includes absolute file paths. Use `--relative-paths` when sharing reports or uploading to CI/CD systems to avoid exposing local directory structures.
+</Callout>
+
+## SARIF Schema Structure
+
+SentriFlow generates SARIF reports conforming to the [SARIF 2.1.0 specification](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html). Here is the structure of the output:
+
+```json
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Sentriflow",
+          "version": "1.0.0",
+          "informationUri": "https://github.com/sentriflow/sentriflow",
+          "rules": [...],
+          "supportedTaxonomies": [...]
+        }
+      },
+      "taxonomies": [...],
+      "artifacts": [...],
+      "results": [...]
+    }
+  ]
+}
+```
+
+### Key Components
+
+#### Tool Information
+
+The `tool.driver` object identifies SentriFlow and its version:
+
+```json
+{
+  "tool": {
+    "driver": {
+      "name": "Sentriflow",
+      "version": "1.0.0",
+      "informationUri": "https://github.com/sentriflow/sentriflow",
+      "rules": [...]
+    }
+  }
+}
+```
+
+#### Rule Definitions
+
+Each rule that triggered a result is defined in `tool.driver.rules`:
+
+```json
+{
+  "rules": [
+    {
+      "id": "NET-SSH-001",
+      "name": "NET-SSH-001",
+      "shortDescription": {
+        "text": "Configure 'ip ssh version 2' to use SSHv2."
+      },
+      "defaultConfiguration": {
+        "level": "error"
+      },
+      "relationships": [
+        {
+          "target": {
+            "id": "CWE-327",
+            "toolComponent": { "name": "CWE" }
+          },
+          "kinds": ["superset"]
+        }
+      ],
+      "properties": {
+        "category": "encryption",
+        "security-severity": "7.5",
+        "cvss-vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "tags": ["deprecated-protocol", "ssh"]
+      }
+    }
+  ]
+}
+```
+
+#### Results
+
+Each finding is represented as a result object:
+
+```json
+{
+  "results": [
+    {
+      "ruleId": "NET-SSH-001",
+      "level": "error",
+      "message": {
+        "text": "SSH version 1 is deprecated and insecure."
+      },
+      "locations": [
+        {
+          "physicalLocation": {
+            "artifactLocation": {
+              "uri": "router.conf"
+            },
+            "region": {
+              "startLine": 7,
+              "endLine": 7
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Callout type="info">
+**Line Numbers:** SARIF uses 1-based line numbers. SentriFlow automatically converts from its internal 0-based representation.
+</Callout>
+
+#### Security Metadata (SEC-007)
+
+SentriFlow enriches SARIF output with security metadata when rules include it:
+
+| Property | Description | Example |
+|----------|-------------|---------|
+| `relationships` | CWE taxonomy mappings | `CWE-798` (Hardcoded Credentials) |
+| `security-severity` | CVSS v3.1 base score (0.0-10.0) | `9.8` |
+| `cvss-vector` | Full CVSS v3.1 vector string | `CVSS:3.1/AV:N/AC:L/...` |
+| `category` | Rule category for grouping | `authentication` |
+| `tags` | Additional classification tags | `["credential-exposure"]` |
+
+When rules have CWE mappings, SentriFlow includes the CWE taxonomy definition:
+
+```json
+{
+  "taxonomies": [
+    {
+      "name": "CWE",
+      "version": "4.13",
+      "informationUri": "https://cwe.mitre.org/data/published/cwe_v4.13.pdf",
+      "organization": "MITRE",
+      "shortDescription": {
+        "text": "Common Weakness Enumeration"
+      }
+    }
+  ]
+}
+```
+
+#### Multi-File Artifacts
+
+When scanning multiple files or directories, SentriFlow includes an `artifacts` array listing all scanned files:
+
+```json
+{
+  "artifacts": [
+    { "location": { "uri": "configs/router1.conf" } },
+    { "location": { "uri": "configs/router2.conf" } },
+    { "location": { "uri": "configs/switch.conf" } }
+  ]
+}
+```
+
+## Tool Integrations
+
+### GitHub Advanced Security
+
+GitHub Code Scanning accepts SARIF files to display security findings in pull requests and the Security tab.
+
+<Steps>
+
+### Generate SARIF in GitHub Actions
+
+```yaml filename=".github/workflows/sentriflow.yml"
+name: Network Config Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install SentriFlow
+        run: npm install -g @sentriflow/cli
+
+      - name: Validate configurations
+        run: |
+          sentriflow --directory ./configs --recursive \
+            --format sarif --relative-paths \
+            > results.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: network-config
+```
+
+### View Results
+
+After the workflow runs:
+
+1. Navigate to your repository's **Security** tab
+2. Click **Code scanning alerts**
+3. Filter by tool "Sentriflow" to see network configuration findings
+
+</Steps>
+
+<Callout type="info">
+GitHub Code Scanning is available for public repositories and GitHub Enterprise with Advanced Security. The `category` parameter helps distinguish SentriFlow results from other analysis tools.
+</Callout>
+
+### GitLab SAST
+
+GitLab accepts SARIF files through its Security Reports feature.
+
+```yaml filename=".gitlab-ci.yml"
+stages:
+  - test
+
+sentriflow:
+  stage: test
+  image: node:20
+  before_script:
+    - npm install -g @sentriflow/cli
+  script:
+    - sentriflow --directory ./configs --recursive
+        --format sarif --relative-paths
+        > gl-sast-report.sarif
+  artifacts:
+    reports:
+      sast: gl-sast-report.sarif
+    paths:
+      - gl-sast-report.sarif
+    when: always
+  allow_failure: true
+```
+
+<Callout type="warning">
+GitLab's SARIF support may vary by version. Check your GitLab version's documentation for SARIF compatibility requirements.
+</Callout>
+
+### Azure DevOps
+
+Azure DevOps can display SARIF results using the SARIF SAST Scans Tab extension.
+
+<Steps>
+
+### Install Extension
+
+Install the [SARIF SAST Scans Tab](https://marketplace.visualstudio.com/items?itemName=sariftools.scans) extension from the Azure DevOps Marketplace.
+
+### Configure Pipeline
+
+```yaml filename="azure-pipelines.yml"
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '20.x'
+    displayName: 'Install Node.js'
+
+  - script: |
+      npm install -g @sentriflow/cli
+    displayName: 'Install SentriFlow'
+
+  - script: |
+      sentriflow --directory ./configs --recursive \
+        --format sarif --relative-paths \
+        > $(Build.ArtifactStagingDirectory)/results.sarif
+    displayName: 'Run SentriFlow'
+    continueOnError: true
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)/results.sarif'
+      artifactName: 'CodeAnalysisLogs'
+    displayName: 'Publish SARIF results'
+```
+
+### View Results
+
+After the pipeline runs, the SARIF viewer extension displays findings in a dedicated "Scans" tab on the build summary page.
+
+</Steps>
+
+### VS Code SARIF Viewer
+
+View SARIF results locally using the [SARIF Viewer extension](https://marketplace.visualstudio.com/items?itemName=MS-SarifVSCode.sarif-viewer) for VS Code:
+
+```bash
+# Generate SARIF
+sentriflow router.conf --format sarif > results.sarif
+
+# Open in VS Code
+code results.sarif
+```
+
+The extension provides:
+
+- Tree view of all findings
+- Click-to-navigate to source locations
+- Filtering by severity and rule
+- Detailed rule information panel
+
+### SonarQube
+
+SonarQube can import SARIF through its [Generic Issue Import](https://docs.sonarqube.org/latest/analyzing-source-code/importing-external-issues/generic-issue-import-format/) feature with a conversion step:
+
+```bash
+# Generate SARIF
+sentriflow --directory ./configs --format sarif > results.sarif
+
+# Use a SARIF-to-SonarQube converter or the SonarQube API
+```
+
+## Example Output
+
+Here is a complete example of SentriFlow SARIF output for a single configuration file with security findings:
+
+```json filename="results.sarif"
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Sentriflow",
+          "version": "1.0.0",
+          "informationUri": "https://github.com/sentriflow/sentriflow",
+          "rules": [
+            {
+              "id": "NET-SSH-001",
+              "name": "NET-SSH-001",
+              "shortDescription": {
+                "text": "Configure 'ip ssh version 2' to use SSHv2."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CWE-327",
+                    "toolComponent": { "name": "CWE" }
+                  },
+                  "kinds": ["superset"]
+                }
+              ],
+              "properties": {
+                "category": "encryption",
+                "security-severity": "7.5",
+                "tags": ["deprecated-protocol", "ssh"]
+              }
+            },
+            {
+              "id": "NET-SNMP-001",
+              "name": "NET-SNMP-001",
+              "shortDescription": {
+                "text": "Change SNMP community string from default 'public'."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CWE-798",
+                    "toolComponent": { "name": "CWE" }
+                  },
+                  "kinds": ["superset"]
+                }
+              ],
+              "properties": {
+                "category": "authentication",
+                "security-severity": "5.3",
+                "tags": ["default-credentials", "snmp"]
+              }
+            }
+          ],
+          "supportedTaxonomies": [
+            {
+              "name": "CWE",
+              "index": 0,
+              "guid": "1A0F2A4E-3B93-4C4E-8CC7-9A4E3A5B9A3A"
+            }
+          ]
+        }
+      },
+      "taxonomies": [
+        {
+          "name": "CWE",
+          "version": "4.13",
+          "informationUri": "https://cwe.mitre.org/data/published/cwe_v4.13.pdf",
+          "organization": "MITRE",
+          "shortDescription": {
+            "text": "Common Weakness Enumeration"
+          }
+        }
+      ],
+      "results": [
+        {
+          "ruleId": "NET-SSH-001",
+          "level": "error",
+          "message": {
+            "text": "SSH version 1 is deprecated and insecure."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "router.conf"
+                },
+                "region": {
+                  "startLine": 7,
+                  "endLine": 7
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "NET-SNMP-001",
+          "level": "warning",
+          "message": {
+            "text": "SNMP community string 'public' is a well-known default."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "router.conf"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## SARIF Severity Mapping
+
+SentriFlow maps its internal severity levels to SARIF levels:
+
+| SentriFlow Level | SARIF Level | GitHub Display |
+|------------------|-------------|----------------|
+| `error` | `error` | Critical/High |
+| `warning` | `warning` | Medium |
+| `info` | `note` | Low/Informational |
+
+## IP Summary Extension
+
+When SentriFlow extracts IP addresses from configurations, this information is included in the SARIF `properties` section:
+
+```json
+{
+  "runs": [
+    {
+      "properties": {
+        "ipSummary": {
+          "ipv4Addresses": ["192.168.1.1", "10.0.0.1"],
+          "ipv6Addresses": ["2001:db8::1"],
+          "ipv4Subnets": ["192.168.1.0/24"],
+          "ipv6Subnets": ["2001:db8::/32"],
+          "counts": {
+            "ipv4": 2,
+            "ipv6": 1,
+            "ipv4Subnets": 1,
+            "ipv6Subnets": 1,
+            "total": 5
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+This extension enables network inventory tooling to extract addressing information from scan results.
+
+## Best Practices
+
+### CI/CD Integration
+
+1. **Use `--relative-paths`** to avoid exposing local directory structures
+2. **Set `continue-on-error: true`** (or equivalent) to ensure SARIF upload runs even when findings exist
+3. **Use a consistent `category`** parameter in GitHub to distinguish from other tools
+4. **Archive SARIF artifacts** for compliance and audit trails
+
+### Security Dashboard Integration
+
+1. **Include all files** - Use directory scanning (`-D`) for comprehensive coverage
+2. **Run on every PR** - Catch issues before they reach main branch
+3. **Track trends** - Compare SARIF results over time to measure improvement
+4. **Set quality gates** - Block merges when critical findings exceed thresholds
+
+### Troubleshooting
+
+<Callout type="error" title="SARIF upload fails">
+**Error:** GitHub rejects the SARIF file
+
+Common causes:
+- SARIF file exceeds 10MB size limit (use `--quiet` to reduce size)
+- Invalid JSON syntax (validate with a JSON parser)
+- Schema version mismatch (SentriFlow uses 2.1.0)
+</Callout>
+
+<Callout type="error" title="Missing line numbers">
+**Issue:** Results show no location information
+
+This occurs when rules cannot determine the source location. Results from vendor-agnostic rules or cross-reference checks may lack precise line numbers.
+</Callout>
+
+<Callout type="error" title="Paths not resolving">
+**Issue:** GitHub cannot link results to source files
+
+Ensure:
+- Paths match the repository structure
+- Use `--relative-paths` from the repository root
+- Checkout is at the same commit as the scan
+</Callout>
+
+## Related Resources
+
+- [SARIF 2.1.0 Specification](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
+- [GitHub Code Scanning Documentation](https://docs.github.com/en/code-security/code-scanning)
+- [CWE - Common Weakness Enumeration](https://cwe.mitre.org/)
+- [CVSS v3.1 Specification](https://www.first.org/cvss/v3.1/specification-document)
+- [CLI Commands Reference](/cli/commands)

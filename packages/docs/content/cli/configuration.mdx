@@ -1,0 +1,468 @@
+---
+title: Configuration
+description: Configure SentriFlow via config files and environment variables
+---
+
+import { Callout, Tabs, FileTree } from 'nextra/components'
+
+# Configuration
+
+SentriFlow can be configured via:
+
+- **Configuration files** (`sentriflow.config.ts`, `.sentriflowrc.ts`, etc.)
+- **Environment variables** for secrets and CI/CD environments
+- **Command-line flags** (highest precedence, override config files)
+
+## Configuration File
+
+SentriFlow automatically discovers and loads configuration files from the current directory and parent directories.
+
+### File Locations
+
+Configuration files are searched in order of priority (first found wins):
+
+1. `sentriflow.config.ts`
+2. `sentriflow.config.js`
+3. `.sentriflowrc.ts`
+4. `.sentriflowrc.js`
+
+<Callout type="info">
+SentriFlow starts searching from the directory containing your configuration file(s) and walks up to the filesystem root, stopping at the first config file found.
+</Callout>
+
+### Recommended Project Structure
+
+<FileTree>
+  <FileTree.Folder name="my-network-configs" defaultOpen>
+    <FileTree.File name="sentriflow.config.ts" />
+    <FileTree.Folder name="routers" defaultOpen>
+      <FileTree.File name="core-router.conf" />
+      <FileTree.File name="edge-router.conf" />
+    </FileTree.Folder>
+    <FileTree.Folder name="switches" defaultOpen>
+      <FileTree.File name="access-switch.cfg" />
+      <FileTree.File name="distribution-switch.cfg" />
+    </FileTree.Folder>
+    <FileTree.Folder name="custom-rules" defaultOpen>
+      <FileTree.File name="org-rules.json" />
+    </FileTree.Folder>
+  </FileTree.Folder>
+</FileTree>
+
+### Configuration Schema
+
+<Tabs items={['TypeScript', 'JavaScript']}>
+  <Tabs.Tab>
+```typescript filename="sentriflow.config.ts"
+import type { SentriflowConfig } from '@sentriflow/cli';
+
+const config: SentriflowConfig = {
+  // Include default rules (true by default)
+  includeDefaults: true,
+
+  // Rule IDs to disable
+  disable: ['NET-DOC-001', 'NET-LOG-002'],
+
+  // JSON rules files to load (relative to config file)
+  jsonRules: ['./custom-rules/org-rules.json'],
+
+  // Directory scanning options
+  directory: {
+    recursive: true,
+    maxDepth: 10,
+    extensions: ['cfg', 'conf', 'ios'],
+    exclude: ['**/backup/**', '**/archive/**'],
+    excludePatterns: ['\\.bak$', 'test-.*\\.conf'],
+  },
+
+  // Filter special IP ranges from IP summary output
+  filterSpecialIps: false,
+};
+
+export default config;
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```javascript filename="sentriflow.config.js"
+/** @type {import('@sentriflow/cli').SentriflowConfig} */
+const config = {
+  includeDefaults: true,
+  disable: ['NET-DOC-001', 'NET-LOG-002'],
+  jsonRules: ['./custom-rules/org-rules.json'],
+  directory: {
+    recursive: true,
+    maxDepth: 10,
+    extensions: ['cfg', 'conf', 'ios'],
+    exclude: ['**/backup/**'],
+  },
+};
+
+module.exports = config;
+```
+  </Tabs.Tab>
+</Tabs>
+
+### Options Reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `includeDefaults` | `boolean` | `true` | Include the built-in default rules from `@sentriflow/rules-default` |
+| `disable` | `string[]` | `[]` | Array of rule IDs to disable (e.g., `['NET-SSH-001', 'NET-VTY-002']`) |
+| `rules` | `IRule[]` | `[]` | Additional inline rule definitions (legacy, prefer `rulePacks` or `jsonRules`) |
+| `rulePacks` | `RulePack[]` | `[]` | Rule pack objects to include |
+| `jsonRules` | `string[]` | `[]` | Paths to JSON rule files (relative to config file or absolute) |
+| `directory` | `DirectoryConfig` | `undefined` | Default options for directory scanning |
+| `filterSpecialIps` | `boolean` | `false` | Filter out special IP ranges (loopback, multicast, reserved) from IP summary |
+
+### Directory Configuration
+
+The `directory` object controls default behavior when using `--directory` or `-D` flags:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `recursive` | `boolean` | `false` | Enable recursive directory scanning by default |
+| `maxDepth` | `number` | `100` | Maximum recursion depth (0-1000) |
+| `extensions` | `string[]` | See below | File extensions to include (without leading dot) |
+| `exclude` | `string[]` | `[]` | Glob patterns to exclude (e.g., `**/backup/**`) |
+| `excludePatterns` | `string[]` | `[]` | Regex patterns to exclude (JavaScript regex syntax) |
+
+**Default extensions:** `txt`, `cfg`, `conf`, `config`, `ios`, `junos`, `eos`, `nxos`, `routeros`, `vyos`, `panos`, `sros`, `vrp`, `exos`, `voss`
+
+<Callout type="warning">
+**Regex patterns** in `excludePatterns` use JavaScript regular expression syntax. Patterns are matched against the relative path from the scanned directory, with forward slashes as separators on all platforms.
+</Callout>
+
+## Environment Variables
+
+Environment variables are useful for secrets, CI/CD environments, and overriding config file values.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SENTRIFLOW_LICENSE_KEY` | License key for encrypted rule packs | `undefined` |
+
+<Callout type="info">
+The `SENTRIFLOW_LICENSE_KEY` environment variable takes precedence over the `--license-key` CLI option for security. Avoid passing license keys directly on the command line in production environments.
+</Callout>
+
+### Usage in CI/CD
+
+<Tabs items={['GitHub Actions', 'GitLab CI', 'Azure Pipelines']}>
+  <Tabs.Tab>
+```yaml filename=".github/workflows/validate.yml"
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate configurations
+        env:
+          SENTRIFLOW_LICENSE_KEY: ${{ secrets.SENTRIFLOW_LICENSE_KEY }}
+        run: npx @sentriflow/cli -D ./configs -R
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```yaml filename=".gitlab-ci.yml"
+validate:
+  script:
+    - npx @sentriflow/cli -D ./configs -R
+  variables:
+    SENTRIFLOW_LICENSE_KEY: $SENTRIFLOW_LICENSE_KEY
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```yaml filename="azure-pipelines.yml"
+steps:
+  - script: npx @sentriflow/cli -D ./configs -R
+    env:
+      SENTRIFLOW_LICENSE_KEY: $(SENTRIFLOW_LICENSE_KEY)
+```
+  </Tabs.Tab>
+</Tabs>
+
+## Configuration Precedence
+
+Configuration values are merged with the following precedence (highest to lowest):
+
+1. **Command-line flags** (e.g., `--disable NET-SSH-001`)
+2. **Environment variables** (e.g., `SENTRIFLOW_LICENSE_KEY`)
+3. **Configuration file** (e.g., `sentriflow.config.ts`)
+4. **Default values**
+
+### Merge Behavior
+
+| Option Type | Merge Strategy |
+|-------------|----------------|
+| Arrays (e.g., `disable`, `exclude`) | Union (values are combined) |
+| Scalars (e.g., `recursive`, `maxDepth`) | CLI wins if specified |
+| Booleans (e.g., `includeDefaults`) | CLI wins if specified |
+
+**Example:** If your config file sets `disable: ['NET-DOC-001']` and you run `sentriflow --disable NET-SSH-001`, both rules will be disabled.
+
+## Ignoring Configuration Files
+
+Use `--no-config` to skip loading configuration files entirely:
+
+```bash
+sentriflow --no-config router.conf
+```
+
+This is useful for:
+- Debugging configuration issues
+- Running with a clean slate in CI/CD
+- Testing specific rule combinations
+
+## Example Configurations
+
+### Minimal Configuration
+
+```typescript filename="sentriflow.config.ts"
+export default {
+  disable: ['NET-DOC-001'],
+};
+```
+
+### Organization-Wide Standards
+
+```typescript filename="sentriflow.config.ts"
+import type { SentriflowConfig } from '@sentriflow/cli';
+
+const config: SentriflowConfig = {
+  // Disable rules not applicable to our environment
+  disable: [
+    'NET-DOC-001',    // We use external documentation
+    'NET-BANNER-001', // Banner handled by automation
+  ],
+
+  // Load organization-specific rules
+  jsonRules: [
+    './rules/security-policy.json',
+    './rules/naming-conventions.json',
+  ],
+
+  // Directory scanning defaults
+  directory: {
+    recursive: true,
+    maxDepth: 5,
+    exclude: [
+      '**/backup/**',
+      '**/archive/**',
+      '**/templates/**',
+    ],
+    excludePatterns: [
+      '\\.bak$',
+      '\\.old$',
+      'test-.*',
+    ],
+  },
+};
+
+export default config;
+```
+
+### Multi-Vendor Environment
+
+```typescript filename="sentriflow.config.ts"
+import type { SentriflowConfig } from '@sentriflow/cli';
+
+const config: SentriflowConfig = {
+  // Organization rules for all vendors
+  jsonRules: ['./rules/org-standards.json'],
+
+  // Directory scanning with vendor-specific extensions
+  directory: {
+    recursive: true,
+    extensions: [
+      // Cisco
+      'ios', 'nxos', 'conf',
+      // Juniper
+      'junos', 'cfg',
+      // Generic
+      'txt',
+    ],
+    exclude: [
+      '**/lab/**',
+      '**/test-configs/**',
+    ],
+  },
+};
+
+export default config;
+```
+
+### CI/CD Pipeline Configuration
+
+```typescript filename="sentriflow.config.ts"
+import type { SentriflowConfig } from '@sentriflow/cli';
+
+const config: SentriflowConfig = {
+  // Strict mode: fail on any issues
+  includeDefaults: true,
+
+  // Clean output for CI/CD
+  filterSpecialIps: true,
+
+  // Directory defaults for pipeline
+  directory: {
+    recursive: true,
+    maxDepth: 3,
+    exclude: [
+      '**/node_modules/**',
+      '**/.git/**',
+    ],
+  },
+};
+
+export default config;
+```
+
+### Air-Gapped Environment
+
+For environments without network access, use local rule packs:
+
+```typescript filename="sentriflow.config.ts"
+import type { SentriflowConfig } from '@sentriflow/cli';
+import enterpriseRules from './packs/enterprise-rules';
+
+const config: SentriflowConfig = {
+  // Include default OSS rules
+  includeDefaults: true,
+
+  // Add enterprise rules from local pack
+  rulePacks: [enterpriseRules],
+
+  // Disable rules requiring external validation
+  disable: ['NET-UPDATE-001'],
+};
+
+export default config;
+```
+
+## Validating Configuration
+
+To verify your configuration is loaded correctly, use `--list-rules`:
+
+```bash
+sentriflow --list-rules
+```
+
+This shows all active rules including those from your configuration file:
+
+```text
+ID                CATEGORY              VENDOR          LEVEL    OBU
+------------------------------------------------------------------------------------
+NET-SSH-001       authentication        common          error    SHOULD
+NET-VTY-001       authentication        cisco-ios       error    MUST
+NET-SNMP-001      security              common          warning  SHOULD
+...
+------------------------------------------------------------------------------------
+Total: 245 rules
+
+Config file: /home/user/configs/sentriflow.config.ts
+```
+
+<Callout type="tip">
+Use `--list-rules --list-format json` to get machine-readable output for debugging configuration issues.
+</Callout>
+
+## Security Considerations
+
+### Path Restrictions
+
+By default, SentriFlow restricts file access to the current working directory and its children. This prevents accidental access to sensitive files outside your project.
+
+To allow access to files outside the current directory:
+
+```bash
+sentriflow --allow-external /etc/network/router.conf
+```
+
+<Callout type="warning">
+Use `--allow-external` with caution in CI/CD environments. It bypasses the security boundary that protects against path traversal attacks.
+</Callout>
+
+### License Key Security
+
+Never commit license keys to version control. Use environment variables instead:
+
+```bash
+# Good: Use environment variable
+export SENTRIFLOW_LICENSE_KEY=eyJhbGciOiJIUzI1Ni...
+sentriflow --pack enterprise.grx2 router.conf
+
+# Bad: Never do this
+sentriflow --license-key eyJhbGciOiJIUzI1Ni... --pack enterprise.grx2 router.conf
+```
+
+### Configuration File Security
+
+Configuration files can execute arbitrary code (TypeScript/JavaScript). Only use configuration files from trusted sources:
+
+- Review configuration files before running SentriFlow
+- Use `--no-config` when validating untrusted configurations
+- In CI/CD, commit your configuration file to the repository
+
+## Troubleshooting
+
+### Configuration Not Loading
+
+**Symptom:** SentriFlow ignores your configuration file.
+
+**Solution:** Ensure the config file is in the search path:
+
+```bash
+# Show which config file is being used
+sentriflow --list-rules
+# Look for "Config file:" at the bottom of output
+```
+
+If no config file is shown, check:
+1. File name matches exactly (`sentriflow.config.ts`, not `sentriflow.config.json`)
+2. File is in the current directory or a parent directory
+3. File has valid TypeScript/JavaScript syntax
+
+### Regex Patterns Not Matching
+
+**Symptom:** Files aren't being excluded by `excludePatterns`.
+
+**Solution:** Patterns match against the relative path with forward slashes:
+
+```typescript
+// Matches files ending in .bak anywhere
+excludePatterns: ['\\.bak$']
+
+// Matches files in any backup directory
+excludePatterns: ['backup/']
+
+// Matches specific path pattern
+excludePatterns: ['routers/test-.*\\.conf$']
+```
+
+Test your regex with:
+
+```bash
+# Show scanned files with progress
+sentriflow -D ./configs -R --progress
+```
+
+### Environment Variable Not Working
+
+**Symptom:** License key from environment variable isn't recognized.
+
+**Solution:** Verify the variable is set and accessible:
+
+```bash
+# Check if variable is set
+echo $SENTRIFLOW_LICENSE_KEY
+
+# Ensure it's exported (not just set)
+export SENTRIFLOW_LICENSE_KEY=your-key
+
+# Test with verbose output
+sentriflow --pack enterprise.grx2 --progress router.conf
+```
+
+## Related Documentation
+
+- [CLI Commands](/cli/commands) - Complete command-line reference
+- [JSON Rules](/authoring/json-rules) - Create custom rule files
+- [GitHub Actions](/integrations/github-actions) - CI/CD integration guide

@@ -1,0 +1,155 @@
+{
+  "vendors": [
+    {
+      "id": "cisco-ios",
+      "name": "Cisco IOS",
+      "family": "Cisco",
+      "description": "Cisco IOS and IOS-XE running configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "hostname Router1\n!\ninterface GigabitEthernet0/0\n ip address 192.168.1.1 255.255.255.0\n no shutdown\n!\nip ssh version 2\nip ssh time-out 60\n!\nline vty 0 4\n transport input ssh\n login local"
+    },
+    {
+      "id": "cisco-nxos",
+      "name": "Cisco NX-OS",
+      "family": "Cisco",
+      "description": "Cisco Nexus data center switch configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "hostname Nexus9K\n!\nvlan 100\n  name Production\n!\ninterface Ethernet1/1\n  switchport mode trunk\n  switchport trunk allowed vlan 100-200\n  no shutdown"
+    },
+    {
+      "id": "juniper-junos",
+      "name": "Juniper Junos",
+      "family": "Juniper",
+      "description": "Juniper Junos OS configurations in set or hierarchical format",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "system {\n    host-name router1;\n    services {\n        ssh {\n            protocol-version v2;\n        }\n    }\n}\ninterfaces {\n    ge-0/0/0 {\n        unit 0 {\n            family inet {\n                address 192.168.1.1/24;\n            }\n        }\n    }\n}"
+    },
+    {
+      "id": "aruba-aoscx",
+      "name": "Aruba AOS-CX",
+      "family": "Aruba",
+      "description": "Aruba CX series switch configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "hostname aruba-cx-switch\n!\nvlan 100\n    name Production\n!\ninterface 1/1/1\n    no shutdown\n    vlan access 100"
+    },
+    {
+      "id": "aruba-aosswitch",
+      "name": "Aruba AOS-Switch",
+      "family": "Aruba",
+      "description": "Aruba legacy switch (ProCurve) configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "hostname \"aruba-switch\"\nmodule 1 type j9986a\nvlan 100\n   name \"Production\"\n   tagged 1-24\ninterface 1\n   name \"Uplink\""
+    },
+    {
+      "id": "aruba-wlc",
+      "name": "Aruba WLC",
+      "family": "Aruba",
+      "description": "Aruba Mobility Controller configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "hostname aruba-wlc\n!\nwlan ssid-profile \"Corporate\"\n   essid \"Corp-WiFi\"\n   type employee\n   opmode wpa3-aes"
+    },
+    {
+      "id": "paloalto-panos",
+      "name": "Palo Alto PAN-OS",
+      "family": "Palo Alto",
+      "description": "Palo Alto Networks firewall configurations",
+      "fileExtensions": [".conf", ".xml", ".txt"],
+      "example": "set deviceconfig system hostname firewall1\nset network interface ethernet ethernet1/1 layer3 ip 192.168.1.1/24\nset rulebase security rules Allow-Web from any to any application web-browsing action allow"
+    },
+    {
+      "id": "arista-eos",
+      "name": "Arista EOS",
+      "family": "Arista",
+      "description": "Arista data center switch configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "hostname arista-leaf1\n!\nvlan 100\n   name Production\n!\ninterface Ethernet1\n   switchport mode trunk\n   switchport trunk allowed vlan 100-200\n!\nmanagement api http-commands\n   no shutdown"
+    },
+    {
+      "id": "vyos",
+      "name": "VyOS",
+      "family": "VyOS",
+      "description": "VyOS router configurations",
+      "fileExtensions": [".conf", ".boot", ".txt"],
+      "example": "interfaces {\n    ethernet eth0 {\n        address 192.168.1.1/24\n        description \"WAN\"\n    }\n}\nservice {\n    ssh {\n        port 22\n    }\n}"
+    },
+    {
+      "id": "fortinet-fortigate",
+      "name": "Fortinet FortiGate",
+      "family": "Fortinet",
+      "description": "FortiGate firewall configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "config system global\n    set hostname \"fortigate\"\n    set admin-scp enable\nend\nconfig system interface\n    edit \"port1\"\n        set ip 192.168.1.1 255.255.255.0\n        set allowaccess ping https ssh\n    next\nend"
+    },
+    {
+      "id": "extreme-exos",
+      "name": "Extreme EXOS",
+      "family": "Extreme",
+      "description": "Extreme Networks EXOS switch configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "configure snmp sysName \"extreme-switch\"\ncreate vlan Production tag 100\nconfigure vlan Production add ports 1-24 tagged\nenable ssh2"
+    },
+    {
+      "id": "extreme-voss",
+      "name": "Extreme VOSS",
+      "family": "Extreme",
+      "description": "Extreme Networks VOSS fabric configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "system name extreme-voss\nvlan create 100 name Production type port-mstprstp 0\nvlan members add 100 1/1-1/24 portmember"
+    },
+    {
+      "id": "huawei-vrp",
+      "name": "Huawei VRP",
+      "family": "Huawei",
+      "description": "Huawei VRP platform configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "sysname Huawei-Switch\n#\nvlan 100\n description Production\n#\ninterface GigabitEthernet0/0/1\n port link-type trunk\n port trunk allow-pass vlan 100 to 200"
+    },
+    {
+      "id": "mikrotik-routeros",
+      "name": "MikroTik RouterOS",
+      "family": "MikroTik",
+      "description": "MikroTik RouterOS configurations",
+      "fileExtensions": [".rsc", ".conf", ".txt"],
+      "example": "/system identity set name=mikrotik-router\n/ip address add address=192.168.1.1/24 interface=ether1\n/ip service set ssh port=22 disabled=no\n/ip firewall filter add chain=input action=accept protocol=tcp dst-port=22"
+    },
+    {
+      "id": "nokia-sros",
+      "name": "Nokia SR OS",
+      "family": "Nokia",
+      "description": "Nokia Service Router OS configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "configure system name \"nokia-router\"\nconfigure router interface \"system\" address 10.0.0.1/32\nconfigure router bgp autonomous-system 65001"
+    },
+    {
+      "id": "cumulus-linux",
+      "name": "Cumulus Linux",
+      "family": "Cumulus",
+      "description": "Cumulus Linux network OS configurations",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "auto swp1\niface swp1\n    bridge-access 100\n\nauto vlan100\niface vlan100\n    vlan-id 100\n    address 192.168.1.1/24"
+    },
+    {
+      "id": "common",
+      "name": "Common",
+      "family": "Common",
+      "description": "Vendor-agnostic rules that apply to multiple platforms",
+      "fileExtensions": [".conf", ".cfg", ".txt"],
+      "example": "# Generic configuration patterns\n# These rules check for common security issues\n# across multiple vendor platforms"
+    }
+  ],
+  "families": [
+    { "id": "cisco", "name": "Cisco", "color": "#049fd9" },
+    { "id": "juniper", "name": "Juniper", "color": "#00a651" },
+    { "id": "aruba", "name": "Aruba", "color": "#ff7f00" },
+    { "id": "paloalto", "name": "Palo Alto", "color": "#ef4444" },
+    { "id": "arista", "name": "Arista", "color": "#8b5cf6" },
+    { "id": "vyos", "name": "VyOS", "color": "#22d3ee" },
+    { "id": "fortinet", "name": "Fortinet", "color": "#fb7185" },
+    { "id": "extreme", "name": "Extreme", "color": "#6366f1" },
+    { "id": "huawei", "name": "Huawei", "color": "#eab308" },
+    { "id": "mikrotik", "name": "MikroTik", "color": "#14b8a6" },
+    { "id": "nokia", "name": "Nokia", "color": "#0ea5e9" },
+    { "id": "cumulus", "name": "Cumulus", "color": "#84cc16" },
+    { "id": "common", "name": "Common", "color": "#6b7280" }
+  ]
+}

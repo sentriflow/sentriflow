@@ -1,0 +1,7 @@
+{
+  "index": "Overview",
+  "github-actions": "GitHub Actions",
+  "gitlab-ci": "GitLab CI",
+  "azure-devops": "Azure DevOps",
+  "jenkins": "Jenkins"
+}

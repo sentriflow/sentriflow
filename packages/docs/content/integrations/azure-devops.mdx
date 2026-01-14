@@ -1,0 +1,401 @@
+---
+title: Azure DevOps Integration
+description: Automated network configuration validation in Azure Pipelines with SARIF publishing
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# Azure DevOps
+
+Integrate SentriFlow into Azure Pipelines to validate network configurations automatically. Results can be published to the Azure DevOps Advanced Security dashboard or as pipeline artifacts.
+
+<Callout type="info">
+  SARIF publishing to Advanced Security requires Azure DevOps Services. Azure DevOps Server users can still use artifact publishing.
+</Callout>
+
+## Basic Pipeline
+
+Create `azure-pipelines.yml` in your repository root:
+
+```yaml filename="azure-pipelines.yml"
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - configs/**
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - configs/**
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '20.x'
+    displayName: 'Install Node.js'
+
+  - script: npm install -g @sentriflow/cli
+    displayName: 'Install SentriFlow'
+
+  - script: sentriflow -f sarif configs/ > $(Build.ArtifactStagingDirectory)/results.sarif
+    displayName: 'Validate Network Configurations'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)/results.sarif'
+      artifactName: 'SentriFlowResults'
+    displayName: 'Publish SARIF Results'
+    condition: always()
+```
+
+## Pipeline Configuration Options
+
+### Path Filtering
+
+Only run validation when configuration files change:
+
+```yaml filename="Path triggers"
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - 'configs/**/*.conf'
+      - 'configs/**/*.cfg'
+      - '.sentriflow.yml'
+
+pr:
+  paths:
+    include:
+      - 'configs/**/*.conf'
+      - 'configs/**/*.cfg'
+```
+
+### Multi-Stage Pipeline
+
+Separate validation by vendor with parallel jobs:
+
+```yaml filename="Multi-stage pipeline"
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: Validate
+    displayName: 'Validate Configurations'
+    jobs:
+      - job: ValidateCisco
+        displayName: 'Cisco IOS'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+
+          - script: npm install -g @sentriflow/cli
+            displayName: 'Install SentriFlow'
+
+          - script: sentriflow -v cisco -f sarif configs/cisco/ > $(Build.ArtifactStagingDirectory)/cisco.sarif
+            displayName: 'Validate Cisco'
+
+          - publish: $(Build.ArtifactStagingDirectory)/cisco.sarif
+            artifact: CiscoResults
+            condition: always()
+
+      - job: ValidateJuniper
+        displayName: 'Juniper Junos'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+
+          - script: npm install -g @sentriflow/cli
+
+          - script: sentriflow -v juniper -f sarif configs/juniper/ > $(Build.ArtifactStagingDirectory)/juniper.sarif
+            displayName: 'Validate Juniper'
+
+          - publish: $(Build.ArtifactStagingDirectory)/juniper.sarif
+            artifact: JuniperResults
+            condition: always()
+
+      - job: ValidatePaloAlto
+        displayName: 'Palo Alto PAN-OS'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+
+          - script: npm install -g @sentriflow/cli
+
+          - script: sentriflow -v paloalto -f sarif configs/paloalto/ > $(Build.ArtifactStagingDirectory)/paloalto.sarif
+            displayName: 'Validate Palo Alto'
+
+          - publish: $(Build.ArtifactStagingDirectory)/paloalto.sarif
+            artifact: PaloAltoResults
+            condition: always()
+```
+
+### Template for Reuse
+
+Create a template for consistent validation across repos:
+
+```yaml filename="templates/sentriflow-validate.yml"
+parameters:
+  - name: vendor
+    type: string
+    default: ''
+  - name: configPath
+    type: string
+    default: 'configs/'
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '20.x'
+    displayName: 'Install Node.js'
+
+  - script: npm install -g @sentriflow/cli
+    displayName: 'Install SentriFlow'
+
+  - script: |
+      sentriflow \
+        ${{ if parameters.vendor }}-v ${{ parameters.vendor }}${{ endif }} \
+        -f sarif \
+        ${{ parameters.configPath }} > $(Build.ArtifactStagingDirectory)/results.sarif
+    displayName: 'Validate Configurations'
+
+  - publish: $(Build.ArtifactStagingDirectory)/results.sarif
+    artifact: SentriFlowResults
+    condition: always()
+```
+
+Use the template:
+
+```yaml filename="azure-pipelines.yml"
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - template: templates/sentriflow-validate.yml
+    parameters:
+      vendor: 'cisco'
+      configPath: 'configs/cisco/'
+```
+
+## Complete Production Pipeline
+
+A comprehensive pipeline with caching, parallel validation, and reporting:
+
+```yaml filename="azure-pipelines.yml"
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - 'configs/**'
+      - '.sentriflow.yml'
+
+pr:
+  branches:
+    include:
+      - main
+
+schedules:
+  - cron: '0 0 * * *'
+    displayName: 'Daily Compliance Scan'
+    branches:
+      include:
+        - main
+    always: true
+
+variables:
+  nodeVersion: '20.x'
+  sentriflowVersion: 'latest'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: Validate
+    displayName: 'Validate Network Configurations'
+    jobs:
+      - job: ValidateAll
+        displayName: 'Full Validation'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(nodeVersion)
+            displayName: 'Setup Node.js'
+
+          - task: Cache@2
+            inputs:
+              key: 'npm | "$(Agent.OS)" | package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: $(Pipeline.Workspace)/.npm
+            displayName: 'Cache npm packages'
+
+          - script: |
+              npm config set cache $(Pipeline.Workspace)/.npm
+              npm install -g @sentriflow/cli@$(sentriflowVersion)
+            displayName: 'Install SentriFlow'
+
+          - script: |
+              mkdir -p $(Build.ArtifactStagingDirectory)/reports
+            displayName: 'Create output directory'
+
+          # Generate multiple output formats
+          - script: sentriflow -f sarif configs/ > $(Build.ArtifactStagingDirectory)/reports/results.sarif
+            displayName: 'Generate SARIF Report'
+            continueOnError: true
+
+          - script: sentriflow -f json configs/ > $(Build.ArtifactStagingDirectory)/reports/results.json
+            displayName: 'Generate JSON Report'
+            continueOnError: true
+
+          - script: sentriflow configs/ > $(Build.ArtifactStagingDirectory)/reports/results.txt
+            displayName: 'Generate Text Report'
+            continueOnError: true
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)/reports'
+              artifactName: 'SentriFlowReports'
+            displayName: 'Publish Reports'
+            condition: always()
+
+  - stage: Report
+    displayName: 'Generate Compliance Report'
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'Schedule'))
+    jobs:
+      - job: ComplianceReport
+        displayName: 'Compliance Summary'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          - script: npm install -g @sentriflow/cli@$(sentriflowVersion)
+            displayName: 'Install SentriFlow'
+
+          - script: |
+              echo "# Compliance Report" > $(Build.ArtifactStagingDirectory)/compliance.md
+              echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $(Build.ArtifactStagingDirectory)/compliance.md
+              echo "" >> $(Build.ArtifactStagingDirectory)/compliance.md
+              sentriflow configs/ >> $(Build.ArtifactStagingDirectory)/compliance.md || true
+            displayName: 'Generate Compliance Report'
+
+          - publish: $(Build.ArtifactStagingDirectory)/compliance.md
+            artifact: ComplianceReport
+```
+
+## Advanced Security Integration
+
+### Publishing to Advanced Security Dashboard
+
+For Azure DevOps Services with Advanced Security enabled:
+
+```yaml filename="SARIF to Advanced Security"
+steps:
+  - script: sentriflow -f sarif configs/ > $(Build.ArtifactStagingDirectory)/results.sarif
+    displayName: 'Generate SARIF'
+
+  - task: AdvancedSecurity-Publish@1
+    inputs:
+      sarif: '$(Build.ArtifactStagingDirectory)/results.sarif'
+    displayName: 'Publish to Advanced Security'
+```
+
+### Branch Policy Integration
+
+Configure branch policies to require SentriFlow validation:
+
+1. Navigate to **Repos > Branches**
+2. Click the `...` menu on your main branch
+3. Select **Branch policies**
+4. Under **Build validation**, click **Add build policy**
+5. Select your SentriFlow pipeline
+6. Set **Trigger** to "Automatic"
+7. Set **Policy requirement** to "Required"
+
+## Pipeline Variables
+
+Common variables for SentriFlow pipelines:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `sentriflowVersion` | CLI version to install | `latest`, `1.2.3` |
+| `configPath` | Path to configuration files | `configs/` |
+| `outputFormat` | Report format | `sarif`, `json` |
+
+Set variables in the pipeline:
+
+```yaml
+variables:
+  sentriflowVersion: 'latest'
+  configPath: 'configs/'
+```
+
+Or in Azure DevOps UI: **Pipelines > Edit > Variables**
+
+## Troubleshooting
+
+### Pipeline Fails but No Artifacts
+
+Ensure artifact publishing runs even on failure:
+
+```yaml
+- publish: $(Build.ArtifactStagingDirectory)/results.sarif
+  artifact: SentriFlowResults
+  condition: always()  # Publish even if validation fails
+```
+
+### Cache Not Working
+
+Verify cache key includes all relevant files:
+
+```yaml
+- task: Cache@2
+  inputs:
+    key: 'sentriflow | "$(Agent.OS)" | $(sentriflowVersion)'
+    path: $(Pipeline.Workspace)/.npm
+```
+
+### Slow Pipeline Execution
+
+Use parallel jobs and caching:
+
+```yaml
+jobs:
+  - job: Cisco
+    pool:
+      vmImage: 'ubuntu-latest'
+  - job: Juniper
+    pool:
+      vmImage: 'ubuntu-latest'
+  - job: PaloAlto
+    pool:
+      vmImage: 'ubuntu-latest'
+```
+
+## Next Steps
+
+- [Jenkins Integration](/integrations/jenkins) - Jenkins Pipeline configuration
+- [GitHub Actions](/integrations/github-actions) - GitHub workflow setup
+- [SARIF Format](/cli/sarif) - Understand SARIF output structure

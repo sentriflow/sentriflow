@@ -1,0 +1,41 @@
+---
+title: CI/CD Integration
+description: Integrate SentriFlow into your CI/CD pipelines for automated network configuration validation
+---
+
+# CI/CD Integration
+
+Automate network configuration validation in your continuous integration and deployment pipelines. SentriFlow integrates with all major CI/CD platforms.
+
+## Supported Platforms
+
+- **[GitHub Actions](/integrations/github-actions/)** - Native workflow integration with SARIF upload
+- **[GitLab CI](/integrations/gitlab-ci/)** - Pipeline configuration with SAST reports
+- **[Azure DevOps](/integrations/azure-devops/)** - Azure Pipelines with security scanning
+- **[Jenkins](/integrations/jenkins/)** - Declarative pipelines with Warnings NG plugin
+
+## Quick Start
+
+All CI/CD integrations follow a similar pattern:
+
+1. Install SentriFlow CLI
+2. Run validation on configuration files
+3. Output results in SARIF format
+4. Upload results to your platform's security dashboard
+
+```bash
+# Basic CI/CD command
+sentriflow -f sarif configs/ > results.sarif
+```
+
+## Exit Codes
+
+SentriFlow uses standard exit codes for CI/CD integration:
+
+| Code | Meaning |
+|------|---------|
+| `0` | All checks passed |
+| `1` | One or more rule failures detected |
+| `2` | Error (invalid input, file not found, etc.) |
+
+Choose your platform from the sidebar to get started.

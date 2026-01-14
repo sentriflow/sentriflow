@@ -1,0 +1,249 @@
+---
+title: SentriFlow Documentation
+description: Network configuration compliance validation framework for security-conscious teams
+---
+
+import { Callout, Cards, Steps, Tabs } from 'nextra/components';
+
+# SentriFlow
+
+**Validate network configurations against security best practices and compliance requirements.**
+
+SentriFlow is a TypeScript-based framework that parses network device configurations and evaluates them against a comprehensive library of security rules. Catch misconfigurations before they reach production.
+
+<div className='mt-8 mb-12 p-8 rounded-2xl bg-gradient-to-br from-cyan-100 via-gray-50 to-gray-50 dark:from-cyan-900/30 dark:via-zinc-900 dark:to-zinc-900 border border-gray-200 dark:border-transparent'>
+  <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-8'>
+    <div>
+      <h2 className='text-2xl font-bold text-gray-900 dark:text-white mt-0 mb-3'>
+        Get Started in 5 Minutes
+      </h2>
+      <p className='text-gray-600 dark:text-zinc-300 mb-0'>
+        Install the CLI and validate your first network configuration file.
+      </p>
+    </div>
+    <div className='flex gap-4 flex-wrap'>
+      <a
+        href='/getting-started/quick-start'
+        className='inline-flex items-center px-6 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-black font-semibold transition-colors no-underline'
+      >
+        Quick Start
+        <svg
+          className='ml-2'
+          width={16}
+          height={16}
+          fill='none'
+          stroke='currentColor'
+          viewBox='0 0 24 24'
+        >
+          <path
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth={2}
+            d='M13 7l5 5m0 0l-5 5m5-5H6'
+          />
+        </svg>
+      </a>
+      <a
+        href='/getting-started/installation'
+        className='inline-flex items-center px-6 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-900 dark:text-white font-semibold transition-colors no-underline'
+      >
+        Installation
+      </a>
+    </div>
+  </div>
+</div>
+
+## Why SentriFlow?
+
+- **59 Security Rules** - Pre-built rules covering authentication, encryption, access control, logging, and hardening for all major vendors
+- **Multi-Vendor Support** - Parse and validate configurations from Cisco IOS/NX-OS, Juniper Junos, Arista EOS, Palo Alto PAN-OS, and more
+- **CI/CD Integration** - SARIF output for GitHub Advanced Security, GitLab SAST, Azure DevOps, and Jenkins
+- **Extensible Engine** - Write custom rules in JSON or TypeScript with full access to the parsed configuration AST
+- **Zero Runtime Dependencies** - Core engine has no external dependencies for maximum portability
+
+## Quick Example
+
+Install the CLI and validate your first configuration:
+
+<Tabs items={['npm', 'yarn', 'pnpm', 'bun']}>
+  <Tabs.Tab>```bash npm install -g @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash yarn global add @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash pnpm add -g @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash bun install -g @sentriflow/cli ```</Tabs.Tab>
+</Tabs>
+
+```bash filename="Validate a configuration file"
+sentriflow router.conf
+```
+
+```text filename="Example output"
+[HIGH] NET-AUTH-001: SSH timeout not configured
+  Line 45: ip ssh timeout
+
+[MEDIUM] NET-LOG-003: Logging buffer size below recommended minimum
+  Line 12: logging buffered 4096
+
+Found 2 issues (1 high, 1 medium) in router.conf
+```
+
+## Explore the Documentation
+
+<Cards num={2}>
+  <Cards.Card
+    arrow
+    title='Getting Started'
+    href='/getting-started/installation'
+  >
+    Install SentriFlow and configure your environment
+  </Cards.Card>
+  <Cards.Card
+    arrow
+    title='CLI Reference'
+    href='/cli/commands'
+  >
+    Complete command-line interface documentation
+  </Cards.Card>
+  <Cards.Card
+    arrow
+    title='Rule Catalog'
+    href='/rules'
+  >
+    Browse all 57 built-in security rules
+  </Cards.Card>
+  <Cards.Card
+    arrow
+    title='VS Code Extension'
+    href='/vscode/installation'
+  >
+    Real-time validation in your editor
+  </Cards.Card>
+</Cards>
+
+## CI/CD Integration
+
+Automate network configuration validation in your deployment pipelines. SentriFlow outputs SARIF (Static Analysis Results Interchange Format) for native integration with security dashboards.
+
+<Cards num={4}>
+  <Cards.Card
+    arrow
+    title='GitHub Actions'
+    href='/integrations/github-actions'
+  >
+    SARIF upload to GitHub Advanced Security
+  </Cards.Card>
+  <Cards.Card
+    arrow
+    title='GitLab CI'
+    href='/integrations/gitlab-ci'
+  >
+    SAST integration for Security Dashboard
+  </Cards.Card>
+  <Cards.Card
+    arrow
+    title='Azure DevOps'
+    href='/integrations/azure-devops'
+  >
+    Azure Pipelines with SARIF publishing
+  </Cards.Card>
+  <Cards.Card
+    arrow
+    title='Jenkins'
+    href='/integrations/jenkins'
+  >
+    Warnings NG plugin for result visualization
+  </Cards.Card>
+</Cards>
+
+## Extend SentriFlow
+
+<Cards num={2}>
+  <Cards.Card
+    arrow
+    title='Custom Rules'
+    href='/authoring/json-rules'
+  >
+    Write rules in JSON or TypeScript
+  </Cards.Card>
+  <Cards.Card
+    arrow
+    title='API Reference'
+    href='/api/parser'
+  >
+    Embed validation in your tooling
+  </Cards.Card>
+</Cards>
+
+## Supported Platforms
+
+SentriFlow supports configuration files from major network equipment vendors:
+
+| Vendor        | Platforms               |
+| ------------- | ----------------------- |
+| **Cisco**     | IOS, IOS-XE, NX-OS, ASA |
+| **Juniper**   | Junos                   |
+| **Arista**    | EOS                     |
+| **Palo Alto** | PAN-OS                  |
+| **Aruba**     | AOS-CX, AOS-Switch, WLC |
+| **Fortinet**  | FortiGate               |
+| **VyOS**      | VyOS                    |
+| **MikroTik**  | RouterOS                |
+| **Extreme**   | EXOS, VOSS              |
+| **Huawei**    | VRP                     |
+| **Nokia**     | SR OS                   |
+| **Cumulus**   | Linux                   |
+
+## How It Works
+
+<Steps>
+### Parse Configuration
+
+SentriFlow parses your network configuration into a structured AST (Abstract Syntax Tree) that represents commands, sections, and parameters.
+
+### Evaluate Rules
+
+The rule engine evaluates each rule against the parsed configuration. Rules use selectors for efficient prefix matching and can access the full AST for complex checks.
+
+### Generate Report
+
+Results are output in your preferred format: human-readable text, JSON for automation, or SARIF for security tooling integration.
+
+</Steps>
+
+## Example: Detecting Weak SSH Configuration
+
+```typescript filename="Custom rule example"
+import { defineRule } from '@sentriflow/core';
+
+export default defineRule({
+  id: 'SSH-WEAK-CIPHER',
+  name: 'Weak SSH Ciphers Detected',
+  severity: 'high',
+  selector: 'ip ssh',
+
+  check(node, context) {
+    const weakCiphers = ['aes128-cbc', '3des-cbc', 'arcfour'];
+    const cipherConfig = context.findChild(node, 'cipher');
+
+    if (cipherConfig) {
+      const configured = cipherConfig.params.join(' ');
+      for (const weak of weakCiphers) {
+        if (configured.includes(weak)) {
+          return {
+            passed: false,
+            message: `Weak cipher "${weak}" is enabled`,
+            line: cipherConfig.line,
+          };
+        }
+      }
+    }
+
+    return { passed: true };
+  },
+});
+```
+
+## Get Help
+
+- **Issues**: Report bugs or request features on [GitHub](https://github.com/sentriflow/sentriflow/issues)
+- **Discussions**: Ask questions in [GitHub Discussions](https://github.com/sentriflow/sentriflow/discussions)
+- **API Reference**: Explore the [Parser API](/api/parser), [Rule Engine API](/api/rule-engine), and [ConfigNode API](/api/config-node)

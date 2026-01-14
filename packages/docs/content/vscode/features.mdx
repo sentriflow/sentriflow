@@ -1,0 +1,348 @@
+---
+title: VS Code Features Guide
+description: Walkthrough of SentriFlow VS Code extension features and UI
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+# Features Guide
+
+The SentriFlow VS Code extension provides a rich set of features for validating and managing network configuration files. This guide covers all UI features and workflows.
+
+## Real-Time Validation
+
+### Inline Diagnostics
+
+Issues are highlighted directly in the editor as you type:
+
+- **Red wavy underline** - Error (high severity)
+- **Yellow wavy underline** - Warning (medium severity)
+- **Blue wavy underline** - Info (low severity)
+
+Hover over highlighted code to see:
+- Issue description
+- Rule ID
+- Remediation steps
+- Link to documentation
+
+### Problems Panel
+
+View all issues in the Problems panel (`Ctrl+Shift+M` / `Cmd+Shift+M`):
+
+```
+PROBLEMS
+├─ router.conf (3 issues)
+│  ├─ [error] NET-AUTH-001: SSH timeout not configured (line 45)
+│  ├─ [warning] NET-LOG-003: Logging buffer too small (line 12)
+│  └─ [info] NET-DOC-001: Interface missing description (line 23)
+└─ switch.conf (1 issue)
+   └─ [warning] NET-TRUNK-002: Native VLAN is 1 (line 67)
+```
+
+Click any issue to jump to its location in the editor.
+
+## Quick Fixes
+
+<Callout type="info">
+  Quick fixes are available for many common issues. Look for the lightbulb icon!
+</Callout>
+
+### Using Quick Fixes
+
+<Steps>
+
+### Position Cursor
+
+Click on an underlined configuration line.
+
+### Open Quick Fixes
+
+Press `Ctrl+.` (Windows/Linux) or `Cmd+.` (macOS), or click the lightbulb icon.
+
+### Select Fix
+
+Choose from available fixes:
+- **Apply fix** - Automatically correct the issue
+- **Disable rule** - Add comment to disable this rule for this line
+- **Disable rule for file** - Disable rule for entire file
+
+</Steps>
+
+### Example Quick Fixes
+
+**NET-AUTH-001: SSH timeout not configured**
+
+```diff
+line vty 0 4
+ transport input ssh
+ login local
++ exec-timeout 15 0
+```
+
+**NET-TRUNK-002: Native VLAN is 1**
+
+```diff
+interface GigabitEthernet0/1
+ switchport mode trunk
++ switchport trunk native vlan 999
+```
+
+## Sidebar Panel
+
+The SentriFlow sidebar provides a hierarchical view of all issues across your workspace.
+
+### Opening the Sidebar
+
+Click the SentriFlow icon in the Activity Bar (left side), or:
+- Press `Ctrl+Shift+E` then select SentriFlow view
+- Use Command Palette: "SentriFlow: Show Sidebar"
+
+### Sidebar Features
+
+#### Issue Tree
+
+Issues organized by:
+- **Severity** (default) - Errors, Warnings, Info
+- **Category** - Authentication, Logging, etc.
+- **File** - By configuration file
+- **Rule** - By rule ID
+
+Right-click the sidebar header to change grouping.
+
+#### Issue Actions
+
+Right-click any issue for actions:
+- **Go to Issue** - Jump to location
+- **Apply Quick Fix** - Fix if available
+- **Disable Rule** - Disable this rule
+- **Copy Rule ID** - Copy to clipboard
+- **View Rule Documentation** - Open docs
+
+#### Statistics Bar
+
+Shows issue count summary:
+```
+2 errors | 5 warnings | 3 info
+```
+
+Click to filter by severity.
+
+### Tree View Controls
+
+| Icon | Action |
+|------|--------|
+| Refresh | Re-run validation |
+| Collapse All | Collapse tree |
+| Filter | Toggle severity filter |
+| Sort | Change sort order |
+
+## Status Bar
+
+The status bar shows SentriFlow status for the current file:
+
+```
+[SentriFlow: cisco-ios] 2 errors, 3 warnings
+```
+
+Click to:
+- Change vendor
+- View validation summary
+- Open settings
+
+### Status Bar Icons
+
+| Icon | Meaning |
+|------|---------|
+| Check | No issues |
+| Warning | Has warnings |
+| X | Has errors |
+| Loading | Validation in progress |
+| Disabled | Extension disabled for file |
+
+## Code Lens
+
+Code Lens annotations appear above configuration sections:
+
+```text
+1 issue: NET-TRUNK-002
+interface GigabitEthernet0/1
+  switchport mode trunk
+  switchport trunk native vlan 1
+```
+
+Click the Code Lens to:
+- View issue details
+- Apply quick fix
+- Disable rule
+
+### Enabling/Disabling Code Lens
+
+```json filename="settings.json"
+{
+  "sentriflow.codeLens.enabled": true,
+  "sentriflow.codeLens.showIssueCount": true
+}
+```
+
+## Commands
+
+Access commands via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+
+### Validation Commands
+
+| Command | Description |
+|---------|-------------|
+| SentriFlow: Validate File | Validate current file |
+| SentriFlow: Validate Workspace | Validate all files |
+| SentriFlow: Clear Diagnostics | Clear all issues |
+
+### Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| SentriFlow: Set Vendor | Change vendor for current file |
+| SentriFlow: Open Settings | Open extension settings |
+| SentriFlow: Reload Rules | Reload custom rules |
+
+### Navigation Commands
+
+| Command | Description |
+|---------|-------------|
+| SentriFlow: Go to Next Issue | Jump to next issue |
+| SentriFlow: Go to Previous Issue | Jump to previous issue |
+| SentriFlow: Show All Issues | Open Problems panel |
+
+### Rule Commands
+
+| Command | Description |
+|---------|-------------|
+| SentriFlow: Disable Rule | Disable rule for line/file |
+| SentriFlow: View Rule Documentation | Open rule docs |
+| SentriFlow: List All Rules | Show all rules in output |
+
+## Keyboard Shortcuts
+
+Default keyboard shortcuts (customizable):
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+V` | Validate current file |
+| `F8` | Go to next issue |
+| `Shift+F8` | Go to previous issue |
+| `Ctrl+.` | Show quick fixes |
+
+### Customizing Shortcuts
+
+Open Keyboard Shortcuts (`Ctrl+K Ctrl+S`) and search for "SentriFlow".
+
+```json filename="keybindings.json"
+{
+  "key": "ctrl+shift+s",
+  "command": "sentriflow.validateFile"
+}
+```
+
+## Output Panel
+
+View detailed logs in the Output panel:
+
+1. Open Output panel: `View > Output`
+2. Select "SentriFlow" from dropdown
+
+### Log Levels
+
+Configure log verbosity:
+
+```json filename="settings.json"
+{
+  "sentriflow.logLevel": "debug"
+}
+```
+
+Levels: `error`, `warn`, `info`, `debug`
+
+## Multi-Root Workspaces
+
+SentriFlow supports multi-root workspaces with per-folder configuration:
+
+```json filename="workspace.code-workspace"
+{
+  "folders": [
+    { "path": "datacenter-configs" },
+    { "path": "branch-configs" }
+  ],
+  "settings": {
+    "sentriflow.defaultVendor": "cisco-ios"
+  }
+}
+```
+
+Each folder can have its own `.vscode/settings.json` with SentriFlow overrides.
+
+## Performance Tips
+
+### Large Files
+
+For large configuration files (>1MB):
+
+```json filename="settings.json"
+{
+  "sentriflow.incrementalValidation": true,
+  "sentriflow.validationDelay": 1000,
+  "sentriflow.maxProblems": 100
+}
+```
+
+### Many Files
+
+For workspaces with many files:
+
+```json filename="settings.json"
+{
+  "sentriflow.parallelValidation": true,
+  "sentriflow.excludePatterns": [
+    "**/archive/**",
+    "**/backup/**"
+  ]
+}
+```
+
+### Memory Usage
+
+If experiencing high memory usage:
+
+```json filename="settings.json"
+{
+  "sentriflow.maxFileSize": 1000000,
+  "sentriflow.disableForLargeFiles": true
+}
+```
+
+## Troubleshooting
+
+### Issues Not Showing
+
+1. Check file association: Status bar should show vendor
+2. Verify minimum severity setting
+3. Check if file is excluded by patterns
+4. Run "SentriFlow: Validate File" manually
+
+### Slow Validation
+
+1. Enable incremental validation
+2. Increase validation delay
+3. Exclude large directories
+4. Check Output panel for errors
+
+### Extension Not Starting
+
+1. Check VS Code version (1.85+)
+2. Verify Node.js is installed
+3. Check Output panel for errors
+4. Try reloading window
+
+## Next Steps
+
+- [Settings Reference](/vscode/settings) - All configuration options
+- [Installation](/vscode/installation) - Setup guide
+- [Quick Start](/getting-started/quick-start) - First validation tutorial

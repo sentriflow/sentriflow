@@ -1,0 +1,11 @@
+{
+  "json-rules": {
+    "title": "JSON Rules"
+  },
+  "typescript-rules": {
+    "title": "TypeScript Rules"
+  },
+  "helpers": {
+    "title": "Helper Functions"
+  }
+}

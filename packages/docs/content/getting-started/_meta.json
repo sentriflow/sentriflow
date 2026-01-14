@@ -1,0 +1,18 @@
+{
+  "index": {
+    "title": "Overview",
+    "display": "hidden"
+  },
+  "installation": {
+    "title": "Installation"
+  },
+  "quick-start": {
+    "title": "Quick Start"
+  },
+  "vscode": {
+    "title": "VS Code Setup"
+  },
+  "troubleshooting": {
+    "title": "Troubleshooting"
+  }
+}

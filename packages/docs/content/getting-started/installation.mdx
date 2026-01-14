@@ -1,0 +1,254 @@
+---
+title: Installation
+description: Install SentriFlow CLI and VS Code extension for network configuration validation
+---
+
+import { Callout, Tabs, Steps } from 'nextra/components'
+
+# Installation
+
+SentriFlow is available as a command-line interface (CLI) for automation and CI/CD pipelines, and as a VS Code extension for real-time validation in your editor.
+
+## System Requirements
+
+Before installing SentriFlow, ensure your system meets these requirements:
+
+| Component | Requirement |
+|-----------|-------------|
+| **Node.js** | 18.0.0 or later |
+| **Operating System** | Windows, macOS, or Linux |
+| **VS Code** | 1.80 or later (for extension only) |
+
+<Callout type="info">
+  SentriFlow uses ES modules and requires Node.js 18+ for native module support.
+</Callout>
+
+## CLI Installation
+
+The SentriFlow CLI (`@sentriflow/cli`) provides command-line validation for scripts, CI/CD pipelines, and batch processing.
+
+### Package Managers
+
+Install the CLI globally using your preferred package manager:
+
+<Tabs items={['npm', 'yarn', 'pnpm', 'bun']}>
+  <Tabs.Tab>
+    ```bash
+    npm install -g @sentriflow/cli
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn global add @sentriflow/cli
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -g @sentriflow/cli
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun install -g @sentriflow/cli
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+### Verify Installation
+
+After installation, verify the CLI is working correctly:
+
+```bash
+sentriflow --version
+```
+
+You should see output similar to:
+
+```text
+sentriflow/0.4.1
+```
+
+### Local Project Installation
+
+For project-specific installations (recommended for CI/CD), install as a dev dependency:
+
+<Tabs items={['npm', 'yarn', 'pnpm', 'bun']}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @sentriflow/cli
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @sentriflow/cli
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @sentriflow/cli
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @sentriflow/cli
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Then run via npx or your package manager:
+
+```bash
+npx sentriflow router.conf
+```
+
+## VS Code Extension
+
+The SentriFlow VS Code extension provides real-time validation as you edit network configurations.
+
+### From Marketplace
+
+<Steps>
+### Open VS Code
+
+Launch Visual Studio Code on your machine.
+
+### Open Extensions View
+
+Press `Ctrl+Shift+X` (Windows/Linux) or `Cmd+Shift+X` (macOS) to open the Extensions view.
+
+### Search for SentriFlow
+
+Type `SentriFlow` in the search box.
+
+### Install Extension
+
+Click **Install** on "SentriFlow Compliance Validator" by sentriflow.
+
+### Verify Installation
+
+You should see the SentriFlow icon appear in the Activity Bar on the left side of VS Code.
+</Steps>
+
+### Command Line Installation
+
+You can also install the extension via the command line:
+
+```bash
+code --install-extension sentriflow.sentriflow-vscode
+```
+
+<Callout type="info">
+  The `code` command must be available in your PATH. On macOS, you may need to run "Shell Command: Install 'code' command in PATH" from the VS Code Command Palette first.
+</Callout>
+
+### Manual Installation (VSIX)
+
+For air-gapped environments or when you need a specific version, install from a VSIX file:
+
+<Steps>
+### Download the VSIX
+
+Download the `.vsix` file from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=sentriflow.sentriflow-vscode) or [GitHub Releases](https://github.com/sentriflow/sentriflow/releases).
+
+### Install via Command Palette
+
+1. Open VS Code
+2. Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)
+3. Type `Extensions: Install from VSIX...`
+4. Select the downloaded `.vsix` file
+
+### Alternative: Command Line
+
+```bash
+code --install-extension sentriflow-vscode-0.5.3.vsix
+```
+</Steps>
+
+<Callout type="warning">
+  Manual VSIX installations do not receive automatic updates. Check for new versions periodically.
+</Callout>
+
+### Verify VS Code Extension
+
+After installation:
+
+1. Open any `.conf`, `.cfg`, `.ios`, or `.junos` file
+2. Look for the SentriFlow icon in the Activity Bar
+3. Check the status bar for the SentriFlow status indicator
+
+You should see the SentriFlow panel with:
+- **Rules** - Available validation rules organized by pack and vendor
+- **IP Addresses** - Extracted IP addresses from the current file
+- **License** - License status (Community tier by default)
+- **Settings** - Configuration options
+
+## Supported File Types
+
+SentriFlow automatically activates for files with these extensions:
+
+| Extension | Description |
+|-----------|-------------|
+| `.conf` | Generic configuration files |
+| `.cfg` | Generic configuration files |
+| `.ios` | Cisco IOS configurations |
+| `.junos` | Juniper Junos configurations |
+| `startup-config` | Cisco startup configuration |
+| `running-config` | Cisco running configuration |
+
+For other file types, set the language mode to "Network Config" via the Command Palette or status bar.
+
+## Troubleshooting
+
+### CLI Issues
+
+**Command not found after installation**
+
+If `sentriflow` is not found, ensure your global npm/yarn/pnpm bin directory is in your PATH:
+
+```bash
+# npm
+npm config get prefix
+# Add <prefix>/bin to PATH
+
+# yarn
+yarn global bin
+# Add output directory to PATH
+
+# pnpm
+pnpm config get global-bin-dir
+# Add output directory to PATH
+```
+
+**Permission errors on Linux/macOS**
+
+If you encounter EACCES permission errors:
+
+```bash
+# Option 1: Use a Node version manager (recommended)
+# Install nvm, fnm, or volta
+
+# Option 2: Change npm prefix (not recommended for beginners)
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+export PATH=~/.npm-global/bin:$PATH
+```
+
+### VS Code Extension Issues
+
+**Extension not activating**
+
+1. Ensure the file has a supported extension (`.conf`, `.cfg`, `.ios`, `.junos`)
+2. Or manually set the language: Press `Ctrl+K M` and select "Network Config"
+3. Check the Output panel (`View > Output > SentriFlow`) for error messages
+
+**Extension conflicts**
+
+If you have other network configuration extensions installed, they may conflict. Try disabling other extensions temporarily to isolate the issue.
+
+## Next Steps
+
+Now that SentriFlow is installed, continue to:
+
+- [Quick Start](/getting-started/quick-start) - Validate your first configuration
+- [VS Code Setup](/getting-started/vscode) - Configure the VS Code extension
+- [CLI Commands](/cli/commands) - Learn all CLI options

@@ -1,0 +1,189 @@
+---
+title: Helper Functions Reference
+description: Common helper functions for rule development
+---
+
+import { Callout } from 'nextra/components'
+
+# Helper Functions
+
+SentriFlow provides helper functions to simplify common checks in TypeScript rules. These functions encapsulate platform-specific logic for port types, command parsing, and configuration patterns.
+
+<Callout type="info">
+  SentriFlow includes vendor-specific helpers for all supported platforms (Cisco, Juniper, Palo Alto, Aruba, Arista, Fortinet, and more). For the complete vendor-specific helper reference, see the [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md) on GitHub.
+</Callout>
+
+## Common Utilities
+
+These utilities work across all vendors and are available from `@sentriflow/core`:
+
+```typescript
+import {
+  parseIp,
+  parseInteger,
+  isDefaultVlan,
+  includesIgnoreCase,
+  startsWithIgnoreCase,
+} from '@sentriflow/core';
+```
+
+### parseIp
+
+Parse and validate an IP address.
+
+```typescript
+function parseIp(ip: string): { valid: boolean; address?: string; prefix?: number }
+```
+
+**Example:**
+```typescript
+const result = parseIp('192.168.1.1/24');
+if (!result.valid) {
+  return { passed: false, message: 'Invalid IP address' };
+}
+```
+
+### parseInteger
+
+Safely parse an integer with optional bounds checking.
+
+```typescript
+function parseInteger(value: string, min?: number, max?: number): number | undefined
+```
+
+**Example:**
+```typescript
+const vlanId = parseInteger(params[3], 1, 4094);
+if (vlanId === undefined) {
+  return { passed: false, message: 'Invalid VLAN ID' };
+}
+```
+
+### isDefaultVlan
+
+Check if a VLAN ID is the default (VLAN 1).
+
+```typescript
+function isDefaultVlan(vlanId: string | number): boolean
+```
+
+### includesIgnoreCase
+
+Case-insensitive string includes check.
+
+```typescript
+function includesIgnoreCase(haystack: string, needle: string): boolean
+```
+
+### startsWithIgnoreCase
+
+Case-insensitive string startsWith check.
+
+```typescript
+function startsWithIgnoreCase(str: string, prefix: string): boolean
+```
+
+## Generic ConfigNode Helpers
+
+These helpers work with any vendor's ConfigNode structure:
+
+```typescript
+import {
+  hasChildCommand,
+  getChildCommand,
+} from '@sentriflow/core/helpers/common';
+```
+
+### hasChildCommand
+
+Check if a node has a child command matching a prefix.
+
+```typescript
+function hasChildCommand(node: ConfigNode, prefix: string): boolean
+```
+
+**Example:**
+```typescript
+// Check if interface has description
+if (!hasChildCommand(node, 'description')) {
+  return { passed: false, message: 'Missing description' };
+}
+```
+
+### getChildCommand
+
+Get a child command node by prefix, or undefined if not found.
+
+```typescript
+function getChildCommand(node: ConfigNode, prefix: string): ConfigNode | undefined
+```
+
+**Example:**
+```typescript
+const descNode = getChildCommand(node, 'description');
+if (descNode) {
+  const description = descNode.params.slice(1).join(' ');
+}
+```
+
+## Vendor-Specific Helpers
+
+Each supported vendor has specialized helpers. Import from the vendor-specific module:
+
+| Vendor | Import Path |
+|--------|-------------|
+| Cisco IOS/NX-OS | `@sentriflow/core/helpers/cisco` |
+| Juniper Junos | `@sentriflow/core/helpers/juniper` |
+| Palo Alto PAN-OS | `@sentriflow/core/helpers/paloalto` |
+| Aruba AOS-CX | `@sentriflow/core/helpers/aruba` |
+| Arista EOS | `@sentriflow/core/helpers/arista` |
+| Fortinet FortiGate | `@sentriflow/core/helpers/fortinet` |
+| VyOS | `@sentriflow/core/helpers/vyos` |
+| MikroTik RouterOS | `@sentriflow/core/helpers/mikrotik` |
+
+**Example:**
+```typescript
+// Cisco-specific helpers
+import { isTrunkPort, isAccessPort, isPhysicalPort } from '@sentriflow/core/helpers/cisco';
+
+// Juniper-specific helpers
+import { hasSetCommand, getSetValue } from '@sentriflow/core/helpers/juniper';
+
+// Palo Alto-specific helpers
+import { isSecurityRule, getZone } from '@sentriflow/core/helpers/paloalto';
+```
+
+For detailed documentation on all vendor-specific helpers, see the [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md).
+
+## Creating Custom Helpers
+
+For organization-specific patterns, create custom helpers:
+
+```typescript filename="helpers/org-helpers.ts"
+import type { ConfigNode } from '@sentriflow/core';
+import { hasChildCommand } from '@sentriflow/core/helpers/common';
+
+/**
+ * Check if interface is in a production VLAN.
+ */
+export function isProductionVlan(node: ConfigNode): boolean {
+  const PRODUCTION_VLANS = [100, 200, 300];
+
+  const accessVlan = node.children.find(c =>
+    c.id.startsWith('switchport access vlan')
+  );
+
+  if (accessVlan) {
+    const vlanId = parseInt(accessVlan.params[3] || '', 10);
+    return PRODUCTION_VLANS.includes(vlanId);
+  }
+
+  return false;
+}
+```
+
+## Next Steps
+
+- [JSON Rules](/authoring/json-rules) - Declarative rules without code
+- [TypeScript Rules](/authoring/typescript-rules) - Advanced rule patterns
+- [Rule Authoring Guide](https://github.com/sentriflow/sentriflow/blob/main/docs/RULE_AUTHORING_GUIDE.md) - Complete reference

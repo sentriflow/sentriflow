@@ -1,0 +1,11 @@
+{
+  "commands": {
+    "title": "Commands"
+  },
+  "configuration": {
+    "title": "Configuration"
+  },
+  "sarif": {
+    "title": "SARIF Output"
+  }
+}

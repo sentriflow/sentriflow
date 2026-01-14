@@ -1,0 +1,305 @@
+---
+title: Quick Start
+description: Validate your first network configuration in under 5 minutes
+---
+
+import { Callout, Steps, Tabs, FileTree } from 'nextra/components';
+
+# Quick Start
+
+<Callout type="info">
+**Time to complete:** Approximately 5 minutes
+
+This guide walks you through installing SentriFlow and validating your first configuration file.
+
+</Callout>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js 18+** or **Bun 1.0+** installed
+- A terminal or command prompt
+- A network configuration file (or use our sample below)
+
+<Steps>
+
+### Install SentriFlow CLI
+
+Install the CLI globally using your preferred package manager:
+
+<Tabs items={['npm', 'yarn', 'pnpm', 'bun']}>
+  <Tabs.Tab>```bash npm install -g @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash yarn global add @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash pnpm add -g @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash bun install -g @sentriflow/cli ```</Tabs.Tab>
+</Tabs>
+
+Verify the installation:
+
+```bash
+sentriflow --version
+```
+
+**Expected output:**
+
+```text
+1.x.x
+```
+
+### Create a Sample Configuration
+
+Create a file named `router.conf` with the following Cisco IOS configuration that contains some common security issues:
+
+```text filename="router.conf"
+!
+! Sample router configuration with security issues
+!
+hostname TestRouter
+!
+enable secret 5 $1$mERr$hVzf3aV3e5j3e4K5cTf7K1
+!
+ip ssh version 1
+ip ssh time-out 120
+!
+line vty 0 4
+ password cisco123
+ login
+!
+interface GigabitEthernet0/0
+ description Uplink to Core
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/1
+ description User Access Port
+ switchport mode access
+ switchport access vlan 10
+ no shutdown
+!
+snmp-server community public RO
+!
+logging buffered 4096
+!
+end
+```
+
+This sample configuration intentionally includes several security issues that SentriFlow will detect:
+
+| Issue                 | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| SSH Version 1         | Outdated and insecure SSH protocol             |
+| Weak VTY Password     | Plain text password on virtual terminal lines  |
+| Public SNMP Community | Default community string is easily guessable   |
+| Small Logging Buffer  | Insufficient buffer size for forensic analysis |
+
+### Run Validation
+
+Validate the configuration file:
+
+```bash
+sentriflow router.conf
+```
+
+**Expected output (JSON format):**
+
+```json
+{
+  "vendor": {
+    "id": "cisco-ios",
+    "name": "Cisco IOS"
+  },
+  "results": [
+    {
+      "passed": false,
+      "message": "SSH version 1 is deprecated and insecure.",
+      "ruleId": "NET-SSH-001",
+      "nodeId": "ip ssh version 1",
+      "level": "error",
+      "remediation": "Configure 'ip ssh version 2' to use SSHv2."
+    },
+    {
+      "passed": false,
+      "message": "VTY line uses weak password authentication.",
+      "ruleId": "NET-VTY-002",
+      "nodeId": "line vty 0 4",
+      "level": "warning",
+      "remediation": "Replace password with 'login local' and use strong local accounts."
+    }
+  ]
+}
+```
+
+<Callout type='warning'>
+  The CLI exits with code **1** when any rule failures are detected. This
+  enables CI/CD integration where non-zero exit codes indicate problems.
+</Callout>
+
+### Understand the Output
+
+SentriFlow outputs results in JSON format by default. Each result contains:
+
+| Field         | Description                                          |
+| ------------- | ---------------------------------------------------- |
+| `passed`      | `true` if the check passed, `false` if it failed     |
+| `ruleId`      | Unique identifier for the rule (e.g., `NET-SSH-001`) |
+| `nodeId`      | The configuration element that was checked           |
+| `level`       | Severity: `error`, `warning`, or `info`              |
+| `message`     | Human-readable description of the issue              |
+| `remediation` | Suggested fix for the problem                        |
+| `loc`         | Line numbers where the issue was found               |
+
+#### Severity Levels
+
+| Level     | Icon          | Description                                           | CI/CD Impact    |
+| --------- | ------------- | ----------------------------------------------------- | --------------- |
+| `error`   | **Critical**  | Security vulnerabilities or compliance violations     | Fails the build |
+| `warning` | **Important** | Best practice deviations or hardening recommendations | Fails the build |
+| `info`    | **Note**      | Informational findings or passed checks               | No impact       |
+
+### Generate SARIF Output (Optional)
+
+For CI/CD integration with GitHub Advanced Security, GitLab SAST, or Azure DevOps:
+
+```bash
+sentriflow -f sarif router.conf > results.sarif
+```
+
+The SARIF format is a standardized format for static analysis results that integrates with security dashboards.
+
+</Steps>
+
+## Filtering Results
+
+### Show Only Failures
+
+Use quiet mode to suppress passed results:
+
+```bash
+sentriflow -q router.conf
+```
+
+### Disable Specific Rules
+
+Skip rules that don't apply to your environment:
+
+```bash
+sentriflow -d NET-SSH-001,NET-VTY-002 router.conf
+```
+
+### Specify Vendor Type
+
+If auto-detection fails, specify the vendor explicitly:
+
+```bash
+sentriflow -v cisco router.conf
+```
+
+Available vendors: `cisco`, `cisco-nxos`, `juniper`, `arista`, `paloalto`, `fortinet`, `vyos`, `mikrotik`, `nokia-sros`, `huawei`, `extreme-exos`, `extreme-voss`.
+
+## Validating Multiple Files
+
+### Multiple Files
+
+Validate several files at once:
+
+```bash
+sentriflow router1.conf router2.conf switch.conf
+```
+
+### Directory Scanning
+
+Scan all configuration files in a directory:
+
+```bash
+sentriflow -D ./configs
+```
+
+Recursively scan subdirectories:
+
+```bash
+sentriflow -D ./configs -R
+```
+
+Show progress during scanning:
+
+```bash
+sentriflow -D ./configs -R --progress
+```
+
+## Exit Codes
+
+SentriFlow uses standard exit codes for CI/CD integration:
+
+| Code | Meaning                                     |
+| ---- | ------------------------------------------- |
+| `0`  | All checks passed                           |
+| `1`  | One or more rule failures detected          |
+| `2`  | Error (invalid input, file not found, etc.) |
+
+## Common First-Time Issues
+
+<Callout type="error" title="File not found">
+**Error:** `Error: File not found: router.conf`
+
+Ensure you're in the correct directory or provide an absolute path:
+
+```bash
+sentriflow /path/to/router.conf
+```
+
+</Callout>
+
+<Callout type="error" title="Unknown vendor">
+**Error:** `Error: Could not detect vendor for configuration`
+
+SentriFlow couldn't auto-detect the configuration type. Specify the vendor explicitly:
+
+```bash
+sentriflow -v cisco router.conf
+```
+
+</Callout>
+
+<Callout type="error" title="Permission denied">
+**Error:** `Error: Path is outside current working directory`
+
+By default, SentriFlow restricts file access to the current directory for security. Use the `--allow-external` flag for files outside:
+
+```bash
+sentriflow --allow-external /etc/network/router.conf
+```
+
+</Callout>
+
+<Callout type="error" title="File too large">
+**Error:** `Error: File size exceeds maximum allowed`
+
+Configuration files larger than 10MB are rejected. Split large files or contact support for enterprise solutions.
+
+</Callout>
+
+## What's Next?
+
+Now that you've validated your first configuration, explore these resources:
+
+- **[CLI Reference](/cli/commands)** - Complete command-line options and examples
+- **[VS Code Extension](/getting-started/vscode)** - Real-time validation in your editor
+- **[Rule Catalog](/rules)** - Browse all 59 built-in security rules
+- **[GitHub Actions](/integrations/github-actions)** - Automate validation in your CI/CD pipeline
+- **[Custom Rules](/authoring/json-rules)** - Create rules specific to your organization
+
+<Callout type="tip">
+**Pro tip:** Create a `.sentriflowrc.json` configuration file to save your preferred options:
+
+```json filename=".sentriflowrc.json"
+{
+  "vendor": "cisco-ios",
+  "quiet": true,
+  "disable": ["NET-DOC-001"]
+}
+```
+
+SentriFlow automatically loads this file from the current directory.
+
+</Callout>
