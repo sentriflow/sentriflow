@@ -727,7 +727,24 @@ export async function initializePacks(): Promise<void> {
   }
 
   // Initialize cloud client for update checks
-  const cloudLicense = await state.licenseManager.getStoredCloudLicense();
+  let cloudLicense = await state.licenseManager.getStoredCloudLicense();
+
+  // Refresh cloud license TMKs on activation (handles TMK rotation)
+  if (cloudLicense?.licenseKey && cloudLicense?.status === 'active') {
+    try {
+      log('[Packs] Refreshing cloud license TMKs...');
+      await state.licenseManager.refreshCloudLicense();
+      // Re-read to get fresh TMKs
+      cloudLicense = await state.licenseManager.getStoredCloudLicense();
+      log('[Packs] TMKs refreshed successfully');
+    } catch (error) {
+      // If refresh fails (offline, server error), continue with stored TMKs
+      log(
+        `[Packs] TMK refresh failed (using cached): ${error instanceof Error ? error.message : error}`
+      );
+    }
+  }
+
   if (cloudLicense?.jwt) {
     const apiUrl = cloudLicense.apiUrl ?? DEFAULT_CLOUD_API_URL;
     log('[Packs] Cloud license available');
