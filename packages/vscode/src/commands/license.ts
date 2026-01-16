@@ -201,6 +201,21 @@ export async function cmdCheckForUpdates(): Promise<void> {
     return;
   }
 
+  // Refresh TMKs before checking for updates (handles TMK rotation)
+  const storedLicense = await state.licenseManager.getStoredCloudLicense();
+  if (storedLicense?.licenseKey && storedLicense?.status === 'active') {
+    try {
+      log('[Updates] Refreshing cloud license TMKs...');
+      await state.licenseManager.refreshCloudLicense();
+      log('[Updates] TMKs refreshed successfully');
+    } catch (error) {
+      // If refresh fails, continue with stored TMKs - update check may still work
+      log(
+        `[Updates] TMK refresh failed (using cached): ${error instanceof Error ? error.message : error}`
+      );
+    }
+  }
+
   // Build local version map
   const localVersions = new Map<string, string>();
   for (const pack of state.encryptedPacksInfo) {

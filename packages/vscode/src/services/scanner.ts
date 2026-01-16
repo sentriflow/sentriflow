@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import { getVendor, isValidVendor } from '@sentriflow/core';
 import { getState } from '../state/context';
 import {
   SUPPORTED_LANGUAGES,
@@ -123,14 +124,25 @@ export function runScan(document: vscode.TextDocument, force: boolean): void {
     // Get configured vendor option
     const config = vscode.workspace.getConfiguration('sentriflow');
     const vendorSetting = config.get<string>('defaultVendor', 'auto');
-    const vendorOption = vendorSetting === 'auto' ? 'auto' : vendorSetting;
+
+    // Convert vendor setting to VendorSchema or 'auto'
+    let vendorOption: ReturnType<typeof getVendor> | 'auto' = 'auto';
+    if (vendorSetting !== 'auto') {
+      if (isValidVendor(vendorSetting)) {
+        vendorOption = getVendor(vendorSetting);
+      } else {
+        state.outputChannel.appendLine(
+          `[WARN] Invalid vendor setting: ${vendorSetting}, falling back to auto`
+        );
+      }
+    }
 
     // Use incremental parser with document URI and version for caching
     const nodes = state.incrementalParser.parse(
       uri,
       text,
       document.version,
-      vendorOption as any
+      vendorOption
     );
 
     // Get the vendor that was actually used

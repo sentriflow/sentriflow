@@ -5,6 +5,11 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-01-16
+
+### Fixed
+- **Manual Vendor Selection Ignored** - Fixed bug where manually selecting a vendor was overridden by auto-detection. The scanner was passing vendor ID as a raw string instead of converting it to a VendorSchema object, causing the parser to fall back to default behavior.
+
 ## [0.5.2] - 2026-01-13
 
 ### Added
