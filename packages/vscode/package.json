@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "license": "Apache-2.0",
   "qna": "marketplace",
   "privacy": {
@@ -72,6 +72,13 @@
           "type": "tree"
         },
         {
+          "id": "sentriflowSuppressions",
+          "name": "Suppressions",
+          "type": "tree",
+          "contextualTitle": "Diagnostic Suppressions",
+          "visibility": "visible"
+        },
+        {
           "id": "sentriflowLicense",
           "name": "License",
           "type": "tree"
@@ -80,13 +87,6 @@
           "id": "sentriflowSettings",
           "name": "Settings",
           "type": "webview"
-        },
-        {
-          "id": "sentriflowSuppressions",
-          "name": "Suppressions",
-          "type": "tree",
-          "contextualTitle": "Diagnostic Suppressions",
-          "visibility": "visible"
         }
       ]
     },

@@ -265,13 +265,14 @@ interface BulkScanFileResult {
 /**
  * Scan a single file by URI and add diagnostics.
  * Uses SchemaAwareParser (no incremental caching needed for batch).
+ * Respects existing suppressions for the file.
  */
 async function scanFileByUri(uri: vscode.Uri): Promise<BulkScanFileResult> {
   const state = getState();
 
-  // Read file content
-  const contentBytes = await vscode.workspace.fs.readFile(uri);
-  const text = new TextDecoder('utf-8').decode(contentBytes);
+  // Open document to get TextDocument (needed for suppression checks)
+  const document = await vscode.workspace.openTextDocument(uri);
+  const text = document.getText();
 
   // Skip empty files
   if (text.trim().length === 0) {
@@ -310,18 +311,13 @@ async function scanFileByUri(uri: vscode.Uri): Promise<BulkScanFileResult> {
 
   // Build diagnostics
   const diagnostics: vscode.Diagnostic[] = [];
-  let errorCount = 0;
-  let warningCount = 0;
-
-  // Split text into lines for range calculation
-  const lines = text.split(/\r?\n/);
 
   for (const result of results) {
     if (!result.passed && result.loc) {
       const startLine = result.loc.startLine;
 
-      if (startLine >= 0 && startLine < lines.length) {
-        const lineText = lines[startLine] ?? '';
+      if (startLine >= 0 && startLine < document.lineCount) {
+        const line = document.lineAt(startLine);
         const severity = mapSeverity(result.level);
         const rule = getRuleById(result.ruleId);
         const category = formatCategory(rule);
@@ -338,27 +334,40 @@ async function scanFileByUri(uri: vscode.Uri): Promise<BulkScanFileResult> {
           }
         }
 
-        const range = new vscode.Range(startLine, 0, startLine, lineText.length);
-
         const diagnostic = new vscode.Diagnostic(
-          range,
+          line.range,
           `[${result.ruleId}] (${category}) ${result.message}`,
           severity
         );
         diagnostic.source = 'SentriFlow';
         diagnostic.code = result.ruleId;
         diagnostics.push(diagnostic);
-
-        if (result.level === 'error') errorCount++;
-        if (result.level === 'warning') warningCount++;
       }
     }
   }
 
-  // Set diagnostics for this file
-  state.diagnosticCollection.set(uri, diagnostics);
+  // Filter out suppressed diagnostics
+  const filteredDiagnostics = diagnostics.filter(
+    (d) => !state.suppressionManager.isSuppressed(document, d)
+  );
 
-  return { errors: errorCount, warnings: warningCount };
+  const suppressedCount = diagnostics.length - filteredDiagnostics.length;
+  if (suppressedCount > 0) {
+    log(`Filtered ${suppressedCount} suppressed diagnostic(s) from ${uri.fsPath}`);
+  }
+
+  // Set diagnostics for this file
+  state.diagnosticCollection.set(uri, filteredDiagnostics);
+
+  // Return counts based on filtered diagnostics (what user actually sees)
+  const filteredErrors = filteredDiagnostics.filter(
+    (d) => d.severity === vscode.DiagnosticSeverity.Error
+  ).length;
+  const filteredWarnings = filteredDiagnostics.filter(
+    (d) => d.severity === vscode.DiagnosticSeverity.Warning
+  ).length;
+
+  return { errors: filteredErrors, warnings: filteredWarnings };
 }
 
 /**
