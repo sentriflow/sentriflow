@@ -65,3 +65,16 @@ export {
   cmdDeleteCustomRule,
   cmdEditCustomRule,
 } from './customRules';
+
+// ============================================================================
+// Suppression Commands
+// ============================================================================
+
+export {
+  cmdSuppressOccurrence,
+  cmdSuppressRuleInFile,
+  cmdRemoveSuppression,
+  cmdClearFileSuppressions,
+  cmdClearAllSuppressions,
+  cmdFocusSuppressionsView,
+} from './suppressions';

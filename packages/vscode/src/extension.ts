@@ -41,6 +41,8 @@ import {
   IPTreeItem,
 } from './providers/IPAddressesTreeProvider';
 import { LicenseTreeProvider } from './providers/LicenseTreeProvider';
+import { SuppressionsTreeProvider } from './providers/SuppressionsTreeProvider';
+import { SentriFlowCodeActionProvider } from './providers/CodeActionProvider';
 import { CustomRulesLoader } from './providers/CustomRulesLoader';
 import { CustomRulesCompletionProvider } from './providers/CustomRulesCompletionProvider';
 import {
@@ -88,6 +90,7 @@ import {
   initializePacks,
   updateLicenseTree,
 } from './services/packManager';
+import { SuppressionManager } from './services/suppressionManager';
 
 // Import handlers
 import { onDocumentChange, onDocumentClose, onActiveEditorChange, onConfigurationChange } from './handlers/events';
@@ -130,6 +133,13 @@ import {
   cmdCopyRuleToCustom,
   cmdDeleteCustomRule,
   cmdEditCustomRule,
+  // Suppression commands
+  cmdSuppressOccurrence,
+  cmdSuppressRuleInFile,
+  cmdRemoveSuppression,
+  cmdClearFileSuppressions,
+  cmdClearAllSuppressions,
+  cmdFocusSuppressionsView,
 } from './commands';
 
 // Re-export parseCommaSeparated for external consumers (testing)
@@ -385,6 +395,7 @@ let rulesTreeProvider: RulesTreeProvider;
 let settingsWebviewProvider: SettingsWebviewProvider;
 let ipAddressesTreeProvider: IPAddressesTreeProvider;
 let licenseTreeProvider: LicenseTreeProvider;
+let suppressionsTreeProvider: SuppressionsTreeProvider;
 let customRulesLoader: CustomRulesLoader;
 
 // Debounce timers per document URI
@@ -392,6 +403,15 @@ const debounceTimers = new Map<string, NodeJS.Timeout>();
 
 // Track scan version to cancel stale results
 const scanVersions = new Map<string, number>();
+
+// Per-document vendor overrides (URI → vendor ID)
+const documentVendorOverrides = new Map<string, string>();
+
+/** Storage key for persisting vendor overrides */
+const VENDOR_OVERRIDES_STORAGE_KEY = 'sentriflow.documentVendorOverrides';
+
+// Suppression manager for diagnostic suppressions
+const suppressionManager = new SuppressionManager();
 
 // Note: DEBOUNCE_MS, MAX_FILE_SIZE, CONFIG_EXTENSIONS are now imported from './utils/helpers'
 
@@ -503,6 +523,23 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(licenseTreeView);
 
+    // Create and register Suppressions TreeView
+    suppressionsTreeProvider = new SuppressionsTreeProvider();
+    const suppressionsTreeView = vscode.window.createTreeView('sentriflowSuppressions', {
+      treeDataProvider: suppressionsTreeProvider,
+      showCollapseAll: true,
+    });
+    context.subscriptions.push(suppressionsTreeView);
+
+    // Load persisted vendor overrides from workspace state
+    const savedOverrides = context.workspaceState.get<Record<string, string>>(
+      VENDOR_OVERRIDES_STORAGE_KEY,
+      {}
+    );
+    for (const [uri, vendorId] of Object.entries(savedOverrides)) {
+      documentVendorOverrides.set(uri, vendorId);
+    }
+
     // Initialize centralized state for extracted modules
     // This allows services, handlers, and UI modules to access shared state via getState()
     initState({
@@ -519,6 +556,7 @@ export function activate(context: vscode.ExtensionContext) {
       rulesTreeProvider,
       ipAddressesTreeProvider,
       licenseTreeProvider,
+      suppressionsTreeProvider,
       settingsWebviewProvider,
       customRulesLoader,
 
@@ -549,10 +587,31 @@ export function activate(context: vscode.ExtensionContext) {
       debounceTimers,
       scanVersions,
       debugMode,
+
+      // Per-document vendor overrides
+      documentVendorOverrides,
+
+      // Suppression management
+      suppressionManager,
     });
 
     // Initialize status bar displays (must be after initState)
     updateStatusBar('ready');
+
+    // Connect SuppressionsTreeProvider to SuppressionManager
+    suppressionsTreeProvider.setSuppressionManager(suppressionManager);
+
+    // Set context key for suppressions (for keyboard shortcut when clauses)
+    const updateSuppressionContext = () => {
+      const hasSuppressions = suppressionManager.getSuppressionCount() > 0;
+      vscode.commands.executeCommand('setContext', 'sentriflow.hasSuppressions', hasSuppressions);
+    };
+    suppressionManager.onDidChange(updateSuppressionContext);
+
+    // Initialize suppression manager (must be after initState)
+    suppressionManager.initialize(context).then(updateSuppressionContext).catch((err) => {
+      log(`Failed to initialize suppression manager: ${(err as Error).message}`);
+    });
 
     // Register hover provider for diagnostic tooltips with category and tags
     const hoverProvider = new SentriFlowHoverProvider(
@@ -561,6 +620,16 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(
       vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider)
+    );
+
+    // Register code action provider for quick fix menu (Cmd+. / Ctrl+.)
+    const codeActionProvider = new SentriFlowCodeActionProvider();
+    context.subscriptions.push(
+      vscode.languages.registerCodeActionsProvider(
+        { scheme: 'file' },
+        codeActionProvider,
+        { providedCodeActionKinds: SentriFlowCodeActionProvider.providedCodeActionKinds }
+      )
     );
 
     // Register completion provider for custom rules JSON files
@@ -694,6 +763,34 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand(
         'sentriflow.editCustomRule',
         cmdEditCustomRule
+      )
+    );
+
+    // Register Suppression commands
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        'sentriflow.suppressOccurrence',
+        cmdSuppressOccurrence
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.suppressRuleInFile',
+        cmdSuppressRuleInFile
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.removeSuppression',
+        cmdRemoveSuppression
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.clearFileSuppressions',
+        cmdClearFileSuppressions
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.clearAllSuppressions',
+        cmdClearAllSuppressions
+      ),
+      vscode.commands.registerCommand(
+        'sentriflow.focusSuppressionsView',
+        cmdFocusSuppressionsView
       )
     );
 
@@ -1185,6 +1282,18 @@ function log(message: string) {
   if (debugMode) {
     logInfo(`[DEBUG] ${message}`);
   }
+}
+
+/**
+ * Save per-document vendor overrides to workspace state.
+ * Called after modifying documentVendorOverrides.
+ */
+export async function saveDocumentVendorOverrides(): Promise<void> {
+  const state = getState();
+  await state.context.workspaceState.update(
+    VENDOR_OVERRIDES_STORAGE_KEY,
+    Object.fromEntries(state.documentVendorOverrides)
+  );
 }
 
 // ============================================================================

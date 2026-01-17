@@ -6,7 +6,8 @@
  */
 
 import * as vscode from 'vscode';
-import { getAvailableVendorInfo } from '@sentriflow/core';
+import * as path from 'path';
+import { getAvailableVendorInfo, getVendor, detectVendor } from '@sentriflow/core';
 import type { RuleVendor } from '@sentriflow/core';
 import { allRules } from '@sentriflow/rules-default';
 import { RuleTreeItem } from '../providers/RulesTreeProvider';
@@ -15,7 +16,9 @@ import {
   getDisabledRulesSet,
   toggleRule as toggleRuleService,
 } from '../services/ruleManager';
-import { rescanActiveEditor, scheduleScan } from '../services/scanner';
+import { rescanActiveEditor, scheduleScan, runScan } from '../services/scanner';
+import { updateVendorStatusBar } from '../ui/statusBar';
+import { saveDocumentVendorOverrides } from '../extension';
 import { getUniqueCategoriesFromRules } from '../utils/helpers';
 import { DEFAULT_PACK_NAME } from './packs';
 
@@ -821,11 +824,21 @@ export async function cmdFilterByCategory(): Promise<void> {
 }
 
 /**
- * Select vendor for parsing via command palette
+ * Select vendor for current document via command palette.
+ * Sets a per-document override that persists for this file.
  */
 export async function cmdSelectVendor(): Promise<void> {
-  const config = vscode.workspace.getConfiguration('sentriflow');
-  const currentSetting = config.get<string>('defaultVendor', 'auto');
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage('No active editor');
+    return;
+  }
+
+  const state = getState();
+  const uri = editor.document.uri.toString();
+
+  // Get current override for this document (if any)
+  const currentOverride = state.documentVendorOverrides.get(uri);
 
   interface VendorPickItem extends vscode.QuickPickItem {
     vendorId: string;
@@ -833,37 +846,59 @@ export async function cmdSelectVendor(): Promise<void> {
 
   const items: VendorPickItem[] = [
     {
-      label: '$(search) Auto-detect',
+      label: !currentOverride ? '$(check) $(search) Auto-detect' : '$(search) Auto-detect',
       description: 'Automatically detect vendor from configuration content',
       vendorId: 'auto',
-      picked: currentSetting === 'auto',
     },
   ];
 
   // Add all available vendors
   const vendors = getAvailableVendorInfo();
   for (const vendor of vendors) {
+    const isSelected = currentOverride === vendor.id;
     items.push({
-      label: vendor.name,
+      label: isSelected ? `$(check) ${vendor.name}` : vendor.name,
       description: vendor.id,
       vendorId: vendor.id,
-      picked: currentSetting === vendor.id,
     });
   }
 
   // Show QuickPick
+  const fileName = path.basename(editor.document.fileName);
   const selected = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select vendor for configuration parsing',
-    title: 'SENTRIFLOW: Select Vendor',
+    placeHolder: `Select vendor for ${fileName}`,
+    title: 'SENTRIFLOW: Select Vendor for This File',
   });
 
   if (selected) {
-    // Update configuration
-    await config.update(
-      'defaultVendor',
-      selected.vendorId,
-      vscode.ConfigurationTarget.Workspace
-    );
-    log(`Vendor changed to: ${selected.vendorId}`);
+    if (selected.vendorId === 'auto') {
+      // Remove override - use auto-detect
+      state.documentVendorOverrides.delete(uri);
+      log(`Vendor override removed for ${fileName} - using auto-detect`);
+    } else {
+      // Set per-document override
+      state.documentVendorOverrides.set(uri, selected.vendorId);
+      log(`Vendor override set for ${fileName}: ${selected.vendorId}`);
+    }
+
+    // Persist to workspace state
+    await saveDocumentVendorOverrides();
+
+    // Clear parser cache for this document to force re-parse with new vendor
+    state.incrementalParser.invalidate(uri);
+
+    // Update current vendor immediately for status bar
+    if (selected.vendorId === 'auto') {
+      const text = editor.document.getText();
+      state.currentVendor = detectVendor(text);
+    } else {
+      state.currentVendor = getVendor(selected.vendorId);
+    }
+
+    // Update status bar immediately
+    updateVendorStatusBar();
+
+    // Re-scan document with forced re-parse
+    runScan(editor.document, true);
   }
 }

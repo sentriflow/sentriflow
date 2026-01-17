@@ -91,6 +91,14 @@ export function updateStatusBar(
         );
       }
 
+      // Add suppression count if any
+      const suppressionCount = state.suppressionManager.getSuppressionCount();
+      if (suppressionCount > 0) {
+        tooltip.appendMarkdown(
+          `$(eye-closed) **Suppressions:** ${suppressionCount}\n\n`
+        );
+      }
+
       // Add vendor info
       if (currentVendor) {
         tooltip.appendMarkdown(
@@ -102,6 +110,9 @@ export function updateStatusBar(
       tooltip.appendMarkdown('[$(search) Scan](command:sentriflow.scan) · ');
       tooltip.appendMarkdown(
         '[$(list-tree) Rules](command:sentriflow.focusRulesView) · '
+      );
+      tooltip.appendMarkdown(
+        '[$(eye-closed) Suppressions](command:sentriflow.focusSuppressionsView) · '
       );
       tooltip.appendMarkdown(
         '[$(circle-slash) Disabled](command:sentriflow.showDisabled)'
@@ -122,7 +133,7 @@ export function updateStatusBar(
  */
 export function updateVendorStatusBar(): void {
   const state = getState();
-  const { vendorStatusBarItem, currentVendor } = state;
+  const { vendorStatusBarItem, currentVendor, documentVendorOverrides } = state;
 
   if (!shouldShowVendorInStatusBar()) {
     vendorStatusBarItem.hide();
@@ -131,34 +142,47 @@ export function updateVendorStatusBar(): void {
 
   vendorStatusBarItem.show();
 
-  const config = vscode.workspace.getConfiguration('sentriflow');
-  const vendorSetting = config.get<string>('defaultVendor', 'auto');
+  // Check for per-document override on active editor
+  const activeEditor = vscode.window.activeTextEditor;
+  const uri = activeEditor?.document.uri.toString();
+  const hasOverride = uri ? documentVendorOverrides.has(uri) : false;
 
   // Build rich markdown tooltip
   const tooltip = new vscode.MarkdownString();
   tooltip.isTrusted = true;
   tooltip.supportThemeIcons = true;
 
-  if (vendorSetting === 'auto') {
-    if (currentVendor) {
-      // Auto mode with detected vendor
-      vendorStatusBarItem.text = `$(server) ${currentVendor.name}`;
-      tooltip.appendMarkdown(`**Vendor:** ${currentVendor.name}\n\n`);
-      tooltip.appendMarkdown('$(info) *Auto-detected from configuration*\n\n');
-    } else {
-      // Auto mode, no detection yet
-      vendorStatusBarItem.text = '$(server) Auto';
-      tooltip.appendMarkdown('**Vendor:** Auto-detect\n\n');
-      tooltip.appendMarkdown(
-        '$(info) *Open a config file to detect vendor*\n\n'
-      );
-    }
-  } else {
-    // Manual vendor selection
-    const vendorName = currentVendor?.name ?? vendorSetting;
-    vendorStatusBarItem.text = `$(server) ${vendorName}`;
+  if (hasOverride) {
+    // Per-document override is active
+    const vendorName = currentVendor?.name ?? 'Unknown';
+    vendorStatusBarItem.text = `$(server) ${vendorName} (override)`;
     tooltip.appendMarkdown(`**Vendor:** ${vendorName}\n\n`);
-    tooltip.appendMarkdown('$(gear) *Manually configured*\n\n');
+    tooltip.appendMarkdown('$(pin) *Override set for this file*\n\n');
+  } else {
+    const config = vscode.workspace.getConfiguration('sentriflow');
+    const vendorSetting = config.get<string>('defaultVendor', 'auto');
+
+    if (vendorSetting === 'auto') {
+      if (currentVendor) {
+        // Auto mode with detected vendor
+        vendorStatusBarItem.text = `$(server) ${currentVendor.name}`;
+        tooltip.appendMarkdown(`**Vendor:** ${currentVendor.name}\n\n`);
+        tooltip.appendMarkdown('$(info) *Auto-detected from configuration*\n\n');
+      } else {
+        // Auto mode, no detection yet
+        vendorStatusBarItem.text = '$(server) Auto';
+        tooltip.appendMarkdown('**Vendor:** Auto-detect\n\n');
+        tooltip.appendMarkdown(
+          '$(info) *Open a config file to detect vendor*\n\n'
+        );
+      }
+    } else {
+      // Global manual vendor selection
+      const vendorName = currentVendor?.name ?? vendorSetting;
+      vendorStatusBarItem.text = `$(server) ${vendorName}`;
+      tooltip.appendMarkdown(`**Vendor:** ${vendorName}\n\n`);
+      tooltip.appendMarkdown('$(gear) *Globally configured*\n\n');
+    }
   }
 
   tooltip.appendMarkdown('---\n\n');

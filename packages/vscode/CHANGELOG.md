@@ -5,6 +5,40 @@ All notable changes to SentriFlow Compliance Validator will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2026-01-16
+
+### Added
+- **Diagnostic Suppression System** - Suppress diagnostics without modifying config files:
+  - **Line-level suppression** - Suppress specific occurrences on individual lines
+  - **File-level suppression** - Suppress all occurrences of a rule within a file
+  - **Hover tooltip actions** - Click "Suppress this occurrence" or "Suppress in file" links
+  - **Quick fix menu** - Use Cmd+. / Ctrl+. to access suppression actions
+  - **Suppressions TreeView** - View and manage all active suppressions in dedicated panel
+  - **Bulk operations** - Clear all suppressions for a file or entire workspace
+  - **Persistence** - Suppressions survive VS Code restarts (stored in workspace state)
+  - **Content-based tracking** - Line suppressions track content hash, not line numbers
+- **Status bar suppression indicator** - Shows active suppression count in tooltip
+- **Context key** - `sentriflow.hasSuppressions` available for keyboard shortcut when clauses
+
+### Technical
+- New `SuppressionManager` service with CRUD operations and change events
+- `SuppressionsTreeProvider` for TreeView display
+- `SentriFlowCodeActionProvider` for quick fix menu integration
+- Extracted pure helper functions to `suppressionHelpers.ts` for testability
+
+## [0.5.4] - 2026-01-16
+
+### Added
+- **Per-Document Vendor Override** - Manual vendor selection now persists per file:
+  - Select vendor via status bar or command palette → applies only to current file
+  - Switching to another file uses auto-detection (unless that file also has an override)
+  - Returning to a file with override restores your vendor choice
+  - Status bar shows "(override)" indicator when per-document override is active
+  - Overrides persist across VS Code sessions (stored in workspace state)
+
+### Changed
+- **Immediate Status Bar Updates** - Vendor selection now updates status bar instantly without requiring editor switch
+
 ## [0.5.3] - 2026-01-16
 
 ### Fixed

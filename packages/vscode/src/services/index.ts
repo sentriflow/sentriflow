@@ -7,3 +7,4 @@
 export * from './scanner';
 export * from './ruleManager';
 export * from './packManager';
+export * from './suppressionManager';
