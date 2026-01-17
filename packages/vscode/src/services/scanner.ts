@@ -121,19 +121,33 @@ export function runScan(document: vscode.TextDocument, force: boolean): void {
       return;
     }
 
-    // Get configured vendor option
-    const config = vscode.workspace.getConfiguration('sentriflow');
-    const vendorSetting = config.get<string>('defaultVendor', 'auto');
-
-    // Convert vendor setting to VendorSchema or 'auto'
+    // Check for per-document vendor override FIRST
+    const override = state.documentVendorOverrides.get(uri);
     let vendorOption: ReturnType<typeof getVendor> | 'auto' = 'auto';
-    if (vendorSetting !== 'auto') {
-      if (isValidVendor(vendorSetting)) {
-        vendorOption = getVendor(vendorSetting);
-      } else {
-        state.outputChannel.appendLine(
-          `[WARN] Invalid vendor setting: ${vendorSetting}, falling back to auto`
-        );
+
+    if (override) {
+      // Per-document override takes priority
+      if (isValidVendor(override)) {
+        vendorOption = getVendor(override);
+        if (state.debugMode) {
+          state.outputChannel.appendLine(
+            `[DEBUG] Using per-document vendor override: ${override}`
+          );
+        }
+      }
+    } else {
+      // Fall back to global setting
+      const config = vscode.workspace.getConfiguration('sentriflow');
+      const vendorSetting = config.get<string>('defaultVendor', 'auto');
+
+      if (vendorSetting !== 'auto') {
+        if (isValidVendor(vendorSetting)) {
+          vendorOption = getVendor(vendorSetting);
+        } else {
+          state.outputChannel.appendLine(
+            `[WARN] Invalid vendor setting: ${vendorSetting}, falling back to auto`
+          );
+        }
       }
     }
 
@@ -241,7 +255,19 @@ export function runScan(document: vscode.TextDocument, force: boolean): void {
       return;
     }
 
-    state.diagnosticCollection.set(document.uri, diagnostics);
+    // Filter out suppressed diagnostics
+    const filteredDiagnostics = diagnostics.filter(
+      (d) => !state.suppressionManager.isSuppressed(document, d)
+    );
+
+    const suppressedCount = diagnostics.length - filteredDiagnostics.length;
+    if (suppressedCount > 0 && state.debugMode) {
+      state.outputChannel.appendLine(
+        `[DEBUG] Filtered ${suppressedCount} suppressed diagnostic(s)`
+      );
+    }
+
+    state.diagnosticCollection.set(document.uri, filteredDiagnostics);
     updateStatusBarReady(state, errorCount, warningCount);
 
     if (state.debugMode) {

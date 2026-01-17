@@ -6,11 +6,12 @@
  */
 
 import * as vscode from 'vscode';
+import { detectVendor, getVendor, isValidVendor } from '@sentriflow/core';
 import { getState } from '../state/context';
 import { scheduleScan, rescanActiveEditor } from '../services/scanner';
 import { loadPacks } from '../services/packManager';
 import { DEBOUNCE_MS } from '../utils/helpers';
-import { updateStatusBar } from '../ui/statusBar';
+import { updateStatusBar, updateVendorStatusBar } from '../ui/statusBar';
 
 // ============================================================================
 // Logging Helpers
@@ -87,12 +88,34 @@ export function onActiveEditorChange(
   state.ipAddressesTreeProvider?.updateFromDocument(editor?.document);
 
   if (editor) {
-    // Update current vendor from cached document
     const uri = editor.document.uri.toString();
-    const cachedVendor = state.incrementalParser.getCachedVendor(uri);
-    if (cachedVendor) {
-      state.currentVendor = cachedVendor;
+
+    // 1. Check for per-document override FIRST
+    const override = state.documentVendorOverrides.get(uri);
+    if (override && isValidVendor(override)) {
+      state.currentVendor = getVendor(override);
+    } else {
+      // 2. Check parser cache
+      const cachedVendor = state.incrementalParser.getCachedVendor(uri);
+      if (cachedVendor) {
+        state.currentVendor = cachedVendor;
+      } else {
+        // 3. Auto-detect for new files (if global setting is 'auto')
+        const config = vscode.workspace.getConfiguration('sentriflow');
+        const vendorSetting = config.get<string>('defaultVendor', 'auto');
+        if (vendorSetting === 'auto') {
+          const text = editor.document.getText();
+          if (text.length > 0) {
+            state.currentVendor = detectVendor(text);
+          }
+        } else if (isValidVendor(vendorSetting)) {
+          state.currentVendor = getVendor(vendorSetting);
+        }
+      }
     }
+
+    // Update vendor status bar immediately
+    updateVendorStatusBar();
 
     // Update status bar for current document
     const diagnostics = state.diagnosticCollection.get(editor.document.uri);

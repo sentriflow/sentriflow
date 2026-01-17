@@ -17,8 +17,10 @@ import type {
 import type { RulesTreeProvider } from '../providers/RulesTreeProvider';
 import type { IPAddressesTreeProvider } from '../providers/IPAddressesTreeProvider';
 import type { LicenseTreeProvider } from '../providers/LicenseTreeProvider';
+import type { SuppressionsTreeProvider } from '../providers/SuppressionsTreeProvider';
 import type { SettingsWebviewProvider } from '../providers/SettingsWebviewProvider';
 import type { CustomRulesLoader } from '../providers/CustomRulesLoader';
+import type { SuppressionManager } from '../services/suppressionManager';
 import type {
   LicenseManager,
   CloudClient,
@@ -65,6 +67,7 @@ export interface ExtensionState {
   rulesTreeProvider: RulesTreeProvider;
   ipAddressesTreeProvider: IPAddressesTreeProvider;
   licenseTreeProvider: LicenseTreeProvider;
+  suppressionsTreeProvider: SuppressionsTreeProvider;
   settingsWebviewProvider: SettingsWebviewProvider;
   customRulesLoader: CustomRulesLoader;
 
@@ -141,6 +144,16 @@ export interface ExtensionState {
 
   /** Debug mode flag */
   debugMode: boolean;
+
+  /** Per-document vendor overrides (URI → vendor ID) */
+  documentVendorOverrides: Map<string, string>;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Suppression Management (mutable)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Suppression manager for diagnostic suppressions */
+  suppressionManager: SuppressionManager;
 }
 
 // ============================================================================

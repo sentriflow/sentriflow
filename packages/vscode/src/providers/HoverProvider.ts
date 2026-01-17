@@ -26,9 +26,11 @@ export class SentriFlowHoverProvider implements vscode.HoverProvider {
     }
 
     // Build markdown content for all diagnostics
-    // SEC-001: Use default isTrusted=false and supportHtml=false for security
-    // Rule metadata is trusted but we don't need HTML rendering for tooltips
+    // SEC-001: Enable isTrusted for command links (suppression commands)
+    // Rule metadata is trusted internal content
     const markdown = new vscode.MarkdownString();
+    markdown.isTrusted = true;
+    markdown.supportThemeIcons = true;
 
     // Track the union range of all diagnostics
     // Safe access since we checked length > 0 above
@@ -37,7 +39,7 @@ export class SentriFlowHoverProvider implements vscode.HoverProvider {
 
     for (let i = 0; i < diagnosticsAtPosition.length; i++) {
       const diagnostic = diagnosticsAtPosition[i]!;
-      const ruleId = diagnostic.code as string;
+      const ruleId = typeof diagnostic.code === 'string' ? diagnostic.code : undefined;
 
       // Update union range
       unionRange = unionRange.union(diagnostic.range);
@@ -92,6 +94,22 @@ export class SentriFlowHoverProvider implements vscode.HoverProvider {
           markdown.appendMarkdown(` | *Owner: ${rule.metadata.owner}*`);
         }
       }
+
+      // Suppression actions
+      const lineNumber = diagnostic.range.start.line;
+      const filePath = vscode.workspace.asRelativePath(document.uri, false);
+      const suppressArgs = encodeURIComponent(
+        JSON.stringify({ ruleId, filePath, lineNumber })
+      );
+      const suppressFileArgs = encodeURIComponent(JSON.stringify({ ruleId, filePath }));
+
+      markdown.appendMarkdown('\n\n---\n');
+      markdown.appendMarkdown(
+        `[$(circle-slash) Suppress this occurrence](command:sentriflow.suppressOccurrence?${suppressArgs}) · `
+      );
+      markdown.appendMarkdown(
+        `[$(file-code) Suppress in file](command:sentriflow.suppressRuleInFile?${suppressFileArgs})`
+      );
     }
 
     return new vscode.Hover(markdown, unionRange);

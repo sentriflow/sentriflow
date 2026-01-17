@@ -2,7 +2,7 @@
   "name": "sentriflow-vscode",
   "displayName": "SentriFlow Compliance Validator",
   "description": "Validate network configurations against security best practices and compliance rules. Supports Cisco, Juniper, Arista, and more.",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "license": "Apache-2.0",
   "qna": "marketplace",
   "privacy": {
@@ -70,6 +70,13 @@
           "id": "sentriflowIPAddresses",
           "name": "IP Addresses",
           "type": "tree"
+        },
+        {
+          "id": "sentriflowSuppressions",
+          "name": "Suppressions",
+          "type": "tree",
+          "contextualTitle": "Diagnostic Suppressions",
+          "visibility": "visible"
         },
         {
           "id": "sentriflowLicense",
@@ -312,6 +319,42 @@
         "title": "Edit Custom Rule",
         "category": "SentriFlow",
         "icon": "$(edit)"
+      },
+      {
+        "command": "sentriflow.suppressOccurrence",
+        "title": "Suppress This Occurrence",
+        "category": "SentriFlow",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "sentriflow.suppressRuleInFile",
+        "title": "Suppress Rule in This File",
+        "category": "SentriFlow",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "sentriflow.removeSuppression",
+        "title": "Remove Suppression",
+        "category": "SentriFlow",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "sentriflow.clearFileSuppressions",
+        "title": "Clear All Suppressions in This File",
+        "category": "SentriFlow",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "sentriflow.clearAllSuppressions",
+        "title": "Clear All Suppressions",
+        "category": "SentriFlow",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "sentriflow.focusSuppressionsView",
+        "title": "Show Suppressions",
+        "category": "SentriFlow",
+        "icon": "$(circle-slash)"
       }
     ],
     "menus": {
@@ -399,6 +442,22 @@
         {
           "command": "sentriflow.editCustomRule",
           "when": "false"
+        },
+        {
+          "command": "sentriflow.suppressOccurrence",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.suppressRuleInFile",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.removeSuppression",
+          "when": "false"
+        },
+        {
+          "command": "sentriflow.clearFileSuppressions",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -421,6 +480,11 @@
           "command": "sentriflow.copyAllIPs",
           "when": "view == sentriflowIPAddresses",
           "group": "navigation@2"
+        },
+        {
+          "command": "sentriflow.clearAllSuppressions",
+          "when": "view == sentriflowSuppressions",
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
@@ -508,6 +572,16 @@
           "command": "sentriflow.copyIPCategory",
           "when": "view == sentriflowIPAddresses && viewItem =~ /^ip-category-/",
           "group": "1_copy@1"
+        },
+        {
+          "command": "sentriflow.removeSuppression",
+          "when": "view == sentriflowSuppressions && viewItem == suppression",
+          "group": "inline@1"
+        },
+        {
+          "command": "sentriflow.clearFileSuppressions",
+          "when": "view == sentriflowSuppressions && viewItem == suppressionFile",
+          "group": "inline@1"
         }
       ]
     },
