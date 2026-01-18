@@ -14,6 +14,7 @@ jobs:
       - run: bun install
       - run: bun run build
         working-directory: packages/docs
+      - run: echo "docs.sentriflow.com.au" > packages/docs/out/CNAME
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
