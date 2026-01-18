@@ -2,6 +2,9 @@ name: Deploy Docs
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
