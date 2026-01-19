@@ -25,18 +25,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CLI fallback commands (`activate`, `update`, `offline`, `license`) with helpful installation message when `@sentriflow/licensing` not installed
 
 - Unified `--pack <path...>` argument that auto-detects pack format from magic bytes
-  - Supports GRX2 (.grx2), GRPX (.grpx), and unencrypted (.js/.ts) packs
+  - Supports GRX2 (.grx2) and unencrypted (.js/.ts) packs
   - Format is detected from file content, not extension
   - Multiple packs can be specified with multiple `--pack` flags
 - Format-based priority assignment:
   - Unencrypted packs: priority 100 + order index
-  - GRPX packs: priority 200 + order index
   - GRX2 packs: priority 300 + order index
 - `--strict-packs` now applies uniformly to all pack types
 
 ### Changed
 
-- `--strict-packs` now applies to GRX2, GRPX, and unencrypted packs (previously only GRPX)
+- `--strict-packs` now applies to GRX2 and unencrypted packs
+
+### Deprecated
+
+- **GRPX format** (`.grpx`) - GRPX files are now treated as unencrypted format. Use GRX2 (`.grx2`) for encrypted packs.
 - Pack loading summary now shows "Packs: X of Y loaded (Z rules)" instead of format-specific messages
 
 ### Migration Guide
@@ -46,16 +49,14 @@ Update your CLI commands:
 ```bash
 # Before (0.2.x)
 sentriflow --grx2-pack rules.grx2 --license-key $KEY config.cfg
-sentriflow --encrypted-pack rules.grpx --license-key $KEY config.cfg
 sentriflow --rule-pack rules.js config.cfg
 
 # After (0.3.0+)
 sentriflow --pack rules.grx2 --license-key $KEY config.cfg
-sentriflow --pack rules.grpx --license-key $KEY config.cfg
 sentriflow --pack rules.js config.cfg
 
-# Multiple packs (mixed formats)
-sentriflow --pack a.grx2 --pack b.grpx --pack c.js --license-key $KEY config.cfg
+# Multiple packs
+sentriflow --pack a.grx2 --pack b.grx2 --pack c.js --license-key $KEY config.cfg
 
 # Strict mode (applies to all packs)
 sentriflow --pack rules.grx2 --strict-packs --license-key $KEY config.cfg

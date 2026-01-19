@@ -1,7 +1,7 @@
 /**
  * Tests for the pack format detector module
  *
- * Tests format detection from magic bytes for GRX2, GRPX, and unencrypted packs.
+ * Tests format detection from magic bytes for GRX2 and unencrypted packs.
  */
 
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
@@ -14,7 +14,6 @@ describe('FORMAT_PRIORITIES', () => {
   it('should have correct priority tiers', () => {
     expect(FORMAT_PRIORITIES.unknown).toBe(0);
     expect(FORMAT_PRIORITIES.unencrypted).toBe(100);
-    expect(FORMAT_PRIORITIES.grpx).toBe(200);
     expect(FORMAT_PRIORITIES.grx2).toBe(300);
   });
 
@@ -68,15 +67,15 @@ describe('detectPackFormat', () => {
     expect(format).toBe('grx2');
   });
 
-  it('should detect GRPX format from magic bytes', async () => {
-    // GRPX magic bytes: 'GRPX'
+  it('should treat legacy GRPX files as unencrypted', async () => {
+    // GRPX format no longer supported - treated as unencrypted
     const grpxBuffer = Buffer.alloc(76);
     grpxBuffer.write('GRPX', 0, 'ascii');
 
     const path = await createTestFile('test.grpx', grpxBuffer);
     const format = await detectPackFormat(path);
 
-    expect(format).toBe('grpx');
+    expect(format).toBe('unencrypted');
   });
 
   it('should detect unencrypted JavaScript format', async () => {
@@ -131,24 +130,24 @@ export const pack = {
       .rejects.toThrow('Pack file not found');
   });
 
-  it('should handle files with .grx2 extension but wrong magic', async () => {
-    // File has .grx2 extension but GRPX magic bytes
-    const grpxBuffer = Buffer.alloc(76);
-    grpxBuffer.write('GRPX', 0, 'ascii');
+  it('should handle files with .grx2 extension but no magic bytes', async () => {
+    // File has .grx2 extension but no recognized magic bytes
+    const buffer = Buffer.alloc(76);
+    buffer.write('XXXX', 0, 'ascii');
 
-    const path = await createTestFile('misnamed.grx2', grpxBuffer);
+    const path = await createTestFile('misnamed.grx2', buffer);
     const format = await detectPackFormat(path);
 
-    // Should detect based on magic bytes, not extension
-    expect(format).toBe('grpx');
+    // Should treat as unencrypted since no GRX2 magic bytes
+    expect(format).toBe('unencrypted');
   });
 
-  it('should handle files with .grpx extension but wrong magic', async () => {
-    // File has .grpx extension but GRX2 magic bytes
+  it('should handle files with extension mismatch for GRX2', async () => {
+    // File has .js extension but GRX2 magic bytes
     const grx2Buffer = Buffer.alloc(96);
     grx2Buffer.write('GRX2', 0, 'ascii');
 
-    const path = await createTestFile('misnamed.grpx', grx2Buffer);
+    const path = await createTestFile('misnamed.js', grx2Buffer);
     const format = await detectPackFormat(path);
 
     // Should detect based on magic bytes, not extension

@@ -8,17 +8,12 @@ import {
   RULE_ID_PATTERN,
   VALID_VENDOR_IDS,
   isValidVendorId,
-  loadEncryptedPack,
-  validatePackFormat,
-  PackLoadError,
   // JSON rules support
   validateJsonRuleFile,
   compileJsonRules,
   type JsonRuleFile,
   // GRX2 Extended Pack Support
-  loadExtendedPack,
   getMachineId,
-  EncryptedPackError,
   // Shared validation utilities (DRY)
   isValidRule,
   isValidRulePack,
@@ -48,6 +43,8 @@ import {
   wrapLoadError,
   createPackDescriptors,
   FORMAT_PRIORITIES,
+  loadGRX2Pack,
+  mapGRX2LoadError,
 } from './loaders';
 import type { PackDescriptor } from './loaders';
 
@@ -498,7 +495,7 @@ export interface ResolveOptions {
   /** Additional rules file path (legacy) */
   rulesPath?: string;
 
-  /** Path(s) to rule pack(s) - auto-detects format (GRX2, GRPX, or unencrypted) */
+  /** Path(s) to rule pack(s) - auto-detects format (GRX2 or unencrypted) */
   packPaths?: string | string[];
 
   /** License key for encrypted packs (shared across all packs) */
@@ -572,63 +569,6 @@ export async function loadRulePackFile(
   });
 }
 
-/** Map PackLoadError codes to user-friendly messages */
-function mapPackLoadError(error: PackLoadError): never {
-  const messages: Record<string, string> = {
-    DECRYPTION_FAILED: 'Invalid license key for encrypted pack',
-    EXPIRED: 'Encrypted pack has expired',
-    MACHINE_MISMATCH: 'License is not valid for this machine',
-    ACTIVATION_LIMIT: 'Maximum activations exceeded for this license',
-  };
-  throw new SentriflowConfigError(
-    messages[error.code] ?? `Failed to load encrypted pack: ${error.message}`
-  );
-}
-
-/**
- * SEC-012: Load an encrypted rule pack (.grpx) file.
- * Uses helper for path validation with specialized error mapping.
- *
- * @param packPath - Path to the encrypted pack file
- * @param licenseKey - License key for decryption
- * @param baseDirs - Optional allowed base directories
- */
-export async function loadEncryptedRulePack(
-  packPath: string,
-  licenseKey: string,
-  baseDirs?: string[]
-): Promise<RulePack> {
-  const canonicalPath = validatePathOrThrow(
-    packPath,
-    validatePackPath,
-    'encrypted pack',
-    baseDirs
-  );
-
-  try {
-    const packData = await readFileAsync(canonicalPath);
-
-    if (!validatePackFormat(packData)) {
-      throw new SentriflowConfigError('Invalid encrypted pack format');
-    }
-
-    const loadedPack = await loadEncryptedPack(packData, {
-      licenseKey,
-      timeout: 10000,
-    });
-
-    return {
-      ...loadedPack.metadata,
-      priority: 200,
-      rules: loadedPack.rules,
-    };
-  } catch (error) {
-    if (error instanceof PackLoadError) mapPackLoadError(error);
-    if (error instanceof SentriflowConfigError) throw error;
-    throw new SentriflowConfigError('Failed to load encrypted rule pack');
-  }
-}
-
 /**
  * Resolve final rule set from config file + CLI options + rule packs.
  *
@@ -641,7 +581,6 @@ export async function loadEncryptedRulePack(
  * 6. CLI --json-rules file(s) (priority 100+)
  * 7. CLI --pack file(s) with format-based priority:
  *    - Unencrypted packs (priority 100 + index)
- *    - GRPX packs (priority 200 + index)
  *    - GRX2 packs (priority 300 + index)
  *
  * Disables are collected from all packs and applied to default rules.
@@ -770,7 +709,7 @@ export async function resolveRules(
   }
 
   // Unified pack loading with auto-format detection
-  // Priority assignment: unencrypted=100+i, grpx=200+i, grx2=300+i
+  // Priority assignment: unencrypted=100+i, grx2=300+i
   if (packPathsArray.length > 0) {
     // Detect format for each pack
     let packDescriptors: PackDescriptor[];
@@ -786,9 +725,7 @@ export async function resolveRules(
     }
 
     // Check if any encrypted packs need a license key
-    const hasEncryptedPacks = packDescriptors.some(
-      (d) => d.format === 'grx2' || d.format === 'grpx'
-    );
+    const hasEncryptedPacks = packDescriptors.some((d) => d.format === 'grx2');
     if (hasEncryptedPacks && !licenseKey) {
       const errorMsg =
         'License key required for encrypted packs (use --license-key or set SENTRIFLOW_LICENSE_KEY)';
@@ -839,25 +776,14 @@ export async function resolveRules(
               console.error(`Warning: Skipping GRX2 pack (no machine ID): ${desc.path}`);
               continue;
             }
-            loadedPack = await loadExtendedPack(
-              validation.canonicalPath!,
-              licenseKey,
-              machineId
-            );
-            loadedPack.priority = desc.priority;
-            break;
-          }
 
-          case 'grpx': {
-            if (!licenseKey) {
-              console.error(`Warning: Skipping GRPX pack (no license key): ${desc.path}`);
-              continue;
-            }
-            loadedPack = await loadEncryptedRulePack(
-              validation.canonicalPath!,
+            const result = await loadGRX2Pack({
+              filePath: validation.canonicalPath!,
               licenseKey,
-              allowedBaseDirs
-            );
+              machineId,
+            });
+
+            loadedPack = result.rulePack;
             loadedPack.priority = desc.priority;
             break;
           }
@@ -881,21 +807,7 @@ export async function resolveRules(
         totalRules += loadedPack.rules.length;
       } catch (error) {
         // Map error codes to user-friendly messages
-        let errorMsg: string;
-        if (error instanceof EncryptedPackError) {
-          const messages: Record<string, string> = {
-            LICENSE_MISSING: 'Invalid or missing license key',
-            LICENSE_EXPIRED: 'License has expired',
-            LICENSE_INVALID: 'License key is invalid for this pack',
-            DECRYPTION_FAILED: 'Failed to decrypt pack (invalid key or corrupted data)',
-            MACHINE_MISMATCH: 'License is not valid for this machine',
-            PACK_CORRUPTED: 'Pack file is corrupted or invalid',
-            NOT_EXTENDED_FORMAT: 'Pack is not in extended GRX2 format',
-          };
-          errorMsg = messages[error.code] ?? `Pack load error: ${error.message}`;
-        } else {
-          errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        }
+        const errorMsg = mapGRX2LoadError(error);
 
         if (strictPacks) {
           throw new SentriflowConfigError(

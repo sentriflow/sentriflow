@@ -14,8 +14,6 @@ import {
   InputValidationError,
   // GRX2 Extended Pack Support
   getMachineId,
-  loadExtendedPack,
-  EncryptedPackError,
 } from '@sentriflow/core';
 import type { VendorSchema } from '@sentriflow/core';
 import type { IRule, RuleResult, Tag } from '@sentriflow/core';
@@ -92,7 +90,7 @@ program
   .option('-r, --rules <path>', 'Additional rules file to load (legacy)')
   .option(
     '--pack <path...>',
-    'Path(s) to rule pack(s) (auto-detects format: .grx2, .grpx, or unencrypted)'
+    'Path(s) to rule pack(s) (.grx2 encrypted or unencrypted JS/TS modules)'
   )
   .option(
     '--license-key <key>',
@@ -968,7 +966,7 @@ program
       } else {
         try {
           vendor = getVendor(options.vendor);
-        } catch (e) {
+        } catch {
           console.error(`Error: Unknown vendor '${options.vendor}'`);
           console.error(
             `Available vendors: ${getAvailableVendors().join(', ')}, auto`
@@ -1094,12 +1092,12 @@ async function loadLicensingExtension(): Promise<void> {
     // Use variable to avoid TypeScript static analysis error for optional package
     const licensingModulePath = '@sentriflow/licensing/cli';
     const licensing = await import(/* @vite-ignore */ licensingModulePath) as {
-      registerCommands?: (program: unknown) => void;
+      registerCommands?: (program: unknown, options?: { cliVersion?: string }) => void;
     };
 
-    // Register licensing commands with the CLI
+    // Register licensing commands with the CLI, passing version for API reporting
     if (licensing.registerCommands) {
-      licensing.registerCommands(program);
+      licensing.registerCommands(program, { cliVersion: __VERSION__ });
     }
   } catch {
     // @sentriflow/licensing not installed - register fallback commands with helpful message

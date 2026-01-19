@@ -205,22 +205,28 @@ export function buildExtendedGRX2Pack(
 // Test Pack Generators
 // =============================================================================
 
+// Simple check function that always passes
+const PASS_CHECK_SOURCE = 'function(node, ctx) { return null; }';
+
 export function generateValidPack(): Buffer {
   const rulePack = {
     name: 'test-pack',
     version: '1.0.0',
     publisher: 'netsectech',
     description: 'Test rule pack',
+    priority: 100,
     rules: [
       {
         id: 'TEST-001',
         selector: 'interface',
-        metadata: { level: 'error', obu: 'network', owner: 'test' },
+        metadata: { level: 'error', obu: 'network', owner: 'test', description: 'Test rule 1' },
+        checkSource: PASS_CHECK_SOURCE,
       },
       {
         id: 'TEST-002',
         selector: 'router bgp',
-        metadata: { level: 'warning', obu: 'network', owner: 'test' },
+        metadata: { level: 'warning', obu: 'network', owner: 'test', description: 'Test rule 2' },
+        checkSource: PASS_CHECK_SOURCE,
       },
     ],
   };
@@ -246,11 +252,13 @@ export function generateMachineBoundPack(): Buffer {
     version: '1.0.0',
     publisher: 'netsectech',
     description: 'Machine-bound test pack',
+    priority: 100,
     rules: [
       {
         id: 'MB-001',
         selector: 'interface',
-        metadata: { level: 'error', obu: 'network', owner: 'test' },
+        metadata: { level: 'error', obu: 'network', owner: 'test', description: 'Machine-bound rule' },
+        checkSource: PASS_CHECK_SOURCE,
       },
     ],
   };
@@ -265,11 +273,13 @@ export function generatePortablePack(): Buffer {
     version: '1.0.0',
     publisher: 'netsectech',
     description: 'Portable test pack (no machine binding)',
+    priority: 100,
     rules: [
       {
         id: 'PORT-001',
         selector: 'interface',
-        metadata: { level: 'error', obu: 'network', owner: 'test' },
+        metadata: { level: 'error', obu: 'network', owner: 'test', description: 'Portable rule' },
+        checkSource: PASS_CHECK_SOURCE,
       },
     ],
   };

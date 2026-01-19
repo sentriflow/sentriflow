@@ -13,7 +13,7 @@ import { resolve } from 'node:path';
 /**
  * Detected pack format
  */
-export type PackFormat = 'grx2' | 'grpx' | 'unencrypted' | 'unknown';
+export type PackFormat = 'grx2' | 'unencrypted' | 'unknown';
 
 /**
  * Priority tiers by format.
@@ -21,13 +21,11 @@ export type PackFormat = 'grx2' | 'grpx' | 'unencrypted' | 'unknown';
  *
  * - unknown: 0 (fallback, should not occur in normal operation)
  * - unencrypted: 100 (plain JS/TS modules)
- * - grpx: 200 (legacy encrypted format)
- * - grx2: 300 (extended encrypted format)
+ * - grx2: 300 (GRX2 encrypted format)
  */
 export const FORMAT_PRIORITIES: Record<PackFormat, number> = {
   unknown: 0,
   unencrypted: 100,
-  grpx: 200,
   grx2: 300,
 };
 
@@ -36,7 +34,6 @@ export const FORMAT_PRIORITIES: Record<PackFormat, number> = {
  */
 const MAGIC_BYTES = {
   GRX2: Buffer.from('GRX2', 'ascii'),
-  GRPX: Buffer.from('GRPX', 'ascii'),
 } as const;
 
 const MAGIC_BYTES_LENGTH = 4;
@@ -86,11 +83,6 @@ export async function detectPackFormat(filePath: string): Promise<PackFormat> {
     // Check for GRX2 magic bytes
     if (buffer.equals(MAGIC_BYTES.GRX2)) {
       return 'grx2';
-    }
-
-    // Check for GRPX magic bytes
-    if (buffer.equals(MAGIC_BYTES.GRPX)) {
-      return 'grpx';
     }
 
     // No magic bytes match - treat as unencrypted module

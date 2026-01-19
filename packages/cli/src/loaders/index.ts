@@ -87,3 +87,6 @@ export {
   FORMAT_PRIORITIES,
 } from './pack-detector';
 export type { PackFormat, PackDescriptor } from './pack-detector';
+
+// Unified pack loader exports
+export { loadGRX2Pack, mapGRX2LoadError } from './pack-loader';

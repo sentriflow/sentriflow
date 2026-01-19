@@ -52,6 +52,9 @@ const TEST_CONFIG_PATH = join(TEMP_DIR, 'test-router.cfg');
 // Dynamic Fixture Generators (using real machine ID)
 // =============================================================================
 
+// Simple check function that always passes (no issues found)
+const PASS_CHECK_SOURCE = 'function(node, ctx) { return null; }';
+
 /**
  * Generate a valid GRX2 pack with the real machine ID
  */
@@ -61,16 +64,19 @@ function generateValidPackForMachine(machineId: string): Buffer {
     version: '1.0.0',
     publisher: 'netsectech',
     description: 'Test rule pack for CLI integration tests',
+    priority: 100,
     rules: [
       {
         id: 'TEST-001',
         selector: 'interface',
         metadata: { level: 'error', obu: 'network', owner: 'test', description: 'Test rule 1' },
+        checkSource: PASS_CHECK_SOURCE,
       },
       {
         id: 'TEST-002',
         selector: 'router bgp',
         metadata: { level: 'warning', obu: 'network', owner: 'test', description: 'Test rule 2' },
+        checkSource: PASS_CHECK_SOURCE,
       },
     ],
   };
@@ -88,11 +94,13 @@ function generateSecondValidPackForMachine(machineId: string): Buffer {
     version: '1.0.0',
     publisher: 'netsectech',
     description: 'Second test rule pack',
+    priority: 100,
     rules: [
       {
         id: 'TEST-003',
         selector: 'ip route',
         metadata: { level: 'info', obu: 'routing', owner: 'test', description: 'Test rule 3' },
+        checkSource: PASS_CHECK_SOURCE,
       },
     ],
   };

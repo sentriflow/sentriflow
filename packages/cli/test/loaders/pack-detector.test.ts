@@ -29,13 +29,11 @@ describe('Pack Format Detection', () => {
     test('defines correct priority tiers', () => {
       expect(FORMAT_PRIORITIES.unknown).toBe(0);
       expect(FORMAT_PRIORITIES.unencrypted).toBe(100);
-      expect(FORMAT_PRIORITIES.grpx).toBe(200);
       expect(FORMAT_PRIORITIES.grx2).toBe(300);
     });
 
     test('GRX2 has highest priority', () => {
-      expect(FORMAT_PRIORITIES.grx2).toBeGreaterThan(FORMAT_PRIORITIES.grpx);
-      expect(FORMAT_PRIORITIES.grpx).toBeGreaterThan(FORMAT_PRIORITIES.unencrypted);
+      expect(FORMAT_PRIORITIES.grx2).toBeGreaterThan(FORMAT_PRIORITIES.unencrypted);
       expect(FORMAT_PRIORITIES.unencrypted).toBeGreaterThan(FORMAT_PRIORITIES.unknown);
     });
   });
@@ -53,7 +51,7 @@ describe('Pack Format Detection', () => {
       expect(format).toBe('grx2');
     });
 
-    test('detects GRPX format from magic bytes', async () => {
+    test('treats legacy GRPX files as unencrypted', async () => {
       const testFile = join(testDir, 'test.grpx');
       const content = Buffer.concat([
         Buffer.from('GRPX', 'ascii'),
@@ -62,7 +60,7 @@ describe('Pack Format Detection', () => {
       await writeFile(testFile, content);
 
       const format = await detectPackFormat(testFile);
-      expect(format).toBe('grpx');
+      expect(format).toBe('unencrypted'); // GRPX format no longer supported
     });
 
     test('returns unencrypted for JS files', async () => {
@@ -133,7 +131,7 @@ describe('Pack Format Detection', () => {
       expect(desc.priority).toBe(302); // 300 + 2
     });
 
-    test('assigns correct priority for GRPX pack', async () => {
+    test('treats legacy GRPX pack as unencrypted', async () => {
       const testFile = join(testDir, 'priority-grpx.grpx');
       const content = Buffer.concat([
         Buffer.from('GRPX', 'ascii'),
@@ -143,9 +141,9 @@ describe('Pack Format Detection', () => {
 
       const desc = await createPackDescriptor(testFile, 5);
 
-      expect(desc.format).toBe('grpx');
-      expect(desc.basePriority).toBe(200);
-      expect(desc.priority).toBe(205); // 200 + 5
+      expect(desc.format).toBe('unencrypted'); // GRPX format no longer supported
+      expect(desc.basePriority).toBe(100);
+      expect(desc.priority).toBe(105); // 100 + 5
     });
 
     test('assigns correct priority for unencrypted pack', async () => {
@@ -173,14 +171,14 @@ describe('Pack Format Detection', () => {
   describe('createPackDescriptors', () => {
     test('creates descriptors for multiple packs', async () => {
       const grx2File = join(testDir, 'multi-1.grx2');
-      const grpxFile = join(testDir, 'multi-2.grpx');
-      const jsFile = join(testDir, 'multi-3.js');
+      const jsFile1 = join(testDir, 'multi-2.js');
+      const jsFile2 = join(testDir, 'multi-3.js');
 
       await writeFile(grx2File, Buffer.concat([Buffer.from('GRX2', 'ascii'), Buffer.alloc(10)]));
-      await writeFile(grpxFile, Buffer.concat([Buffer.from('GRPX', 'ascii'), Buffer.alloc(10)]));
-      await writeFile(jsFile, 'module.exports = {};');
+      await writeFile(jsFile1, 'module.exports = { id: 1 };');
+      await writeFile(jsFile2, 'module.exports = { id: 2 };');
 
-      const descriptors = await createPackDescriptors([grx2File, grpxFile, jsFile]);
+      const descriptors = await createPackDescriptors([grx2File, jsFile1, jsFile2]);
 
       expect(descriptors).toHaveLength(3);
 
@@ -189,8 +187,8 @@ describe('Pack Format Detection', () => {
       expect(descriptors[0]?.priority).toBe(300); // 300 + 0
 
       // Second pack (index 1)
-      expect(descriptors[1]?.format).toBe('grpx');
-      expect(descriptors[1]?.priority).toBe(201); // 200 + 1
+      expect(descriptors[1]?.format).toBe('unencrypted');
+      expect(descriptors[1]?.priority).toBe(101); // 100 + 1
 
       // Third pack (index 2)
       expect(descriptors[2]?.format).toBe('unencrypted');
