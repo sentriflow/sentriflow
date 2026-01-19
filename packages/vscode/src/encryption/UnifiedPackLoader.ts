@@ -2,12 +2,11 @@
  * Unified Pack Loader
  *
  * Provides multi-format pack loading support for VS Code extension.
- * Scans for both GRX2 and GRPX formats, auto-detects format from magic bytes,
+ * Scans for GRX2 format, auto-detects format from magic bytes,
  * and routes to the appropriate loader.
  *
  * Supported formats:
  * - GRX2: Extended encrypted format with embedded wrapped TMK
- * - GRPX: Encrypted format with PBKDF2 key derivation
  * - Unencrypted: Detected but not loaded (info message shown)
  *
  * @module encryption/UnifiedPackLoader
@@ -21,7 +20,6 @@ import type { RulePack } from '@sentriflow/core';
 import {
   detectPackFormat,
   type PackFormat,
-  loadEncryptedPack as loadGrpxPack,
 } from '@sentriflow/core';
 import { loadExtendedPack as loadGrx2Pack, isExtendedGRX2 } from './GRX2ExtendedLoader';
 import { loadCloudPack, isStandardGRX2, getPackTierId, getPackKeyType } from './CloudPackLoader';
@@ -307,52 +305,6 @@ export async function loadPackFile(
         try {
           debug?.(`[UnifiedLoader] Trying license key ${i + 1}/${keys.length} for ${feedId}`);
           const pack = await loadGrx2Pack(filePath, key, machineId, debug);
-          return {
-            info: fileInfo,
-            pack,
-            loaded: true,
-          };
-        } catch (error) {
-          lastError = error instanceof Error ? error.message : String(error);
-          debug?.(`[UnifiedLoader] License key ${i + 1} failed: ${lastError}`);
-          // Continue to try next key
-        }
-      }
-      // All keys failed
-      return {
-        info: fileInfo,
-        loaded: false,
-        error: keys.length > 1
-          ? `Failed with all ${keys.length} license keys. Last error: ${lastError}`
-          : lastError,
-      };
-    }
-
-    case 'grpx': {
-      // Try each license key until one works
-      let lastError: string = 'Unknown error';
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i]!;
-        try {
-          debug?.(`[UnifiedLoader] Trying license key ${i + 1}/${keys.length} for ${feedId}`);
-          const packData = await readFile(filePath);
-          const loadedPack = await loadGrpxPack(packData, {
-            licenseKey: key,
-            machineId,
-          });
-
-          // Convert to RulePack format
-          // GRPX packs use FORMAT_PRIORITIES.grpx (200) as default priority
-          const pack: RulePack = {
-            name: feedId,
-            version: loadedPack.metadata.version,
-            publisher: loadedPack.metadata.publisher,
-            description: loadedPack.metadata.description,
-            license: loadedPack.metadata.license,
-            priority: 200, // GRPX format tier priority
-            rules: loadedPack.rules,
-          };
-
           return {
             info: fileInfo,
             pack,
