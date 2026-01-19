@@ -66,6 +66,8 @@ const customTsRule: IRule = {
   category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
+    obu: 'Network Engineering',
+    owner: 'NetOps',
     description: 'Trunk ports should have explicit allowed VLAN list',
     remediation: "Add 'switchport trunk allowed vlan <list>' to restrict VLANs",
   },
@@ -120,6 +122,8 @@ const jsonRuleDefinition: JsonRule = {
   category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
+    obu: 'Network Engineering',
+    owner: 'NetOps',
     description: 'Trunk ports should have explicit allowed VLAN list',
     remediation: "Add 'switchport trunk allowed vlan <list>' to restrict VLANs",
   },
@@ -153,6 +157,8 @@ const helperBasedTsRule: IRule = {
   category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
+    obu: 'Network Engineering',
+    owner: 'NetOps',
     description: 'Trunk ports should have explicit allowed VLAN list',
     remediation: "Add 'switchport trunk allowed vlan <list>' to restrict VLANs",
   },
@@ -210,6 +216,8 @@ const jsonRuleWithHelpers: JsonRule = {
   category: 'Network-Segmentation',
   metadata: {
     level: 'warning',
+    obu: 'Network Engineering',
+    owner: 'NetOps',
     description: 'Trunk ports should have explicit allowed VLAN list',
     remediation: "Add 'switchport trunk allowed vlan <list>' to restrict VLANs",
   },
