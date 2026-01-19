@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@sentriflow/core": "workspace:*",
+    "@sentriflow/licensing": "workspace:*",
     "@sentriflow/rules-default": "workspace:*",
     "bun-types": "latest",
     "esbuild": "^0.27.0"

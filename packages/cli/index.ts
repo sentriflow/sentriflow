@@ -1090,10 +1090,9 @@ program
  */
 async function loadLicensingExtension(): Promise<void> {
   try {
-    // Dynamic import - will fail if @sentriflow/licensing is not installed
-    // Use variable to avoid TypeScript static analysis error for optional package
-    const licensingModulePath = '@sentriflow/licensing/cli';
-    const licensing = await import(/* @vite-ignore */ licensingModulePath) as {
+    // Static import that esbuild can bundle - will fail at build time if not available
+    // For OSS builds without licensing, this entire try-catch becomes the fallback
+    const licensing = await import('@sentriflow/licensing/cli') as {
       registerCommands?: (program: unknown) => void;
     };
 

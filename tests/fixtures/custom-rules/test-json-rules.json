@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "meta": {
+    "name": "Test JSON Rules",
+    "description": "Test rules for CLI integration testing",
+    "author": "Test Suite"
+  },
+  "rules": [
+    {
+      "id": "TEST-JSON-001",
+      "selector": "interface",
+      "vendor": ["cisco-ios", "cisco-nxos"],
+      "category": "documentation",
+      "metadata": {
+        "level": "warning",
+        "obu": "Network Operations",
+        "owner": "Test Suite",
+        "description": "All interfaces should have a description for documentation purposes",
+        "remediation": "Add a description command under the interface configuration"
+      },
+      "check": {
+        "type": "child_not_exists",
+        "selector": "description"
+      },
+      "failureMessage": "Interface is missing a description"
+    },
+    {
+      "id": "TEST-JSON-002",
+      "selector": "hostname",
+      "vendor": ["cisco-ios", "cisco-nxos"],
+      "category": "inventory",
+      "metadata": {
+        "level": "info",
+        "obu": "Network Operations",
+        "owner": "Test Suite",
+        "description": "Detects configured hostname for inventory purposes",
+        "remediation": "Configure hostname using the hostname command"
+      },
+      "check": {
+        "type": "match",
+        "pattern": ".*"
+      },
+      "successMessage": "Device hostname detected"
+    }
+  ]
+}

@@ -4,7 +4,10 @@
   "type": "module",
   "version": "0.3.1",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "../../sentriflow-private/packages/licensing",
+    "../../sentriflow-private/packages/cloud-infra",
+    "../../sentriflow-private/packages/cloud-api"
   ],
   "scripts": {
     "build:cli": "cd packages/cli && bun run build && cd ../.. && bun build packages/cli/dist/index.js --compile --env=disable --outfile sentriflow.exe",
