@@ -7,7 +7,7 @@
  * 3. Custom TypeScript rule (inline)
  */
 
-import { describe, test } from 'bun:test';
+import { describe, test, setDefaultTimeout } from 'bun:test';
 import { RuleEngine } from '../src/engine/Runner';
 import { SchemaAwareParser } from '../src/parser/SchemaAwareParser';
 import { getVendor } from '../src/parser/vendors';
@@ -321,6 +321,9 @@ function formatResult(result: BenchmarkResult): string {
 // ============================================================================
 
 describe('Rule Type Performance Comparison', () => {
+  // Benchmarks need longer timeout due to 1000 iterations per test
+  setDefaultTimeout(60000);
+
   test('Compare TS vs JSON rule performance (same logic)', () => {
     // Parse test configuration
     const configText = generateTrunkConfig(100); // 100 interfaces
