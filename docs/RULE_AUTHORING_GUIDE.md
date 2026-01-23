@@ -1083,7 +1083,7 @@ See the [Helper Functions Reference](./helpers/README.md) for comprehensive docu
 ### Testing Your Rules
 
 ```typescript
-import { parse } from '@sentriflow/core';
+import { SchemaAwareParser, RuleEngine } from '@sentriflow/core';
 import { MyRule } from './my-rules';
 
 const config = `
@@ -1091,14 +1091,12 @@ interface GigabitEthernet0/1
  switchport mode trunk
 `;
 
-const ast = parse(config, { vendor: 'cisco-ios' });
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
 
-for (const node of ast) {
-  if (node.id.startsWith('interface')) {
-    const result = MyRule.check(node, {});
-    console.log(result);
-  }
-}
+const engine = new RuleEngine();
+const results = engine.run(nodes, [MyRule]);
+console.log(results);
 ```
 
 ### Documentation Requirements

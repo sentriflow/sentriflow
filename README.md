@@ -108,8 +108,8 @@ code --install-extension sentriflow.sentriflow-vscode
 ## Programmatic Usage
 
 ```typescript
-import { parse, lint } from '@sentriflow/core';
-import { defaultRules } from '@sentriflow/rules-default';
+import { SchemaAwareParser, RuleEngine } from '@sentriflow/core';
+import { allRules } from '@sentriflow/rules-default';
 
 const config = `
 hostname R1
@@ -117,8 +117,11 @@ interface GigabitEthernet0/0
  ip address 192.168.1.1 255.255.255.0
 `;
 
-const ast = parse(config, { vendor: 'cisco-ios' });
-const results = lint(ast, defaultRules);
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
+
+const engine = new RuleEngine();
+const results = engine.run(nodes, allRules);
 
 console.log(results);
 ```
