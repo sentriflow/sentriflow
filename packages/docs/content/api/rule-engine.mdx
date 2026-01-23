@@ -7,7 +7,7 @@ import { Callout, Tabs } from 'nextra/components'
 
 # Rule Engine API
 
-The rule engine evaluates validation rules against parsed configuration AST. This page covers the API for running rules programmatically.
+The rule engine evaluates validation rules against parsed configuration nodes. This page covers the API for running rules programmatically.
 
 ## Installation
 
@@ -19,7 +19,7 @@ npm install @sentriflow/rules-default  # Optional: default rules
 ## Basic Usage
 
 ```typescript
-import { parse, evaluate } from '@sentriflow/core';
+import { SchemaAwareParser, RuleEngine } from '@sentriflow/core';
 import { allRules } from '@sentriflow/rules-default';
 
 const config = `
@@ -28,8 +28,11 @@ interface GigabitEthernet0/0
  ip address 192.168.1.1 255.255.255.0
 `;
 
-const ast = parse(config, 'cisco-ios');
-const results = evaluate(ast, allRules);
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
+
+const engine = new RuleEngine();
+const results = engine.run(nodes, allRules);
 
 for (const result of results) {
   if (!result.passed) {
@@ -38,82 +41,81 @@ for (const result of results) {
 }
 ```
 
-## evaluate()
+## SchemaAwareParser
 
-Evaluate rules against a parsed AST.
+The `SchemaAwareParser` class parses configuration text into an array of `ConfigNode` objects.
 
 ### Signature
 
 ```typescript
-function evaluate(
-  ast: ConfigNode[],
-  rules: IRule[],
-  options?: EvaluateOptions
-): RuleResult[]
-```
-
-### Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `ast` | `ConfigNode[]` | Yes | Parsed configuration AST |
-| `rules` | `IRule[]` | Yes | Rules to evaluate |
-| `options` | `EvaluateOptions` | No | Evaluation options |
-
-### EvaluateOptions
-
-```typescript
-interface EvaluateOptions {
-  /** Vendor for filtering vendor-specific rules */
-  vendor?: RuleVendor;
-
-  /** Minimum severity to include in results */
-  minimumSeverity?: 'error' | 'warning' | 'info';
-
-  /** Rule IDs to skip */
-  disabledRules?: string[];
-
-  /** Categories to skip */
-  disabledCategories?: string[];
-
-  /** Stop after first failure */
-  failFast?: boolean;
-
-  /** Timeout per rule check in ms */
-  timeout?: number;
-
-  /** Include passed results (not just failures) */
-  includePassedResults?: boolean;
+class SchemaAwareParser {
+  parse(config: string): ConfigNode[]
 }
 ```
-
-### Returns
-
-Returns an array of `RuleResult` objects.
 
 ### Example
 
 ```typescript
-import { parse, evaluate } from '@sentriflow/core';
+import { SchemaAwareParser } from '@sentriflow/core';
+
+const config = loadConfig('./router.conf');
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
+
+console.log(`Parsed ${nodes.length} configuration nodes`);
+```
+
+## RuleEngine
+
+The `RuleEngine` class evaluates rules against parsed configuration nodes.
+
+### Constructor
+
+```typescript
+const engine = new RuleEngine();
+```
+
+### run()
+
+Evaluate rules against parsed configuration nodes.
+
+#### Signature
+
+```typescript
+class RuleEngine {
+  run(nodes: ConfigNode[], rules: IRule[]): RuleResult[]
+}
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `nodes` | `ConfigNode[]` | Yes | Parsed configuration nodes |
+| `rules` | `IRule[]` | Yes | Rules to evaluate |
+
+#### Returns
+
+Returns an array of `RuleResult` objects.
+
+#### Example
+
+```typescript
+import { SchemaAwareParser, RuleEngine } from '@sentriflow/core';
 import { allRules, getRulesByVendor } from '@sentriflow/rules-default';
 
 const config = loadConfig('./router.conf');
-const ast = parse(config, 'cisco-ios');
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
+
+const engine = new RuleEngine();
 
 // Evaluate all rules
-const allResults = evaluate(ast, allRules);
+const allResults = engine.run(nodes, allRules);
 
 // Evaluate only Cisco rules
 const ciscoRules = getRulesByVendor('cisco-ios');
-const ciscoResults = evaluate(ast, ciscoRules);
-
-// Evaluate with options
-const filteredResults = evaluate(ast, allRules, {
-  vendor: 'cisco-ios',
-  minimumSeverity: 'warning',
-  disabledRules: ['NET-DOC-001'],
-  includePassedResults: false,
-});
+const ciscoResults = engine.run(nodes, ciscoRules);
 ```
 
 ## RuleResult Interface
@@ -146,139 +148,27 @@ interface RuleResult {
 }
 ```
 
-## evaluateFile()
+## Working with Rules
 
-Parse and evaluate a configuration file in one call.
-
-### Signature
+### Using Default Rules
 
 ```typescript
-async function evaluateFile(
-  filePath: string,
-  rules: IRule[],
-  options?: EvaluateFileOptions
-): Promise<RuleResult[]>
+import { allRules, getRulesByVendor } from '@sentriflow/rules-default';
+
+// All built-in rules
+console.log(`Total rules: ${allRules.length}`);
+
+// Filter rules by vendor
+const ciscoRules = getRulesByVendor('cisco-ios');
+const juniperRules = getRulesByVendor('juniper');
 ```
 
-### Example
+### Custom Rule Definition
+
+Define custom rules programmatically:
 
 ```typescript
-import { evaluateFile } from '@sentriflow/core';
-import { allRules } from '@sentriflow/rules-default';
-
-const results = await evaluateFile('./router.conf', allRules, {
-  vendor: 'cisco-ios',
-  minimumSeverity: 'warning',
-});
-
-console.log(`Found ${results.filter(r => !r.passed).length} issues`);
-```
-
-## evaluateDirectory()
-
-Evaluate all configuration files in a directory.
-
-### Signature
-
-```typescript
-async function evaluateDirectory(
-  dirPath: string,
-  rules: IRule[],
-  options?: EvaluateDirectoryOptions
-): Promise<Map<string, RuleResult[]>>
-```
-
-### EvaluateDirectoryOptions
-
-```typescript
-interface EvaluateDirectoryOptions extends EvaluateOptions {
-  /** Glob patterns to include */
-  include?: string[];
-
-  /** Glob patterns to exclude */
-  exclude?: string[];
-
-  /** Recurse into subdirectories */
-  recursive?: boolean;
-
-  /** Max concurrent file evaluations */
-  concurrency?: number;
-}
-```
-
-### Example
-
-```typescript
-import { evaluateDirectory } from '@sentriflow/core';
-import { allRules } from '@sentriflow/rules-default';
-
-const results = await evaluateDirectory('./configs', allRules, {
-  vendor: 'cisco-ios',
-  include: ['**/*.conf', '**/*.cfg'],
-  exclude: ['**/backup/**'],
-  recursive: true,
-  concurrency: 4,
-});
-
-for (const [file, fileResults] of results) {
-  const failures = fileResults.filter(r => !r.passed);
-  if (failures.length > 0) {
-    console.log(`\n${file}:`);
-    for (const result of failures) {
-      console.log(`  [${result.level}] ${result.ruleId}: ${result.message}`);
-    }
-  }
-}
-```
-
-## RuleEngine Class
-
-For advanced use cases, use the RuleEngine class directly:
-
-```typescript
-import { RuleEngine } from '@sentriflow/core';
-import { allRules } from '@sentriflow/rules-default';
-
-const engine = new RuleEngine({
-  rules: allRules,
-  defaultVendor: 'cisco-ios',
-  timeout: 100,
-});
-
-// Add custom rules
-engine.addRule(myCustomRule);
-engine.addRules(myRulePack.rules);
-
-// Remove rules
-engine.removeRule('NET-DOC-001');
-
-// Evaluate
-const results = engine.evaluate(ast);
-
-// Get rule info
-const rule = engine.getRule('NET-AUTH-001');
-const rulesByCategory = engine.getRulesByCategory('Authentication');
-```
-
-### RuleEngine Methods
-
-| Method | Description |
-|--------|-------------|
-| `addRule(rule)` | Add a single rule |
-| `addRules(rules)` | Add multiple rules |
-| `removeRule(id)` | Remove a rule by ID |
-| `getRule(id)` | Get rule by ID |
-| `getRules()` | Get all rules |
-| `getRulesByVendor(vendor)` | Get rules for vendor |
-| `getRulesByCategory(cat)` | Get rules by category |
-| `evaluate(ast, options?)` | Evaluate rules against AST |
-
-## Custom Rule Registration
-
-Register custom rules programmatically:
-
-```typescript
-import { RuleEngine } from '@sentriflow/core';
+import { SchemaAwareParser, RuleEngine } from '@sentriflow/core';
 import type { IRule } from '@sentriflow/core';
 
 const customRule: IRule = {
@@ -297,8 +187,29 @@ const customRule: IRule = {
   },
 };
 
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
+
 const engine = new RuleEngine();
-engine.addRule(customRule);
+const results = engine.run(nodes, [customRule]);
+```
+
+### Combining Rules
+
+```typescript
+import { SchemaAwareParser, RuleEngine } from '@sentriflow/core';
+import { allRules } from '@sentriflow/rules-default';
+import type { IRule } from '@sentriflow/core';
+
+const customRules: IRule[] = [
+  // Your custom rules here
+];
+
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
+
+const engine = new RuleEngine();
+const results = engine.run(nodes, [...allRules, ...customRules]);
 ```
 
 ## Rule Packs
@@ -306,75 +217,63 @@ engine.addRule(customRule);
 Load rules from rule packs:
 
 ```typescript
-import { loadRulePack, RuleEngine } from '@sentriflow/core';
+import { loadRulePack, SchemaAwareParser, RuleEngine } from '@sentriflow/core';
 
 // Load from file
 const pack = await loadRulePack('./custom-rules.json');
 
-// Load from package
-const pack2 = await loadRulePack('@myorg/security-rules');
-
 // Use with engine
-const engine = new RuleEngine({
-  rules: pack.rules,
-});
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
 
-// Handle rule conflicts
-engine.addRulePack(pack, {
-  conflictResolution: 'override', // or 'skip', 'error'
-});
+const engine = new RuleEngine();
+const results = engine.run(nodes, pack.rules);
 ```
 
-## Sandboxed Execution
-
-For untrusted rules, use sandboxed execution:
+## Complete Example
 
 ```typescript
-import { SandboxedExecutor } from '@sentriflow/core';
+import { SchemaAwareParser, RuleEngine } from '@sentriflow/core';
+import { allRules, getRulesByVendor } from '@sentriflow/rules-default';
+import * as fs from 'fs';
 
-const executor = new SandboxedExecutor({
-  timeout: 100,          // 100ms timeout per check
-  memoryLimit: 50 * 1024 * 1024,  // 50MB memory limit
-});
+// Load configuration
+const config = fs.readFileSync('./router.conf', 'utf-8');
 
-const results = await executor.evaluate(ast, untrustedRules);
-```
+// Parse configuration
+const parser = new SchemaAwareParser();
+const nodes = parser.parse(config);
 
-<Callout type="warning">
-  Sandboxed execution has ~10x overhead. Only use for untrusted rules.
-</Callout>
+// Get vendor-specific rules
+const ciscoRules = getRulesByVendor('cisco-ios');
 
-## Result Formatting
+// Evaluate rules
+const engine = new RuleEngine();
+const results = engine.run(nodes, ciscoRules);
 
-Format results for different outputs:
+// Process results
+const failures = results.filter(r => !r.passed);
+const errors = failures.filter(r => r.level === 'error');
+const warnings = failures.filter(r => r.level === 'warning');
 
-```typescript
-import { formatResults } from '@sentriflow/core';
+console.log(`Found ${errors.length} errors, ${warnings.length} warnings`);
 
-const results = evaluate(ast, rules);
-
-// Human-readable text
-const text = formatResults(results, 'text');
-
-// JSON
-const json = formatResults(results, 'json');
-
-// SARIF
-const sarif = formatResults(results, 'sarif', {
-  tool: {
-    name: 'SentriFlow',
-    version: '1.0.0',
-  },
-});
+for (const result of failures) {
+  console.log(`[${result.level}] ${result.ruleId}: ${result.message}`);
+  if (result.loc) {
+    console.log(`  at lines ${result.loc.startLine}-${result.loc.endLine}`);
+  }
+  if (result.remediation) {
+    console.log(`  fix: ${result.remediation}`);
+  }
+}
 ```
 
 ## Performance Tips
 
-1. **Filter rules by vendor** before evaluation
-2. **Use `failFast: true`** for quick validation checks
-3. **Disable rules** you don't need with `disabledRules`
-4. **Set appropriate timeout** for custom rules
-5. **Use streaming** for large configurations
+1. **Filter rules by vendor** before evaluation using `getRulesByVendor()`
+2. **Only include rules you need** - smaller rule sets evaluate faster
+3. **Reuse parser and engine instances** when processing multiple configurations
 
 ## Next Steps
 

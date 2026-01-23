@@ -392,8 +392,8 @@ Create unit tests for your rules:
 
 ```typescript filename="tests/enterprise-security.test.ts"
 import { describe, it, expect } from 'vitest';
+import { SchemaAwareParser } from '@sentriflow/core';
 import { VTYSSHRequired } from '../src/enterprise-security';
-import { parse } from '@sentriflow/core';
 
 describe('VTYSSHRequired', () => {
   it('passes when SSH transport is configured', () => {
@@ -402,7 +402,8 @@ line vty 0 4
  transport input ssh
  login local
 `;
-    const ast = parse(config, 'cisco-ios');
+    const parser = new SchemaAwareParser();
+    const ast = parser.parse(config);
     const vtyNode = ast.find(n => n.id.startsWith('line vty'));
 
     const result = VTYSSHRequired.check(vtyNode!, { getAst: () => ast });
@@ -415,7 +416,8 @@ line vty 0 4
 line vty 0 4
  transport input telnet ssh
 `;
-    const ast = parse(config, 'cisco-ios');
+    const parser = new SchemaAwareParser();
+    const ast = parser.parse(config);
     const vtyNode = ast.find(n => n.id.startsWith('line vty'));
 
     const result = VTYSSHRequired.check(vtyNode!, { getAst: () => ast });

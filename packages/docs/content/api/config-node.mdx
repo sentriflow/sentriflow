@@ -96,8 +96,8 @@ for (const child of interfaceNode.children) {
 Reference to parent node (undefined for root nodes):
 
 ```typescript
-const ipAddressNode = findNode(ast, 'ip address');
-console.log(ipAddressNode.parent?.id); // "interface GigabitEthernet0/0"
+const ipAddressNode = ast.find(n => n.id.startsWith('ip address'));
+console.log(ipAddressNode?.parent?.id); // "interface GigabitEthernet0/0"
 ```
 
 ### loc
@@ -118,164 +118,112 @@ Original text of the configuration line:
 node.raw === ' ip address 192.168.1.1 255.255.255.0'
 ```
 
-## Traversal Functions
+## Parsing Configuration
 
-### findNode()
-
-Find the first node matching a predicate:
+Use the `SchemaAwareParser` class to parse configuration text into an AST:
 
 ```typescript
-import { findNode } from '@sentriflow/core';
+import { SchemaAwareParser } from '@sentriflow/core';
 
-const interfaceNode = findNode(ast, node =>
-  node.type === 'section' && node.id.startsWith('interface')
+const config = `
+interface GigabitEthernet0/0
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+`;
+
+const parser = new SchemaAwareParser();
+const ast = parser.parse(config);
+```
+
+## Traversing the AST
+
+Since the AST is returned as an array of `ConfigNode` objects, you can use standard JavaScript array methods to traverse and query it.
+
+### Finding Nodes
+
+Use `Array.filter()` to find all nodes matching a condition:
+
+```typescript
+// Find all interface sections
+const interfaces = ast.filter(n =>
+  n.type === 'section' && n.id.startsWith('interface')
 );
+
+// Find all BGP router sections
+const bgpRouters = ast.filter(n => n.id.startsWith('router bgp'));
 ```
 
-### findAllNodes()
-
-Find all nodes matching a predicate:
+Use `Array.find()` to find the first matching node:
 
 ```typescript
-import { findAllNodes } from '@sentriflow/core';
-
-const allInterfaces = findAllNodes(ast, node =>
-  node.type === 'section' && node.id.startsWith('interface')
+const interfaceNode = ast.find(n =>
+  n.type === 'section' && n.id.startsWith('interface')
 );
-```
-
-### walkTree()
-
-Walk the AST tree depth-first:
-
-```typescript
-import { walkTree } from '@sentriflow/core';
-
-walkTree(ast, (node, depth) => {
-  console.log('  '.repeat(depth) + node.id);
-});
-```
-
-### filterBySelector()
-
-Get nodes matching a selector:
-
-```typescript
-import { filterBySelector } from '@sentriflow/core';
-
-// Get all interface nodes
-const interfaces = filterBySelector(ast, 'interface');
-
-// Get all BGP neighbors
-const neighbors = filterBySelector(ast, 'router bgp', 'neighbor');
 ```
 
 ## Query Helpers
 
-### hasChild()
+SentriFlow provides helper functions for common node queries. Import them from `@sentriflow/core`:
+
+```typescript
+import { hasChildCommand, getChildCommand, getChildCommands } from '@sentriflow/core';
+```
+
+### hasChildCommand()
 
 Check if a node has a child matching a prefix:
 
 ```typescript
-import { hasChild } from '@sentriflow/core';
+import { hasChildCommand } from '@sentriflow/core';
 
-const hasDescription = hasChild(interfaceNode, 'description');
-const isShutdown = hasChild(interfaceNode, 'shutdown');
+const hasDescription = hasChildCommand(interfaceNode, 'description');
+const isShutdown = hasChildCommand(interfaceNode, 'shutdown');
 ```
 
-### getChild()
+### getChildCommand()
 
 Get a child node by prefix:
 
 ```typescript
-import { getChild } from '@sentriflow/core';
+import { getChildCommand } from '@sentriflow/core';
 
-const descNode = getChild(interfaceNode, 'description');
+const descNode = getChildCommand(interfaceNode, 'description');
 if (descNode) {
   const description = descNode.params.slice(1).join(' ');
 }
 ```
 
-### getChildren()
+### getChildCommands()
 
 Get all children matching a prefix:
 
 ```typescript
-import { getChildren } from '@sentriflow/core';
+import { getChildCommands } from '@sentriflow/core';
 
-const aclEntries = getChildren(aclNode, 'permit');
-const denyEntries = getChildren(aclNode, 'deny');
+const aclEntries = getChildCommands(aclNode, 'permit');
+const denyEntries = getChildCommands(aclNode, 'deny');
 ```
 
-### getValue()
+## Working with Parameters
 
-Get a parameter value by index:
+Access parameter values directly from the `params` array:
 
 ```typescript
-import { getValue } from '@sentriflow/core';
-
 // For "ip address 192.168.1.1 255.255.255.0"
-const ip = getValue(node, 2);      // "192.168.1.1"
-const mask = getValue(node, 3);    // "255.255.255.0"
+const ip = node.params[2];      // "192.168.1.1"
+const mask = node.params[3];    // "255.255.255.0"
 ```
 
-### getValueAfter()
-
-Get value after a specific keyword:
+For more complex parameter extraction, use standard array methods:
 
 ```typescript
-import { getValueAfter } from '@sentriflow/core';
-
-// For "switchport trunk native vlan 999"
-const vlanId = getValueAfter(node, 'vlan');  // "999"
-
-// For "logging host 10.1.1.100 transport udp port 514"
-const port = getValueAfter(node, 'port');    // "514"
-```
-
-## Path-Based Queries
-
-### getPath()
-
-Get the path from root to a node:
-
-```typescript
-import { getPath } from '@sentriflow/core';
-
-const path = getPath(deepNode);
-// ['interface GigabitEthernet0/0', 'ip address 192.168.1.1 255.255.255.0']
-```
-
-### findByPath()
-
-Find a node by path:
-
-```typescript
-import { findByPath } from '@sentriflow/core';
-
-const node = findByPath(ast, [
-  'interface GigabitEthernet0/0',
-  'ip address'
-]);
+// Find value after a keyword
+const params = node.params;
+const vlanIndex = params.indexOf('vlan');
+const vlanId = vlanIndex !== -1 ? params[vlanIndex + 1] : undefined;
 ```
 
 ## Selector Matching
-
-### matchesSelector()
-
-Check if a node matches a selector:
-
-```typescript
-import { matchesSelector } from '@sentriflow/core';
-
-// Exact prefix match
-matchesSelector(node, 'interface')  // true for "interface ..."
-
-// Multi-part selector
-matchesSelector(node, 'router bgp')  // true for "router bgp 65000"
-```
-
-### Selector Syntax
 
 Selectors use case-insensitive prefix matching:
 
@@ -287,66 +235,12 @@ Selectors use case-insensitive prefix matching:
 // Multi-word selectors
 'router bgp'          // Matches: "router bgp 65000"
 'ip access-list'      // Matches: "ip access-list extended ..."
-
-// Wildcards (future)
-'interface Gi*'       // Matches: "interface GigabitEthernet..."
-```
-
-## Modification Helpers
-
-### cloneNode()
-
-Create a deep copy of a node:
-
-```typescript
-import { cloneNode } from '@sentriflow/core';
-
-const copy = cloneNode(interfaceNode);
-// Modify copy without affecting original
-```
-
-### createNode()
-
-Create a new ConfigNode:
-
-```typescript
-import { createNode } from '@sentriflow/core';
-
-const newNode = createNode({
-  id: 'description Uplink to Core',
-  type: 'command',
-  params: ['description', 'Uplink', 'to', 'Core'],
-  raw: ' description Uplink to Core',
-  loc: { startLine: 0, endLine: 0 },
-});
-```
-
-## Serialization
-
-### toConfig()
-
-Convert AST back to configuration text:
-
-```typescript
-import { toConfig } from '@sentriflow/core';
-
-const config = toConfig(ast, 'cisco-ios');
-```
-
-### toJSON()
-
-Serialize to JSON (excluding circular refs):
-
-```typescript
-import { toJSON } from '@sentriflow/core';
-
-const json = toJSON(ast);
 ```
 
 ## Example: Finding Security Issues
 
 ```typescript
-import { parse, findAllNodes, hasChild, getChild } from '@sentriflow/core';
+import { SchemaAwareParser, hasChildCommand, getChildCommand } from '@sentriflow/core';
 
 const config = `
 interface GigabitEthernet0/0
@@ -359,15 +253,14 @@ interface GigabitEthernet0/1
  no shutdown
 `;
 
-const ast = parse(config, 'cisco-ios');
+const parser = new SchemaAwareParser();
+const ast = parser.parse(config);
 
 // Find interfaces without descriptions
-const interfaces = findAllNodes(ast, n =>
-  n.type === 'section' && n.id.startsWith('interface')
-);
+const interfaces = ast.filter(n => n.id.startsWith('interface'));
 
 const missingDescription = interfaces.filter(iface =>
-  !hasChild(iface, 'description')
+  !hasChildCommand(iface, 'description')
 );
 
 for (const iface of missingDescription) {
@@ -378,7 +271,7 @@ for (const iface of missingDescription) {
 ## Example: Cross-Reference Check
 
 ```typescript
-import { parse, findAllNodes, getValueAfter } from '@sentriflow/core';
+import { SchemaAwareParser } from '@sentriflow/core';
 
 // Check if referenced IPs exist on interfaces
 function checkIpReferences(ast: ConfigNode[]): string[] {
@@ -386,7 +279,7 @@ function checkIpReferences(ast: ConfigNode[]): string[] {
 
   // Get all interface IPs
   const interfaceIps = new Set<string>();
-  const interfaces = findAllNodes(ast, n => n.id.startsWith('interface'));
+  const interfaces = ast.filter(n => n.id.startsWith('interface'));
 
   for (const iface of interfaces) {
     const ipNode = iface.children.find(c => c.id.startsWith('ip address'));
@@ -397,7 +290,7 @@ function checkIpReferences(ast: ConfigNode[]): string[] {
   }
 
   // Check route next-hops
-  const routes = findAllNodes(ast, n => n.id.startsWith('ip route'));
+  const routes = ast.filter(n => n.id.startsWith('ip route'));
   for (const route of routes) {
     const nextHop = route.params[4]; // ip route <dest> <mask> <next-hop>
     if (nextHop && !interfaceIps.has(nextHop)) {
