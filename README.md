@@ -2,7 +2,7 @@
 
 **Policy validation for network device configurations.**
 
-**[Documentation](https://docs.sentriflow.com.au)** | **[Rule Packs](https://sentriflow.com.au/packs)**
+**[Documentation](https://docs.sentriflow.com.au)** | **[Rule Packs](https://www.sentriflow.com.au/#pricing)**
 
 ---
 
@@ -104,7 +104,7 @@ sentriflow router.conf -f sarif
 | [@sentriflow/rules-default](packages/rules-default) | Example rules demonstrating the rule format (3-4 per vendor). |
 | [sentriflow-vscode](packages/vscode) | VS Code extension for real-time validation. |
 
-> **Note:** `rules-default` contains example rules to demonstrate capabilities. For production security baselines, see [SentriFlow Rule Packs](https://sentriflow.com.au/packs).
+> **Note:** `rules-default` contains example rules to demonstrate capabilities. For production security baselines, see [SentriFlow Rule Packs](https://www.sentriflow.com.au/#pricing).
 
 ---
 
@@ -196,7 +196,7 @@ SentriFlow uses an **open core** model. The engine, CLI, VS Code extension, and 
 | Quarterly rule updates | ❌ | ✅ |
 | Priority support | ❌ | ✅ |
 
-**[View Rule Packs →](https://sentriflow.com.au/packs)**
+**[View Rule Packs →](https://www.sentriflow.com.au/#pricing)**
 
 ---
 
@@ -261,5 +261,5 @@ Apache 2.0 — see [LICENSE](LICENSE) for details.
 <p align="center">
   <a href="https://sentriflow.com.au">sentriflow.com.au</a> ·
   <a href="https://docs.sentriflow.com.au">Documentation</a> ·
-  <a href="https://sentriflow.com.au/packs">Rule Packs</a>
+  <a href="https://www.sentriflow.com.au/#pricing">Rule Packs</a>
 </p>
