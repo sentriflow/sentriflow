@@ -78,6 +78,27 @@ describe('countSeverities', () => {
     expect(counts.info).toBe(1);
     expect(counts.total).toBe(1);
   });
+
+  test('handles unknown severity levels gracefully', () => {
+    const unknownResult: RuleResult = {
+      ruleId: 'UNKNOWN-001',
+      passed: false,
+      message: 'Unknown severity',
+      level: 'critical' as RuleResult['level'], // Force unknown level
+      nodeId: 'test',
+      loc: { startLine: 1, endLine: 1 },
+    };
+    const counts = countSeverities([unknownResult, mockResults[0]!]);
+    // Unknown level should still count toward total but not corrupt known counts
+    expect(counts.total).toBe(2);
+    expect(counts.error).toBe(0);
+    expect(counts.warning).toBe(1);
+    expect(counts.info).toBe(0);
+    // Verify no NaN values
+    expect(Number.isNaN(counts.error)).toBe(false);
+    expect(Number.isNaN(counts.warning)).toBe(false);
+    expect(Number.isNaN(counts.info)).toBe(false);
+  });
 });
 
 describe('formatFinding', () => {

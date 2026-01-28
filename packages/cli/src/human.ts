@@ -53,7 +53,10 @@ export function countSeverities(results: RuleResult[]): SeverityCounts {
   const counts: SeverityCounts = { error: 0, warning: 0, info: 0, total: 0 };
   for (const r of results) {
     if (!r.passed) {
-      counts[r.level as keyof Omit<SeverityCounts, 'total'>]++;
+      // Only count known severity levels to avoid NaN from unknown levels
+      if (r.level === 'error' || r.level === 'warning' || r.level === 'info') {
+        counts[r.level]++;
+      }
       counts.total++;
     }
   }
