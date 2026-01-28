@@ -148,11 +148,24 @@ export const InterfaceDescription: IRule = {
 ### Running Your Rules
 
 ```bash
-# With JSON rules
-sentriflow scan --rules my-rules.json router.conf
+# With JSON rules (JSON output, default)
+sentriflow --rules my-rules.json router.conf
 
-# With TypeScript (after compilation)
-sentriflow scan --rules ./dist/my-rules.js router.conf
+# Human-readable output for terminal
+sentriflow --rules my-rules.json -f human router.conf
+# Output:
+#   /path/to/router.conf
+#     3:1   warning  Interface GigabitEthernet0/0 is missing a description  MY-001
+#
+#   ✖ 1 problem (0 errors, 1 warning)
+#
+# Format: <line>:<column>  <severity>  <message>  <rule-id>
+
+# With TypeScript rules (after compilation)
+sentriflow --rules ./dist/my-rules.js router.conf
+
+# SARIF output for CI/CD integration
+sentriflow --rules my-rules.json -f sarif router.conf
 ```
 
 ---

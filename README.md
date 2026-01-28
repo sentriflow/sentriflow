@@ -44,7 +44,7 @@ line vty 0 4                           ← No access-class (unrestricted access)
 }
 ```
 
-*Output formats: JSON (default) or SARIF for CI/CD integration.*
+*Output formats: JSON (default), human-readable for terminal, or SARIF for CI/CD integration.*
 
 **Use cases:**
 - Pre-deployment validation in CI/CD pipelines
@@ -62,14 +62,25 @@ line vty 0 4                           ← No access-class (unrestricted access)
 # Install
 npm install -g @sentriflow/cli
 
-# Validate a config file
+# Validate a config file (JSON output, default)
 sentriflow router.conf
+
+# Human-readable output for terminal
+sentriflow -f human router.conf
+# Output:
+#   /path/to/router.conf
+#     3:1   warning  Interface "GigabitEthernet0/0" is missing a description.  NET-DOC-001
+#     6:1   error    VTY line vty 0 4 is missing access-class for SSH access   JSON-CISCO-005
+#
+#   ✖ 2 problems (1 error, 1 warning)
+#
+# Format: <line>:<column>  <severity>  <message>  <rule-id>
 
 # Validate with specific vendor
 sentriflow -v cisco-ios switch.conf
 
 # Output as SARIF (for GitHub Advanced Security)
-sentriflow router.conf -f sarif
+sentriflow -f sarif router.conf
 ```
 
 **VS Code Extension:** Search "SentriFlow" in the marketplace for real-time validation as you edit.

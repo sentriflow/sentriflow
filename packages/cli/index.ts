@@ -22,6 +22,7 @@ import { statSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
 import { generateSarif, generateMultiFileSarif } from './src/sarif';
 import type { FileResults } from './src/sarif';
+import { formatHuman, formatMultiFileHuman } from './src/human';
 import {
   resolveRules,
   findConfigFile,
@@ -83,7 +84,7 @@ program
   .version(__VERSION__)
   .argument('[files...]', 'Path(s) to configuration file(s) (supports multiple files)')
   .option('--ast', 'Output the AST instead of rule results')
-  .option('-f, --format <format>', 'Output format (json, sarif)', 'json')
+  .option('-f, --format <format>', 'Output format (json, human, sarif)', 'json')
   .option('-q, --quiet', 'Only output failures (suppress passed results)')
   .option('-c, --config <path>', 'Path to config file (default: auto-detect)')
   .option('--no-config', 'Ignore config file')
@@ -628,8 +629,16 @@ program
           console.log(
             generateMultiFileSarif(allFileResults, rules, sarifOptions)
           );
+        } else if (options.format === 'human') {
+          // Human-readable output with TTY color detection
+          const isColorEnabled = process.stdout.isTTY && !process.env.NO_COLOR;
+          const humanFiles = allFileResults.map((fr) => ({
+            file: fr.filePath,
+            results: fr.results,
+          }));
+          console.log(formatMultiFileHuman(humanFiles, { color: isColorEnabled }));
         } else {
-          // Combined JSON output with summary
+          // Combined JSON output with summary (default)
           const output = {
             summary: {
               filesScanned: allFileResults.length,
@@ -771,7 +780,12 @@ program
             baseDir: process.cwd(),
           };
           console.log(generateSarif(results, '<stdin>', stdinRules, sarifOptions, stdinIpSummary));
+        } else if (options.format === 'human') {
+          // Human-readable output with TTY color detection
+          const isColorEnabled = process.stdout.isTTY && !process.env.NO_COLOR;
+          console.log(formatHuman(results, '<stdin>', { color: isColorEnabled }));
         } else {
+          // JSON output (default)
           const output = {
             file: '<stdin>',
             vendor: { id: vendor.id, name: vendor.name },
@@ -897,7 +911,16 @@ program
           console.log(
             generateMultiFileSarif(allFileResults, rules, sarifOptions)
           );
+        } else if (options.format === 'human') {
+          // Human-readable output with TTY color detection
+          const isColorEnabled = process.stdout.isTTY && !process.env.NO_COLOR;
+          const humanFiles = allFileResults.map((fr) => ({
+            file: fr.filePath,
+            results: fr.results,
+          }));
+          console.log(formatMultiFileHuman(humanFiles, { color: isColorEnabled }));
         } else {
+          // JSON output (default)
           const output = {
             summary: {
               filesScanned: allFileResults.length,
@@ -1042,8 +1065,12 @@ program
         console.log(
           generateSarif(results, filePath, singleFileRules, sarifOptions, ipSummary)
         );
+      } else if (options.format === 'human') {
+        // Human-readable output with TTY color detection
+        const isColorEnabled = process.stdout.isTTY && !process.env.NO_COLOR;
+        console.log(formatHuman(results, filePath, { color: isColorEnabled }));
       } else {
-        // Include vendor info and IP summary in JSON output
+        // Include vendor info and IP summary in JSON output (default)
         const output = {
           vendor: {
             id: vendor.id,
