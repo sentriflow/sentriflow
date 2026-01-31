@@ -2,7 +2,7 @@
 
 **Policy validation for network device configurations.**
 
-**[Documentation](https://docs.sentriflow.com.au)** | **[Rule Packs](https://www.sentriflow.com.au/#pricing)**
+**[Documentation](https://docs.sentriflow.com.au)** | **[Rule Packs](https://www.sentriflow.com.au/#pricing)** | **[Discord](https://discord.gg/ZWsEfUW5)**
 
 ---
 
@@ -257,6 +257,7 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 ## Community
 
+- [Discord](https://discord.gg/ZWsEfUW5) — Chat with us and other network engineers
 - [GitHub Issues](https://github.com/sentriflow/sentriflow/issues) — Bug reports and feature requests
 - [Documentation](https://docs.sentriflow.com.au) — Guides and API reference
 - [Changelog](CHANGELOG.md) — Release history
@@ -272,5 +273,6 @@ Apache 2.0 — see [LICENSE](LICENSE) for details.
 <p align="center">
   <a href="https://sentriflow.com.au">sentriflow.com.au</a> ·
   <a href="https://docs.sentriflow.com.au">Documentation</a> ·
-  <a href="https://www.sentriflow.com.au/#pricing">Rule Packs</a>
+  <a href="https://www.sentriflow.com.au/#pricing">Rule Packs</a> ·
+  <a href="https://discord.gg/ZWsEfUW5">Discord</a>
 </p>
