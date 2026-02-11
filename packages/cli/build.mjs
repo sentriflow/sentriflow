@@ -11,7 +11,13 @@ await esbuild.build({
   platform: 'node',
   target: 'node18',
   external: ['commander'],
-  banner: { js: '#!/usr/bin/env node' },
+  banner: {
+    js: [
+      '#!/usr/bin/env node',
+      "import { createRequire } from 'module';",
+      'const require = createRequire(import.meta.url);',
+    ].join('\n'),
+  },
   define: {
     __VERSION__: JSON.stringify(pkg.version),
   },
