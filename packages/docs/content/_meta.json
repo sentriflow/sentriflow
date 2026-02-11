@@ -64,6 +64,14 @@
       "config-node": "ConfigNode API"
     }
   },
+  "guides": {
+    "title": "Guides",
+    "type": "menu",
+    "items": {
+      "cisco-ios-hardening-checklist": "Cisco IOS Security Hardening",
+      "automating-network-compliance": "Automating Compliance Checks"
+    }
+  },
   "contributing": {
     "title": "Contributing",
     "type": "page"

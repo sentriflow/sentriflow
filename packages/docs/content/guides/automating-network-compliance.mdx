@@ -1,0 +1,451 @@
+---
+title: "Automating Network Compliance Checks: A Practical Guide"
+description: Learn how to automate network device configuration audits and compliance validation using SentriFlow, with examples for CI/CD pipelines, scheduled scans, and multi-vendor environments.
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components';
+
+# Automating Network Compliance Checks: A Practical Guide
+
+Manual network configuration reviews are slow, inconsistent, and don't scale. A single engineer might review 5-10 configurations per hour. A fleet of 500 devices means weeks of work — and by the time you're done, the first configs have already drifted.
+
+This guide shows you how to build an automated compliance checking pipeline using SentriFlow that validates every configuration change against security baselines, flags violations immediately, and generates audit-ready reports.
+
+<Callout type="info">
+**What you'll build:** By the end of this guide, you'll have automated compliance validation running in your CI/CD pipeline, catching misconfigurations before they reach production.
+</Callout>
+
+---
+
+## Why Automate Network Compliance?
+
+### The Problem with Manual Reviews
+
+Most network teams rely on one of these approaches:
+
+1. **Spreadsheet checklists** — An engineer manually compares each device config against a list of required settings. Slow and error-prone.
+2. **Periodic audits** — Quarterly or annual audits by external firms. Finds issues months after introduction.
+3. **Tribal knowledge** — Senior engineers "just know" what to look for. Doesn't scale and creates single points of failure.
+
+### What Automation Gives You
+
+| Manual Reviews | Automated Validation |
+|---------------|---------------------|
+| 5-10 configs per hour | Hundreds of configs in seconds |
+| Inconsistent results across reviewers | Same rules applied every time |
+| Finds issues weeks/months later | Catches issues at commit time |
+| PDF reports that collect dust | Machine-readable output (SARIF, JSON) |
+| One-time snapshot | Continuous monitoring |
+
+---
+
+## Getting Started with SentriFlow
+
+SentriFlow is an open-source validation framework that parses network device configurations into a structured format and evaluates them against security rules. It supports [12 vendor platforms](/rules) including Cisco IOS, Juniper Junos, Palo Alto PAN-OS, Fortinet FortiGate, and more.
+
+<Steps>
+
+### Install the CLI
+
+<Tabs items={['npm', 'yarn', 'pnpm', 'bun']}>
+  <Tabs.Tab>```bash npm install -g @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash yarn global add @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash pnpm add -g @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash bun install -g @sentriflow/cli ```</Tabs.Tab>
+</Tabs>
+
+### Validate a Single Configuration
+
+```bash
+sentriflow router.conf
+```
+
+SentriFlow auto-detects the vendor and applies the appropriate rule set. You'll see results like:
+
+```text
+router.conf:45:3 error NET-SEC-001  Plaintext password detected
+router.conf:12:1 warning NET-TRUNK-001  Trunk port missing 'switchport nonegotiate'
+router.conf:67:1 warning JSON-CISCO-003  Interface missing description
+
+3 issues (1 error, 2 warnings) in router.conf
+```
+
+### Scan an Entire Directory
+
+Point SentriFlow at your configuration repository:
+
+```bash
+sentriflow -D ./network-configs -R --progress
+```
+
+The `-R` flag enables recursive scanning, and `--progress` shows real-time status.
+
+</Steps>
+
+---
+
+## Storing Configurations in Git
+
+The first step toward automation is version-controlling your network configurations. If your configs aren't in Git yet, here's a recommended repository structure:
+
+```text
+network-configs/
+├── datacenter/
+│   ├── core-rtr-01.conf          # Cisco IOS
+│   ├── core-rtr-02.conf          # Cisco IOS
+│   ├── dist-sw-01.conf           # Arista EOS
+│   └── dist-sw-02.conf           # Arista EOS
+├── campus/
+│   ├── bldg-a-sw-01.conf         # Cisco IOS
+│   ├── bldg-a-sw-02.conf         # Cisco IOS
+│   └── bldg-a-wlc-01.conf       # Aruba WLC
+├── wan/
+│   ├── edge-rtr-01.conf          # Juniper Junos
+│   └── edge-fw-01.conf           # Palo Alto PAN-OS
+└── .github/
+    └── workflows/
+        └── sentriflow.yml        # Automated validation
+```
+
+<Callout type="tip">
+**Config backup tools** like [Oxidized](https://github.com/ytti/oxidized), [RANCID](https://www.shrubbery.net/rancid/), or Ansible `ios_config` backups can automatically commit configurations to Git on a schedule.
+</Callout>
+
+---
+
+## CI/CD Integration
+
+### GitHub Actions
+
+The most common setup: validate every pull request that modifies a configuration file.
+
+```yaml filename=".github/workflows/sentriflow.yml"
+name: Network Config Validation
+
+on:
+  pull_request:
+    paths:
+      - '**/*.conf'
+      - '**/*.cfg'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install SentriFlow
+        run: npm install -g @sentriflow/cli
+
+      - name: Validate configurations
+        run: sentriflow -D . -R -f sarif > results.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+```
+
+**What this does:**
+1. Triggers on any PR that modifies `.conf` or `.cfg` files
+2. Scans all configuration files recursively
+3. Outputs results in SARIF format
+4. Uploads to GitHub Advanced Security for inline PR annotations
+
+Engineers see violations directly on the pull request — no context switching to a separate tool.
+
+### GitLab CI
+
+```yaml filename=".gitlab-ci.yml"
+sentriflow:
+  stage: test
+  image: node:20
+  before_script:
+    - npm install -g @sentriflow/cli
+  script:
+    - sentriflow -D . -R -f sarif > gl-sast-report.json
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+  rules:
+    - changes:
+        - "**/*.conf"
+        - "**/*.cfg"
+```
+
+### Jenkins
+
+```groovy filename="Jenkinsfile"
+pipeline {
+    agent any
+    stages {
+        stage('Validate Configs') {
+            steps {
+                sh 'npm install -g @sentriflow/cli'
+                sh 'sentriflow -D ./configs -R -f sarif > results.sarif'
+            }
+            post {
+                always {
+                    recordIssues(
+                        tools: [sarif(pattern: 'results.sarif')]
+                    )
+                }
+            }
+        }
+    }
+}
+```
+
+For detailed CI/CD setup instructions, see:
+- [GitHub Actions Integration](/integrations/github-actions)
+- [GitLab CI Integration](/integrations/gitlab-ci)
+- [Azure DevOps Integration](/integrations/azure-devops)
+- [Jenkins Integration](/integrations/jenkins)
+
+---
+
+## Multi-Vendor Compliance
+
+Real networks run multiple vendors. SentriFlow handles this automatically through vendor detection — no per-vendor configuration needed.
+
+```bash
+# Scan a directory containing Cisco, Juniper, Palo Alto, and Fortinet configs
+sentriflow -D ./configs -R
+```
+
+SentriFlow parses each file, detects the vendor, and applies the correct rule set:
+
+| Vendor | Platforms | Rules |
+|--------|-----------|-------|
+| Cisco | IOS, IOS-XE, NX-OS, ASA | 10 rules |
+| Juniper | Junos | 8 rules |
+| Palo Alto | PAN-OS | 3 rules |
+| Fortinet | FortiGate | 3 rules |
+| Arista | EOS | 3 rules |
+| Aruba | AOS-CX, AOS-Switch, WLC | 12 rules |
+| + 6 more vendors | | |
+
+If auto-detection fails for a specific file, override it:
+
+```bash
+sentriflow -v juniper edge-router.conf
+```
+
+---
+
+## Understanding Configuration Drift
+
+**Configuration drift** is when a device's running configuration diverges from the approved baseline over time. Common causes:
+
+- Emergency changes made at 2 AM that never get documented
+- Copy-paste errors during maintenance windows
+- Vendor software upgrades that reset defaults
+- Different engineers with different standards
+
+### Detecting Drift with SentriFlow
+
+By running SentriFlow on every configuration commit, you establish a **compliance baseline**. Any new violation indicates drift:
+
+```bash
+# Compare current scan against a known-good baseline
+sentriflow -D ./configs -R -q
+```
+
+The `-q` (quiet) flag shows only failures, making it easy to spot new issues.
+
+### Preventing Drift
+
+The most effective anti-drift strategy combines:
+
+1. **Pre-commit validation** — SentriFlow in CI/CD catches drift at the source
+2. **Scheduled scans** — Periodic full-fleet audits catch drift from out-of-band changes
+3. **Configuration templates** — Generate configs from templates (Jinja2, Ansible) to reduce manual edits
+
+---
+
+## Custom Compliance Rules
+
+Every organization has unique requirements beyond generic best practices. SentriFlow supports custom rules in JSON or TypeScript.
+
+### JSON Rules (No Code Required)
+
+Create a `.sentriflow/rules/` directory in your repository:
+
+```json filename=".sentriflow/rules/corporate-standards.json"
+[
+  {
+    "id": "CORP-NTP-001",
+    "name": "Corporate NTP servers required",
+    "description": "All devices must use the corporate NTP servers",
+    "severity": "warning",
+    "vendor": "cisco-ios",
+    "selector": "ntp server",
+    "condition": {
+      "type": "must-exist"
+    },
+    "remediation": "Configure: ntp server 10.1.1.10 / ntp server 10.1.1.11"
+  },
+  {
+    "id": "CORP-BANNER-001",
+    "name": "Legal banner required",
+    "description": "All devices must display the corporate login banner",
+    "severity": "warning",
+    "vendor": "cisco-ios",
+    "selector": "banner login",
+    "condition": {
+      "type": "must-exist"
+    },
+    "remediation": "Configure a banner login with the corporate legal notice"
+  }
+]
+```
+
+### TypeScript Rules (Full Control)
+
+For complex logic that JSON can't express:
+
+```typescript filename=".sentriflow/rules/password-complexity.ts"
+import { defineRule } from '@sentriflow/core';
+
+export default defineRule({
+  id: 'CORP-PWD-001',
+  name: 'Password complexity check',
+  severity: 'error',
+  selector: 'username',
+
+  check(node, context) {
+    // Ensure no username has a simple password
+    const hasSecret = context.findChild(node, 'secret');
+    const hasPassword = context.findChild(node, 'password');
+
+    if (hasPassword && !hasSecret) {
+      return {
+        passed: false,
+        message: `User "${node.params[0]}" uses weak password type`,
+        line: node.line,
+      };
+    }
+
+    return { passed: true };
+  },
+});
+```
+
+See the full [JSON Rules Guide](/authoring/json-rules) and [TypeScript Rules Guide](/authoring/typescript-rules) for more.
+
+---
+
+## Generating Compliance Reports
+
+### SARIF (for CI/CD Dashboards)
+
+```bash
+sentriflow -D ./configs -R -f sarif > report.sarif
+```
+
+SARIF (Static Analysis Results Interchange Format) integrates natively with:
+- GitHub Advanced Security
+- GitLab Security Dashboard
+- Azure DevOps
+- Jenkins Warnings NG
+
+### JSON (for Custom Processing)
+
+```bash
+sentriflow -D ./configs -R -f json > report.json
+```
+
+Pipe JSON output into your existing tools — SIEM, ticketing systems, or custom dashboards.
+
+### Human-Readable (for Reviews)
+
+```bash
+sentriflow -D ./configs -R
+```
+
+The default output is formatted for human reading with file paths, line numbers, and severity indicators.
+
+---
+
+## Compliance Frameworks
+
+SentriFlow's built-in rules align with major compliance frameworks:
+
+| Framework | Coverage | Key Areas |
+|-----------|----------|-----------|
+| **CIS Benchmarks** | Cisco IOS, Juniper Junos | Authentication, access control, logging |
+| **NIST 800-53** | Multi-vendor | AC (Access Control), AU (Audit), IA (Identification/Authentication) |
+| **PCI DSS** | Multi-vendor | Requirement 1 (firewalls), Requirement 2 (defaults), Requirement 10 (logging) |
+| **HIPAA** | Multi-vendor | Administrative, technical, and physical safeguards |
+
+---
+
+## Putting It All Together
+
+Here's a recommended compliance automation architecture:
+
+```text
+┌─────────────────────────────────────────────┐
+│            Configuration Sources             │
+│  Oxidized / RANCID / Ansible / Manual Git   │
+└──────────────────┬──────────────────────────┘
+                   │ git push
+                   ▼
+┌─────────────────────────────────────────────┐
+│              Git Repository                  │
+│         network-configs/                     │
+└──────────────────┬──────────────────────────┘
+                   │ PR / push trigger
+                   ▼
+┌─────────────────────────────────────────────┐
+│            CI/CD Pipeline                    │
+│  sentriflow -D . -R -f sarif > results.sarif │
+└──────────────────┬──────────────────────────┘
+                   │
+          ┌────────┴────────┐
+          ▼                 ▼
+┌──────────────┐   ┌───────────────┐
+│ PR Annotations│   │ SARIF Upload  │
+│ (inline)      │   │ (dashboard)   │
+└──────────────┘   └───────────────┘
+```
+
+**The result:** Every configuration change is validated automatically. Engineers get immediate feedback. Auditors get continuous compliance evidence. No more quarterly fire drills.
+
+---
+
+## Next Steps
+
+<Steps>
+
+### Start with a Pilot
+
+Pick one device type (e.g., Cisco IOS switches) and one environment (e.g., lab). Get validation running and tune the rules.
+
+### Expand to Production
+
+Once confident in the rule set, roll out to production configurations. Use `-q` (quiet mode) initially to focus on failures only.
+
+### Add Custom Rules
+
+Layer on organization-specific rules for NTP, DNS, banners, naming conventions, and other internal standards.
+
+### Integrate with Change Management
+
+Wire SentriFlow into your change approval workflow. No configuration PR gets merged without a clean scan.
+
+</Steps>
+
+## Further Reading
+
+- [Getting Started](/getting-started/quick-start) — Install and run your first scan
+- [Cisco IOS Hardening Checklist](/guides/cisco-ios-hardening-checklist) — Detailed vendor-specific checklist
+- [Rule Catalog](/rules) — Browse all 59 built-in rules
+- [Custom JSON Rules](/authoring/json-rules) — Write rules without code
+- [GitHub Actions Integration](/integrations/github-actions) — Full CI/CD setup guide

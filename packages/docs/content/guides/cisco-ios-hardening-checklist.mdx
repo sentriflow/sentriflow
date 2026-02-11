@@ -1,0 +1,458 @@
+---
+title: The Complete Cisco IOS Security Hardening Checklist (2026)
+description: A comprehensive, actionable checklist for hardening Cisco IOS and IOS-XE router and switch configurations against common security misconfigurations, with automated validation using SentriFlow.
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components';
+
+# The Complete Cisco IOS Security Hardening Checklist (2026)
+
+Cisco IOS powers the majority of enterprise network infrastructure worldwide. Yet most production configurations contain preventable security misconfigurations — from plaintext passwords to unprotected management interfaces.
+
+This checklist covers the most critical Cisco IOS and IOS-XE hardening items based on CIS Benchmarks, NIST 800-53 controls, and real-world audit findings. Each item includes the vulnerable configuration, the hardened fix, and the [SentriFlow rule](/rules) that detects it automatically.
+
+<Callout type="info">
+**Automate this checklist.** Every item below can be validated automatically with SentriFlow. [Install the CLI](/getting-started/installation) and run `sentriflow router.conf` to audit your configurations in seconds.
+</Callout>
+
+---
+
+## 1. Password and Authentication Security
+
+### 1.1 Never Use Plaintext Passwords
+
+The `password` command stores credentials in plaintext or weak Type 7 encoding, which is trivially reversible.
+
+**Vulnerable configuration:**
+
+```text filename="router.conf (insecure)"
+enable password cisco123
+!
+line vty 0 4
+ password cisco123
+ login
+```
+
+**Hardened configuration:**
+
+```text filename="router.conf (hardened)"
+enable algorithm-type scrypt secret MyStr0ngP@ss!
+!
+line vty 0 4
+ login local
+!
+username admin privilege 15 algorithm-type scrypt secret MyStr0ngP@ss!
+```
+
+**Why it matters:** Type 0 (plaintext) and Type 7 passwords can be decoded instantly with freely available tools. Type 5 (MD5) is considered weak. Use Type 8 (PBKDF2) or Type 9 (scrypt) for strong encryption.
+
+<Callout type="warning">
+**SentriFlow rule:** [NET-SEC-001](/rules) — Detects plaintext or weakly encrypted passwords across Cisco IOS and NX-OS configurations.
+</Callout>
+
+### 1.2 Use Strong Enable Secret
+
+The enable secret protects privileged EXEC mode. Always use scrypt hashing.
+
+**Hardened configuration:**
+
+```text
+enable algorithm-type scrypt secret <strong-password>
+```
+
+<Callout type="warning">
+**SentriFlow rule:** [NET-AAA-003](/rules) — Ensures the enable secret uses strong encryption (scrypt recommended).
+</Callout>
+
+### 1.3 Configure AAA Authentication
+
+Centralized authentication via TACACS+ or RADIUS provides accountability and stronger access control.
+
+```text filename="AAA configuration"
+aaa new-model
+aaa authentication login default group tacacs+ local
+aaa authorization exec default group tacacs+ local
+aaa accounting exec default start-stop group tacacs+
+!
+tacacs-server host 10.1.1.100 key 0 <encrypted-key>
+tacacs-server host 10.1.1.101 key 0 <encrypted-key>
+```
+
+**Why it matters:** Local-only authentication doesn't provide centralized audit trails. If a credential is compromised, you must touch every device individually to rotate it.
+
+---
+
+## 2. SSH and Remote Access Hardening
+
+### 2.1 Enforce SSH Version 2
+
+SSH version 1 has known cryptographic weaknesses and should never be used in production.
+
+**Vulnerable configuration:**
+
+```text filename="router.conf (insecure)"
+ip ssh version 1
+```
+
+**Hardened configuration:**
+
+```text filename="router.conf (hardened)"
+ip ssh version 2
+ip ssh time-out 60
+ip ssh authentication-retries 3
+```
+
+### 2.2 Restrict VTY Line Access
+
+VTY lines (virtual terminal lines) control remote access to the router. They should be locked down with ACLs and SSH-only transport.
+
+**Vulnerable configuration:**
+
+```text filename="router.conf (insecure)"
+line vty 0 4
+ password cisco123
+ login
+ transport input all
+```
+
+**Hardened configuration:**
+
+```text filename="router.conf (hardened)"
+ip access-list standard VTY-ACCESS
+ permit 10.0.0.0 0.0.0.255
+ deny any log
+!
+line vty 0 4
+ access-class VTY-ACCESS in
+ transport input ssh
+ login local
+ exec-timeout 5 0
+ logging synchronous
+line vty 5 15
+ access-class VTY-ACCESS in
+ transport input ssh
+ login local
+ exec-timeout 5 0
+```
+
+**Key hardening items:**
+- `transport input ssh` — Disables telnet, allowing only encrypted SSH connections
+- `access-class VTY-ACCESS in` — Restricts which IP addresses can connect
+- `exec-timeout 5 0` — Automatically disconnects idle sessions after 5 minutes
+- Configure **all** VTY lines (0-15), not just 0-4
+
+<Callout type="warning">
+**SentriFlow rule:** [JSON-CISCO-005](/rules) — Ensures VTY lines have access-class configured for SSH access control.
+</Callout>
+
+### 2.3 Disable Telnet Everywhere
+
+Telnet sends everything in plaintext, including credentials.
+
+```text
+line vty 0 15
+ transport input ssh
+!
+line con 0
+ transport output ssh
+```
+
+---
+
+## 3. SNMP Security
+
+### 3.1 Never Use Default Community Strings
+
+The community strings `public` and `private` are the first things attackers try.
+
+**Vulnerable configuration:**
+
+```text filename="router.conf (insecure)"
+snmp-server community public RO
+snmp-server community private RW
+```
+
+**Hardened configuration:**
+
+```text filename="router.conf (hardened)"
+! Use SNMPv3 with authentication and encryption
+snmp-server group MONITORING v3 priv
+snmp-server user monitor MONITORING v3 auth sha <auth-pass> priv aes 256 <priv-pass>
+!
+! If SNMPv2c is required, use complex strings and ACLs
+snmp-server community xK9#mP2$vL7@nQ RO SNMP-ACL
+!
+ip access-list standard SNMP-ACL
+ permit 10.1.1.0 0.0.0.255
+ deny any log
+```
+
+**Why it matters:** SNMP with read-write access and a default community string gives an attacker full control over the device configuration.
+
+---
+
+## 4. Network Segmentation and Layer 2 Security
+
+### 4.1 Disable DTP on All Trunk Ports
+
+Dynamic Trunking Protocol (DTP) can be exploited for VLAN hopping attacks.
+
+**Vulnerable configuration:**
+
+```text filename="switch.conf (insecure)"
+interface GigabitEthernet0/1
+ switchport mode trunk
+```
+
+**Hardened configuration:**
+
+```text filename="switch.conf (hardened)"
+interface GigabitEthernet0/1
+ switchport mode trunk
+ switchport nonegotiate
+ switchport trunk allowed vlan 10,20,30
+```
+
+<Callout type="warning">
+**SentriFlow rules:**
+- [NET-TRUNK-001](/rules) — Detects trunk ports without `switchport nonegotiate`
+- [JSON-CISCO-001](/rules) — Ensures trunk ports have an explicit allowed VLAN list
+- [JSON-CISCO-004](/rules) — Flags trunk ports without DTP disabled (tagged: vlan-hopping)
+</Callout>
+
+### 4.2 Explicitly Configure Access Ports
+
+Don't rely on default port modes. Explicitly set access mode and assign VLANs.
+
+**Hardened configuration:**
+
+```text filename="switch.conf (hardened)"
+interface GigabitEthernet0/2
+ description User Access - Desk 42A
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+```
+
+<Callout type="warning">
+**SentriFlow rules:**
+- [NET-ACCESS-001](/rules) — Ensures interfaces have explicit `switchport mode access`
+- [JSON-CISCO-002](/rules) — Checks that access ports have spanning-tree portfast enabled
+</Callout>
+
+### 4.3 Secure Unused Ports
+
+Unused ports are a common attack vector for physical access.
+
+```text filename="Shutdown unused ports"
+interface range GigabitEthernet0/10-24
+ switchport mode access
+ switchport access vlan 999
+ shutdown
+!
+vlan 999
+ name BLACKHOLE
+```
+
+---
+
+## 5. Logging and Monitoring
+
+### 5.1 Configure Adequate Logging Buffer
+
+A small logging buffer loses critical forensic information.
+
+**Vulnerable configuration:**
+
+```text filename="router.conf (insecure)"
+logging buffered 4096
+```
+
+**Hardened configuration:**
+
+```text filename="router.conf (hardened)"
+logging buffered 131072 informational
+logging trap informational
+logging source-interface Loopback0
+logging host 10.1.1.200
+logging host 10.1.1.201
+!
+service timestamps log datetime msec localtime show-timezone
+service timestamps debug datetime msec localtime show-timezone
+```
+
+**Recommended buffer sizes:**
+| Device Role | Minimum Buffer Size |
+|------------|-------------------|
+| Access switch | 64 KB (65536) |
+| Distribution switch | 128 KB (131072) |
+| Core router | 256 KB (262144) |
+| Internet edge | 512 KB (524288) |
+
+### 5.2 Enable Remote Syslog
+
+Local logging alone is insufficient. Send logs to a centralized SIEM.
+
+```text
+logging host 10.1.1.200 transport tcp port 6514
+logging host 10.1.1.201 transport tcp port 6514
+```
+
+---
+
+## 6. Service Hardening
+
+### 6.1 Disable Unnecessary Services
+
+Every enabled service is a potential attack surface.
+
+```text filename="Disable unnecessary services"
+no ip http server
+no ip http secure-server
+no cdp run
+no ip source-route
+no ip finger
+no service pad
+no service udp-small-servers
+no service tcp-small-servers
+no ip bootp server
+no ip gratuitous-arps
+```
+
+### 6.2 Configure a Login Banner
+
+Login banners provide legal notice and deter unauthorized access.
+
+```text
+banner login ^
+*********************************************************************
+* UNAUTHORIZED ACCESS TO THIS DEVICE IS PROHIBITED.                 *
+* All connections are monitored and recorded.                       *
+* Disconnect IMMEDIATELY if you are not an authorized user.         *
+*********************************************************************
+^
+```
+
+---
+
+## 7. Interface Documentation
+
+### 7.1 Add Descriptions to All Interfaces
+
+Interface descriptions are essential for operational clarity during outages and audits.
+
+**Missing documentation:**
+
+```text filename="switch.conf (undocumented)"
+interface GigabitEthernet0/1
+ ip address 10.0.0.1 255.255.255.252
+ no shutdown
+```
+
+**Properly documented:**
+
+```text filename="switch.conf (documented)"
+interface GigabitEthernet0/1
+ description [WAN] Link to ISP-A | Circuit: CKT-12345 | 1Gbps
+ ip address 10.0.0.1 255.255.255.252
+ no shutdown
+```
+
+<Callout type="warning">
+**SentriFlow rule:** [JSON-CISCO-003](/rules) — Ensures all interfaces have a description for documentation.
+</Callout>
+
+---
+
+## 8. Routing Protocol Security
+
+### 8.1 Authenticate Routing Protocols
+
+Unauthenticated routing protocols allow attackers to inject malicious routes.
+
+```text filename="OSPF authentication"
+router ospf 1
+ area 0 authentication message-digest
+!
+interface GigabitEthernet0/1
+ ip ospf message-digest-key 1 md5 <key>
+ ip ospf authentication message-digest
+```
+
+```text filename="BGP authentication"
+router bgp 65001
+ neighbor 10.0.0.2 remote-as 65002
+ neighbor 10.0.0.2 password <key>
+```
+
+---
+
+## Quick Reference Checklist
+
+Use this checklist during your next configuration review:
+
+| # | Item | Priority | SentriFlow Rule |
+|---|------|----------|----------------|
+| 1 | No plaintext or Type 7 passwords | Critical | NET-SEC-001 |
+| 2 | Strong enable secret (scrypt) | Critical | NET-AAA-003 |
+| 3 | SSH version 2 only | Critical | — |
+| 4 | VTY access-class configured | Critical | JSON-CISCO-005 |
+| 5 | Transport input SSH on VTY lines | Critical | — |
+| 6 | DTP disabled on trunk ports | High | JSON-CISCO-004 |
+| 7 | Explicit VLAN list on trunks | High | JSON-CISCO-001 |
+| 8 | Explicit access mode on ports | Medium | NET-ACCESS-001 |
+| 9 | Portfast on access ports | Medium | JSON-CISCO-002 |
+| 10 | SNMP v3 or complex community + ACL | High | — |
+| 11 | Adequate logging buffer | Medium | — |
+| 12 | Remote syslog configured | Medium | — |
+| 13 | Unnecessary services disabled | Medium | — |
+| 14 | Interface descriptions | Low | JSON-CISCO-003 |
+| 15 | Routing protocol authentication | High | — |
+| 16 | Unused ports shut down | Medium | — |
+
+---
+
+## Automate Your Cisco IOS Audits
+
+Manually reviewing configurations doesn't scale. SentriFlow automates this entire checklist across your fleet:
+
+<Steps>
+
+### Install SentriFlow
+
+<Tabs items={['npm', 'bun']}>
+  <Tabs.Tab>```bash npm install -g @sentriflow/cli ```</Tabs.Tab>
+  <Tabs.Tab>```bash bun install -g @sentriflow/cli ```</Tabs.Tab>
+</Tabs>
+
+### Validate a Single Configuration
+
+```bash
+sentriflow router.conf
+```
+
+### Scan Your Entire Config Repository
+
+```bash
+sentriflow -D ./configs -R --progress
+```
+
+### Integrate with CI/CD
+
+Generate SARIF output for GitHub Advanced Security:
+
+```bash
+sentriflow -f sarif router.conf > results.sarif
+```
+
+See the full [CI/CD integration guide](/integrations/github-actions).
+
+</Steps>
+
+## Further Reading
+
+- [SentriFlow Rule Catalog](/rules) — Browse all 59 built-in security rules
+- [Custom Rules Guide](/authoring/json-rules) — Add organization-specific checks
+- [GitHub Actions Integration](/integrations/github-actions) — Automate validation in your pipeline
+- [CLI Reference](/cli/commands) — Full command-line documentation

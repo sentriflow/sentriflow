@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     default: 'SentriFlow Docs',
   },
   description: 'Network configuration compliance validation framework. Validate Cisco, Juniper, Aruba, and more.',
-  keywords: ['network', 'configuration', 'compliance', 'validation', 'cisco', 'juniper', 'security'],
+  keywords: ['network', 'configuration', 'compliance', 'validation', 'cisco', 'juniper', 'security', 'hardening', 'audit', 'network config audit tool', 'cisco ios best practices'],
   openGraph: {
     title: 'SentriFlow Documentation',
     description: 'Network configuration compliance validation framework',
