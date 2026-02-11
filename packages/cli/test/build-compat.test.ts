@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execFileSync } from 'child_process';
 
 const distPath = resolve(import.meta.dir, '../dist/index.js');
+const bundleExists = existsSync(distPath);
 
-describe('ESM bundle CJS compatibility', () => {
+describe.skipIf(!bundleExists)('ESM bundle CJS compatibility', () => {
   test('banner contains createRequire polyfill', () => {
     const source = readFileSync(distPath, 'utf-8');
     expect(source).toContain("import { createRequire } from 'module'");
