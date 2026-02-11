@@ -11,8 +11,10 @@ Cisco IOS powers the majority of enterprise network infrastructure worldwide. Ye
 
 This checklist covers the most critical Cisco IOS and IOS-XE hardening items based on CIS Benchmarks, NIST 800-53 controls, and real-world audit findings. Each item includes the vulnerable configuration, the hardened fix, and the [SentriFlow rule](/rules) that detects it automatically.
 
-<Callout type="info">
-**Automate this checklist.** Every item below can be validated automatically with SentriFlow. [Install the CLI](/getting-started/installation) and run `sentriflow router.conf` to audit your configurations in seconds.
+<Callout type='info'>
+  **Automate this checklist.** Every item below can be validated automatically
+  with SentriFlow. [Install the CLI](/getting-started/installation) and run
+  `sentriflow router.conf` to audit your configurations in seconds.
 </Callout>
 
 ---
@@ -46,8 +48,9 @@ username admin privilege 15 algorithm-type scrypt secret MyStr0ngP@ss!
 
 **Why it matters:** Type 0 (plaintext) and Type 7 passwords can be decoded instantly with freely available tools. Type 5 (MD5) is considered weak. Use Type 8 (PBKDF2) or Type 9 (scrypt) for strong encryption.
 
-<Callout type="warning">
-**SentriFlow rule:** [NET-SEC-001](/rules) — Detects plaintext or weakly encrypted passwords across Cisco IOS and NX-OS configurations.
+<Callout type='warning'>
+  **SentriFlow rule:** [NET-SEC-001](/rules) — Detects plaintext or weakly
+  encrypted passwords across Cisco IOS and NX-OS configurations.
 </Callout>
 
 ### 1.2 Use Strong Enable Secret
@@ -60,8 +63,9 @@ The enable secret protects privileged EXEC mode. Always use scrypt hashing.
 enable algorithm-type scrypt secret <strong-password>
 ```
 
-<Callout type="warning">
-**SentriFlow rule:** [NET-AAA-003](/rules) — Ensures the enable secret uses strong encryption (scrypt recommended).
+<Callout type='warning'>
+  **SentriFlow rule:** [NET-AAA-003](/rules) — Ensures the enable secret uses
+  strong encryption (scrypt recommended).
 </Callout>
 
 ### 1.3 Configure AAA Authentication
@@ -136,13 +140,15 @@ line vty 5 15
 ```
 
 **Key hardening items:**
+
 - `transport input ssh` — Disables telnet, allowing only encrypted SSH connections
 - `access-class VTY-ACCESS in` — Restricts which IP addresses can connect
 - `exec-timeout 5 0` — Automatically disconnects idle sessions after 5 minutes
 - Configure **all** VTY lines (0-15), not just 0-4
 
-<Callout type="warning">
-**SentriFlow rule:** [JSON-CISCO-005](/rules) — Ensures VTY lines have access-class configured for SSH access control.
+<Callout type='warning'>
+  **SentriFlow rule:** [JSON-CISCO-005](/rules) — Ensures VTY lines have
+  access-class configured for SSH access control.
 </Callout>
 
 ### 2.3 Disable Telnet Everywhere
@@ -213,11 +219,11 @@ interface GigabitEthernet0/1
  switchport trunk allowed vlan 10,20,30
 ```
 
-<Callout type="warning">
-**SentriFlow rules:**
-- [NET-TRUNK-001](/rules) — Detects trunk ports without `switchport nonegotiate`
-- [JSON-CISCO-001](/rules) — Ensures trunk ports have an explicit allowed VLAN list
-- [JSON-CISCO-004](/rules) — Flags trunk ports without DTP disabled (tagged: vlan-hopping)
+<Callout type='warning'>
+  **SentriFlow rules:** - [NET-TRUNK-001](/rules) — Detects trunk ports without
+  `switchport nonegotiate` - [JSON-CISCO-001](/rules) — Ensures trunk ports have
+  an explicit allowed VLAN list - [JSON-CISCO-004](/rules) — Flags trunk ports
+  without DTP disabled (tagged: vlan-hopping)
 </Callout>
 
 ### 4.2 Explicitly Configure Access Ports
@@ -235,10 +241,10 @@ interface GigabitEthernet0/2
  spanning-tree bpduguard enable
 ```
 
-<Callout type="warning">
-**SentriFlow rules:**
-- [NET-ACCESS-001](/rules) — Ensures interfaces have explicit `switchport mode access`
-- [JSON-CISCO-002](/rules) — Checks that access ports have spanning-tree portfast enabled
+<Callout type='warning'>
+  **SentriFlow rules:** - [NET-ACCESS-001](/rules) — Ensures interfaces have
+  explicit `switchport mode access` - [JSON-CISCO-002](/rules) — Checks that
+  access ports have spanning-tree portfast enabled
 </Callout>
 
 ### 4.3 Secure Unused Ports
@@ -246,7 +252,7 @@ interface GigabitEthernet0/2
 Unused ports are a common attack vector for physical access.
 
 ```text filename="Shutdown unused ports"
-interface range GigabitEthernet0/10-24
+interface range GigabitEthernet0/10 - 24
  switchport mode access
  switchport access vlan 999
  shutdown
@@ -359,8 +365,9 @@ interface GigabitEthernet0/1
  no shutdown
 ```
 
-<Callout type="warning">
-**SentriFlow rule:** [JSON-CISCO-003](/rules) — Ensures all interfaces have a description for documentation.
+<Callout type='warning'>
+  **SentriFlow rule:** [JSON-CISCO-003](/rules) — Ensures all interfaces have a
+  description for documentation.
 </Callout>
 
 ---
@@ -392,24 +399,24 @@ router bgp 65001
 
 Use this checklist during your next configuration review:
 
-| # | Item | Priority | SentriFlow Rule |
-|---|------|----------|----------------|
-| 1 | No plaintext or Type 7 passwords | Critical | NET-SEC-001 |
-| 2 | Strong enable secret (scrypt) | Critical | NET-AAA-003 |
-| 3 | SSH version 2 only | Critical | — |
-| 4 | VTY access-class configured | Critical | JSON-CISCO-005 |
-| 5 | Transport input SSH on VTY lines | Critical | — |
-| 6 | DTP disabled on trunk ports | High | JSON-CISCO-004 |
-| 7 | Explicit VLAN list on trunks | High | JSON-CISCO-001 |
-| 8 | Explicit access mode on ports | Medium | NET-ACCESS-001 |
-| 9 | Portfast on access ports | Medium | JSON-CISCO-002 |
-| 10 | SNMP v3 or complex community + ACL | High | — |
-| 11 | Adequate logging buffer | Medium | — |
-| 12 | Remote syslog configured | Medium | — |
-| 13 | Unnecessary services disabled | Medium | — |
-| 14 | Interface descriptions | Low | JSON-CISCO-003 |
-| 15 | Routing protocol authentication | High | — |
-| 16 | Unused ports shut down | Medium | — |
+| #   | Item                               | Priority | SentriFlow Rule |
+| --- | ---------------------------------- | -------- | --------------- |
+| 1   | No plaintext or Type 7 passwords   | Critical | NET-SEC-001     |
+| 2   | Strong enable secret (scrypt)      | Critical | NET-AAA-003     |
+| 3   | SSH version 2 only                 | Critical | —               |
+| 4   | VTY access-class configured        | Critical | JSON-CISCO-005  |
+| 5   | Transport input SSH on VTY lines   | Critical | —               |
+| 6   | DTP disabled on trunk ports        | High     | JSON-CISCO-004  |
+| 7   | Explicit VLAN list on trunks       | High     | JSON-CISCO-001  |
+| 8   | Explicit access mode on ports      | Medium   | NET-ACCESS-001  |
+| 9   | Portfast on access ports           | Medium   | JSON-CISCO-002  |
+| 10  | SNMP v3 or complex community + ACL | High     | —               |
+| 11  | Adequate logging buffer            | Medium   | —               |
+| 12  | Remote syslog configured           | Medium   | —               |
+| 13  | Unnecessary services disabled      | Medium   | —               |
+| 14  | Interface descriptions             | Low      | JSON-CISCO-003  |
+| 15  | Routing protocol authentication    | High     | —               |
+| 16  | Unused ports shut down             | Medium   | —               |
 
 ---
 

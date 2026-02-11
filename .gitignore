@@ -43,3 +43,4 @@ specs/
 **/out/**
 **/cache/webpack*
 **/static/chunks/**
+packages/docs/tsconfig.tsbuildinfo

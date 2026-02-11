@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-01-14T07:03:00.105Z",
+  "generatedAt": "2026-02-11T02:34:35.590Z",
   "totalRules": 59,
   "rules": [
     {
@@ -56,7 +56,10 @@
     {
       "id": "NET-SEC-001",
       "selector": "password",
-      "vendor": ["cisco-ios", "cisco-nxos"],
+      "vendor": [
+        "cisco-ios",
+        "cisco-nxos"
+      ],
       "category": "Authentication",
       "metadata": {
         "level": "error",
@@ -116,7 +119,11 @@
     {
       "id": "ARU-SEC-001",
       "selector": "ssh",
-      "vendor": ["aruba-aoscx", "aruba-aosswitch", "aruba-wlc"],
+      "vendor": [
+        "aruba-aoscx",
+        "aruba-aosswitch",
+        "aruba-wlc"
+      ],
       "category": "Session-Management",
       "metadata": {
         "level": "error",
@@ -128,7 +135,11 @@
     {
       "id": "ARU-NTP-001",
       "selector": "ntp",
-      "vendor": ["aruba-aoscx", "aruba-aosswitch", "aruba-wlc"],
+      "vendor": [
+        "aruba-aoscx",
+        "aruba-aosswitch",
+        "aruba-wlc"
+      ],
       "category": "Time-Synchronization",
       "metadata": {
         "level": "warning",
@@ -632,7 +643,9 @@
         "description": "Trunk ports should disable DTP (Dynamic Trunking Protocol)",
         "remediation": "Add 'switchport nonegotiate' to disable DTP on trunk ports",
         "security": {
-          "cwe": ["CWE-319"]
+          "cwe": [
+            "CWE-319"
+          ]
         },
         "tags": [
           {
@@ -658,7 +671,9 @@
         "description": "VTY lines should have access-class configured for SSH access control",
         "remediation": "Add 'access-class <acl> in' to restrict VTY access",
         "security": {
-          "cwe": ["CWE-284"]
+          "cwe": [
+            "CWE-284"
+          ]
         },
         "tags": [
           {
@@ -697,7 +712,9 @@
         "description": "SSH should be configured for version 2 only",
         "remediation": "Configure 'set system services ssh protocol-version v2'",
         "security": {
-          "cwe": ["CWE-327"]
+          "cwe": [
+            "CWE-327"
+          ]
         },
         "tags": [
           {
@@ -723,7 +740,9 @@
         "description": "Telnet service should be disabled",
         "remediation": "Remove 'set system services telnet' or add 'delete system services telnet'",
         "security": {
-          "cwe": ["CWE-319"]
+          "cwe": [
+            "CWE-319"
+          ]
         },
         "tags": [
           {
