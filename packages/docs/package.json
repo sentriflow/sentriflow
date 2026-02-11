@@ -8,7 +8,8 @@
     "start": "next start",
     "type-check": "tsc --noEmit",
     "extract-rules": "bun run scripts/extract-rules.ts",
-    "prebuild": "bun run extract-rules"
+    "generate-sitemap": "bun run scripts/generate-sitemap.ts",
+    "prebuild": "bun run extract-rules && bun run generate-sitemap"
   },
   "dependencies": {
     "@sentriflow/core": "workspace:*",

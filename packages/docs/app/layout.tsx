@@ -19,6 +19,20 @@ export const metadata: Metadata = {
     siteName: 'SentriFlow Docs',
     locale: 'en_US',
     type: 'website',
+    images: [
+      {
+        url: 'https://docs.sentriflow.com.au/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'SentriFlow - Network Configuration Compliance Validation',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SentriFlow Documentation',
+    description: 'Network configuration compliance validation framework',
+    images: ['https://docs.sentriflow.com.au/og-image.png'],
   },
 }
 
@@ -78,6 +92,20 @@ const footer = (
   </Footer>
 )
 
+// JSON-LD structured data for Organization schema
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'SentriFlow',
+  url: 'https://sentriflow.com.au',
+  logo: 'https://docs.sentriflow.com.au/og-image.png',
+  description: 'Open-source network configuration compliance validation framework.',
+  sameAs: [
+    'https://github.com/sentriflow/sentriflow',
+    'https://discord.gg/ZWsEfUW5',
+  ],
+}
+
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const pageMap = await getPageMap()
 
@@ -85,6 +113,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <Head faviconGlyph="⚡" />
       <body>
+        <script
+          type="application/ld+json"
+          // Safe: static object from source code, not user input
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <Layout
           navbar={navbar}
           pageMap={pageMap}
